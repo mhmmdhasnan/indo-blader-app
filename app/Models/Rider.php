@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Rider extends Model
 {
     protected $fillable = [
-        'slug', 'name', 'nick', 'city', 'age', 'category', 'stance',
+        'user_id', 'slug', 'name', 'nick', 'city', 'age', 'category', 'stance',
         'points', 'sponsor', 'wins', 'podiums', 'comps', 'best_score',
         'bio', 'achievements', 'ig', 'yt', 'tt',
     ];
@@ -18,6 +19,11 @@ class Rider extends Model
         'best_score' => 'float',
     ];
 
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function judgeScores(): HasMany
     {
         return $this->hasMany(JudgeScore::class);
@@ -26,6 +32,16 @@ class Rider extends Model
     public function registrations(): HasMany
     {
         return $this->hasMany(Registration::class, 'name', 'name');
+    }
+
+    public function ranking(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Ranking::class);
+    }
+
+    public function rankingHistories(): HasMany
+    {
+        return $this->hasMany(RankingHistory::class);
     }
 
     public function getRankAttribute(): int

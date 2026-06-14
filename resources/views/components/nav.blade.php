@@ -2,9 +2,9 @@
 $navLinks = [
     ['label' => 'Home',     'route' => 'home'],
     ['label' => 'Events',   'route' => 'events'],
-    ['label' => 'Rankings', 'route' => 'rankings'],
-    ['label' => 'Riders',   'route' => 'riders'],
-    ['label' => 'Gallery',  'route' => 'gallery'],
+//    ['label' => 'Rankings', 'route' => 'rankings'],
+//    ['label' => 'Riders',   'route' => 'riders'],
+//    ['label' => 'Gallery',  'route' => 'gallery'],
     ['label' => 'Results',  'route' => 'bracket'],
     ['label' => 'About',    'route' => 'about'],
 ];
@@ -38,9 +38,9 @@ $current = Route::currentRouteName();
 
         <div class="flex" style="gap:10px;align-items:center;">
             {{-- Live button --}}
-            <a href="{{ route('live') }}" class="flex label" style="align-items:center;gap:7px;font-size:12px;color:var(--red);padding:8px 12px;border:2px solid var(--red);border-radius:3px;">
+            <!-- <a href="{{ route('live') }}" class="flex label" style="align-items:center;gap:7px;font-size:12px;color:var(--red);padding:8px 12px;border:2px solid var(--red);border-radius:3px;">
                 <span class="live-dot"></span>LIVE
-            </a>
+            </a> -->
 
             {{-- Theme toggle --}}
             <button @click="dark = !dark" class="center" style="width:40px;height:40px;border:2px solid var(--ink);border-radius:3px;" aria-label="Toggle theme">
@@ -52,7 +52,23 @@ $current = Route::currentRouteName();
                 </span>
             </button>
 
-            <a href="{{ route('register') }}" class="btn btn-lime btn-sm nav-reg">REGISTER</a>
+            @auth
+                {{-- Dashboard link sesuai role --}}
+                @if(auth()->user()->isRider())
+                    <a href="{{ route('rider.dashboard') }}" class="btn btn-lime btn-sm nav-reg">DASHBOARD</a>
+                @elseif(auth()->user()->isAdmin())
+                    <a href="{{ route('admin') }}" class="btn btn-lime btn-sm nav-reg">ADMIN</a>
+                @elseif(auth()->user()->isJudge())
+                    <a href="{{ route('judge') }}" class="btn btn-lime btn-sm nav-reg">JUDGE</a>
+                @endif
+                <form method="POST" action="{{ route('logout') }}" style="display:inline;">
+                    @csrf
+                    <button type="submit" class="btn btn-ghost btn-sm" style="font-size:11px;">LOGOUT</button>
+                </form>
+            @else
+                <a href="{{ route('register') }}" class="btn btn-lime btn-sm nav-reg">REGISTER</a>
+                <a href="{{ route('login') }}" class="btn btn-ghost btn-sm" style="font-size:11px;">LOGIN</a>
+            @endauth
 
             {{-- Mobile burger --}}
             <button class="burger center" @click="$dispatch('toggle-menu')" style="width:40px;height:40px;border:2px solid var(--ink);border-radius:3px;" aria-label="Menu">
@@ -68,10 +84,26 @@ $current = Route::currentRouteName();
     {{-- Mobile menu --}}
     <div x-data="{ open: false }" @toggle-menu.window="open = !open" x-show="open" x-transition
         style="background:var(--bg);border-bottom:2px solid var(--ink);padding:10px 20px 20px;">
-        @foreach(array_merge($navLinks, [['label' => 'Live Scoring', 'route' => 'live'], ['label' => 'Register', 'route' => 'register'], ['label' => 'Admin', 'route' => 'admin']]) as $link)
+        @foreach($navLinks as $link)
             <a href="{{ route($link['route']) }}" class="display" style="display:block;font-size:28px;padding:10px 0;border-bottom:1px solid var(--line);">
                 {{ $link['label'] }}
             </a>
         @endforeach
+        @auth
+            @if(auth()->user()->isRider())
+                <a href="{{ route('rider.dashboard') }}" class="display" style="display:block;font-size:28px;padding:10px 0;border-bottom:1px solid var(--line);">Dashboard</a>
+            @elseif(auth()->user()->isAdmin())
+                <a href="{{ route('admin') }}" class="display" style="display:block;font-size:28px;padding:10px 0;border-bottom:1px solid var(--line);">Admin</a>
+            @elseif(auth()->user()->isJudge())
+                <a href="{{ route('judge') }}" class="display" style="display:block;font-size:28px;padding:10px 0;border-bottom:1px solid var(--line);">Judge Panel</a>
+            @endif
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button type="submit" class="display" style="display:block;font-size:28px;padding:10px 0;border-bottom:1px solid var(--line);text-align:left;width:100%;">Logout</button>
+            </form>
+        @else
+            <a href="{{ route('login') }}" class="display" style="display:block;font-size:28px;padding:10px 0;border-bottom:1px solid var(--line);">Login</a>
+            <a href="{{ route('register') }}" class="display" style="display:block;font-size:28px;padding:10px 0;border-bottom:1px solid var(--line);">Register</a>
+        @endauth
     </div>
 </header>

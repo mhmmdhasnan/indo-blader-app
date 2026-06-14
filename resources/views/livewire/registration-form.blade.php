@@ -38,6 +38,7 @@
             </div>
             <div class="flex gap-m" style="margin-top:24px;flex-wrap:wrap;">
                 <a href="{{ route('events.show', $eventSlug) }}" class="btn btn-lime">View Event →</a>
+                <a href="{{ route('notifications', $entryCode) }}" class="btn btn-ghost">View Notifications</a>
                 <a href="{{ route('home') }}" class="btn btn-ghost">Back Home</a>
             </div>
         </div>
@@ -146,7 +147,26 @@
                             @endforeach
                         </div>
                     @endif
-                    <div>
+                    <div style="margin-top:22px;">
+                        <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['competitionCategory']) ? 'var(--red)' : 'var(--ink-dim)' }};display:block;margin-bottom:10px;">
+                            COMPETITION LEVEL *{{ isset($errors['competitionCategory']) ? ' — '.$errors['competitionCategory'] : '' }}
+                        </span>
+                        <div class="flex gap-s" style="flex-wrap:wrap;">
+                            @foreach(['Beginner','Open','Pro'] as $opt)
+                                <button wire:click="$set('competitionCategory','{{ $opt }}')" class="panel col" style="
+                                    flex:1;min-width:110px;padding:14px 16px;gap:6px;align-items:flex-start;cursor:pointer;
+                                    border-color:{{ $competitionCategory === $opt ? 'var(--lime)' : 'var(--ink)' }};
+                                    box-shadow:{{ $competitionCategory === $opt ? '4px 4px 0 var(--lime)' : 'var(--paper-shadow)' }};
+                                ">
+                                    <span class="display" style="font-size:18px;">{{ $opt }}</span>
+                                    <span class="mono dim" style="font-size:9px;">
+                                        {{ $opt === 'Beginner' ? 'Entry level' : ($opt === 'Open' ? 'All skills welcome' : 'Elite & competitive') }}
+                                    </span>
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+                    <div style="margin-top:22px;">
                         <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:var(--ink-dim);display:block;margin-bottom:7px;">EXPERIENCE LEVEL</span>
                         <div class="flex gap-s" style="flex-wrap:wrap;">
                             @foreach(['Amateur','Semi-Pro','Pro'] as $opt)

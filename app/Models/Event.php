@@ -28,6 +28,21 @@ class Event extends Model
         return $this->hasMany(JudgeScore::class);
     }
 
+    public function qualificationRounds(): HasMany
+    {
+        return $this->hasMany(QualificationRound::class);
+    }
+
+    public function bracket(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Bracket::class);
+    }
+
+    public function rankingHistories(): HasMany
+    {
+        return $this->hasMany(RankingHistory::class);
+    }
+
     public function getFillPctAttribute(): int
     {
         return $this->slots > 0 ? (int) round($this->filled / $this->slots * 100) : 0;

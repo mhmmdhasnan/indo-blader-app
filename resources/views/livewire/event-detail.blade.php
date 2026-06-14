@@ -33,7 +33,13 @@
                 <span class="mono tnum" style="font-size:13px;font-weight:700;">{{ $event->filled }}/{{ $event->slots }} spots filled</span>
             </div>
             <div class="flex gap-s">
-                <a href="{{ route('register') }}" class="btn btn-lime">Register Now →</a>
+                @auth
+                    @if(auth()->user()->isRider())
+                        <a href="{{ route('register') }}" class="btn btn-lime">Register Now →</a>
+                    @endif
+                @else
+                    <a href="{{ route('login') }}" class="btn btn-lime">Login untuk Daftar →</a>
+                @endauth
                 <a href="{{ route('live') }}" class="btn btn-ghost btn-sm"><span class="live-dot" style="margin-right:6px;"></span>Watch Live</a>
             </div>
         </div>
@@ -70,7 +76,13 @@
                     <div class="panel halftone center col" style="padding:30px;gap:10px;text-align:center;">
                         <span class="kicker">PRIZE POOL</span>
                         <span class="display tnum text-glow-lime" style="font-size:clamp(44px,8vw,80px);color:var(--lime);">{{ $event->prize_formatted }}</span>
-                        <a href="{{ route('register') }}" class="btn btn-lime btn-sm" style="margin-top:10px;">Register →</a>
+                        @auth
+                            @if(auth()->user()->isRider())
+                                <a href="{{ route('register') }}" class="btn btn-lime btn-sm" style="margin-top:10px;">Register →</a>
+                            @endif
+                        @else
+                            <a href="{{ route('login') }}" class="btn btn-ghost btn-sm" style="margin-top:10px;">Login untuk Daftar</a>
+                        @endauth
                     </div>
                     @foreach($event->categories as $cat)
                         @php

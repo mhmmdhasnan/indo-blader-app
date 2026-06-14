@@ -2,7 +2,9 @@
 
 namespace App\Livewire;
 
-use App\Models\Rider;
+use App\Models\Bracket;
+use App\Models\BracketMatch;
+use App\Models\Event;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -11,24 +13,37 @@ use Livewire\Component;
 #[Title('Bracket — Indo Blader')]
 class BracketPage extends Component
 {
+    public ?Event $event   = null;
+    public ?Bracket $bracket = null;
+
+    public function mount(string $slug = null): void
+    {
+        if ($slug) {
+            $this->event = Event::where('slug', $slug)->firstOrFail();
+        } else {
+            $this->event = Event::has('bracket')->orderByDesc('date')->first()
+                ?? Event::orderByDesc('date')->first();
+        }
+
+        if ($this->event) {
+            $this->bracket = Bracket::where('event_id', $this->event->id)->first();
+        }
+    }
+
     public function render()
     {
-        $riders = Rider::pluck('name', 'slug')->all();
+        $matchesByRound = collect();
 
-        $qf = [
-            ['a' => 'rama',  'b' => 'bayu',  'sa' => 94.2, 'sb' => 86.2, 'w' => 'a'],
-            ['a' => 'dimas', 'b' => 'fajar', 'sa' => 91.0, 'sb' => 88.4, 'w' => 'a'],
-            ['a' => 'bagus', 'b' => 'arif',  'sa' => 93.2, 'sb' => 89.0, 'w' => 'a'],
-            ['a' => 'reza',  'b' => 'galih', 'sa' => 90.1, 'sb' => 92.1, 'w' => 'b'],
-        ];
-        $sf = [
-            ['a' => 'rama',  'b' => 'dimas', 'sa' => 96.4, 'sb' => 90.5, 'w' => 'a'],
-            ['a' => 'bagus', 'b' => 'galih', 'sa' => 92.8, 'sb' => 91.0, 'w' => 'a'],
-        ];
-        $f = [
-            ['a' => 'rama', 'b' => 'bagus', 'sa' => null, 'sb' => null, 'w' => null],
-        ];
+        if ($this->bracket) {
+            $matchesByRound = BracketMatch::with(['riderA', 'riderB', 'winner', 'trick'])
+                ->where('bracket_id', $this->bracket->id)
+                ->orderBy('match_number')
+                ->get()
+                ->groupBy('round');
+        }
 
-        return view('livewire.bracket-page', compact('qf', 'sf', 'f', 'riders'));
+        $roundOrder = ['QF', 'SF', 'F', 'UB_R1', 'UB_R2', 'UB_SF', 'UB_F', 'LB_R1', 'LB_R2', 'LB_SF', 'LB_F', 'GF'];
+
+        return view('livewire.bracket-page', compact('matchesByRound', 'roundOrder'));
     }
 }

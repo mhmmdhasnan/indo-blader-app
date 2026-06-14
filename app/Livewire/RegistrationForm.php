@@ -2,8 +2,11 @@
 
 namespace App\Livewire;
 
+use App\Models\Category;
 use App\Models\Event;
 use App\Models\Registration;
+use App\Models\RiderCategory;
+use App\Services\NotificationService;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -30,9 +33,10 @@ class RegistrationForm extends Component
     public string $stance   = 'Regular';
 
     // Step 1 — Category
-    public string $eventSlug = 'nationals';
-    public string $category   = '';
-    public string $experience = 'Amateur';
+    public string $eventSlug            = 'nationals';
+    public string $category              = '';
+    public string $competitionCategory   = '';
+    public string $experience            = 'Amateur';
 
     // Step 2 — Emergency
     public string $ecName     = '';
@@ -64,7 +68,8 @@ class RegistrationForm extends Component
         }
 
         if ($this->step === 1) {
-            if (!$this->category) $this->errors['category'] = 'pick one';
+            if (!$this->category)             $this->errors['category']            = 'pick one';
+            if (!$this->competitionCategory)  $this->errors['competitionCategory'] = 'pick one';
         }
 
         if ($this->step === 2) {
@@ -104,25 +109,46 @@ class RegistrationForm extends Component
 
         $this->entryCode = 'IB26-' . strtoupper(Str::random(5));
 
-        Registration::create([
-            'entry_code'     => $this->entryCode,
-            'name'           => $this->name,
-            'email'          => $this->email,
-            'phone'          => $this->phone,
-            'dob'            => $this->dob,
-            'city'           => $this->city,
-            'stance'         => $this->stance,
-            'event_id'       => $event->id,
-            'category'       => $this->category,
-            'experience'     => $this->experience,
-            'ec_name'        => $this->ecName,
-            'ec_phone'       => $this->ecPhone,
-            'ec_relation'    => $this->ecRelation,
-            'payment_method' => $this->payMethod,
-            'payment_proof'  => $proofPath,
-            'payment_status' => 'PENDING',
-            'status'         => 'PENDING',
+        $reg = Registration::create([
+            'entry_code'           => $this->entryCode,
+            'name'                 => $this->name,
+            'email'                => $this->email,
+            'phone'                => $this->phone,
+            'dob'                  => $this->dob,
+            'city'                 => $this->city,
+            'stance'               => $this->stance,
+            'event_id'             => $event->id,
+            'category'             => $this->category,
+            'competition_category' => $this->competitionCategory,
+            'experience'           => $this->experience,
+            'ec_name'              => $this->ecName,
+            'ec_phone'             => $this->ecPhone,
+            'ec_relation'          => $this->ecRelation,
+            'payment_method'       => $this->payMethod,
+            'payment_proof'        => $proofPath,
+            'payment_status'       => 'PENDING',
+            'status'               => 'PENDING',
         ]);
+
+        $cat = Category::where('name', $this->competitionCategory)->first();
+        if ($cat) {
+            RiderCategory::create([
+                'registration_id' => $reg->id,
+                'category_id'     => $cat->id,
+                'status'          => 'PENDING',
+            ]);
+        }
+
+        if (auth()->check() && auth()->user()->isRider()) {
+            $reg->update(['user_id' => auth()->user()->id]);
+        }
+
+        NotificationService::send(
+            $reg,
+            'registration_received',
+            'Registration Received',
+            "Your entry for {$event->title} has been received. Entry code: {$this->entryCode}. We'll notify you once your registration is reviewed."
+        );
 
         $event->increment('filled');
 

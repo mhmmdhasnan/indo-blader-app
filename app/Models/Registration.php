@@ -4,12 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Registration extends Model
 {
     protected $fillable = [
-        'entry_code', 'name', 'email', 'phone', 'dob', 'city', 'stance',
-        'event_id', 'category', 'experience', 'ec_name', 'ec_phone', 'ec_relation',
+        'user_id', 'entry_code', 'name', 'email', 'phone', 'dob', 'city', 'stance',
+        'event_id', 'category', 'competition_category', 'experience',
+        'ec_name', 'ec_phone', 'ec_relation',
         'payment_method', 'payment_proof', 'payment_status', 'status',
     ];
 
@@ -17,9 +20,29 @@ class Registration extends Model
         'dob' => 'date',
     ];
 
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    public function riderCategory(): HasOne
+    {
+        return $this->hasOne(RiderCategory::class);
+    }
+
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(Notification::class, 'notifiable_id');
+    }
+
+    public function battleSubmissions(): HasMany
+    {
+        return $this->hasMany(BattleSubmission::class);
     }
 
     public function getStatusVariantAttribute(): string
