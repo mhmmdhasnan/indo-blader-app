@@ -140,24 +140,24 @@
 
                                 {{-- Manual pairing form --}}
                                 @if(isset($approvedRegistrations) && $approvedRegistrations->count())
-                                    <div style="padding:12px 18px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--bg-2) 50%,transparent);">
+                                    <div x-data="{ riderA: 0, riderB: 0 }" style="padding:12px 18px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--bg-2) 50%,transparent);">
                                         <span class="mono dim" style="font-size:10px;display:block;margin-bottom:8px;">+ MANUAL PAIRING</span>
                                         <div class="flex gap-s" style="flex-wrap:wrap;align-items:center;">
-                                            <select wire:model.live="manualRiderAId" class="input-field" style="font-size:12px;min-width:160px;">
+                                            <select x-model="riderA" class="input-field" style="font-size:12px;min-width:160px;">
                                                 <option value="0">Rider A…</option>
                                                 @foreach($approvedRegistrations as $reg)
                                                     <option value="{{ $reg->id }}">{{ $reg->name }}</option>
                                                 @endforeach
                                             </select>
                                             <span class="mono dim" style="font-size:11px;">vs</span>
-                                            <select wire:model.live="manualRiderBId" class="input-field" style="font-size:12px;min-width:160px;">
+                                            <select x-model="riderB" class="input-field" style="font-size:12px;min-width:160px;">
                                                 <option value="0">Rider B…</option>
                                                 @foreach($approvedRegistrations as $reg)
                                                     <option value="{{ $reg->id }}">{{ $reg->name }}</option>
                                                 @endforeach
                                             </select>
-                                            <button wire:click="addManualPairing({{ $round->id }})" class="btn btn-sm btn-lime"
-                                                @if(!$manualRiderAId || !$manualRiderBId) disabled @endif>Add Pair</button>
+                                            <button @click="$wire.addManualPairing({{ $round->id }}, riderA, riderB); riderA = 0; riderB = 0;"
+                                                :disabled="!riderA || !riderB" class="btn btn-sm btn-lime">Add Pair</button>
                                         </div>
                                         @error('manualRiderAId') <p style="color:var(--red);font-size:11px;margin-top:4px;">{{ $message }}</p> @enderror
                                     </div>
@@ -286,11 +286,11 @@
                                         <a href="{{ $igUrl }}" target="_blank" class="btn btn-sm btn-ghost">▶ View Video</a>
                                     </div>
                                 @endif
-                                <div class="flex gap-s" style="flex-wrap:wrap;align-items:flex-end;">
-                                    <input type="text" wire:model="submissionFeedback" placeholder="Feedback (optional)" class="input-field" style="flex:1;min-width:200px;font-size:12px;" />
+                                <div class="flex gap-s" x-data="{ feedback: '' }" style="flex-wrap:wrap;align-items:flex-end;">
+                                    <input type="text" x-model="feedback" placeholder="Feedback (optional)" class="input-field" style="flex:1;min-width:200px;font-size:12px;" />
                                     <button wire:click="approveSubmission({{ $sub->id }})" class="btn btn-sm btn-lime">Approve</button>
-                                    <button wire:click="rejectSubmission({{ $sub->id }})" class="btn btn-sm btn-ghost">Reject</button>
-                                    <button wire:click="requestReupload({{ $sub->id }})" class="btn btn-sm btn-ghost">Need Re-upload</button>
+                                    <button @click="$wire.rejectSubmission({{ $sub->id }}, feedback)" class="btn btn-sm btn-ghost">Reject</button>
+                                    <button @click="$wire.requestReupload({{ $sub->id }}, feedback)" class="btn btn-sm btn-ghost">Need Re-upload</button>
                                 </div>
                             </div>
                         @endforeach
@@ -318,10 +318,10 @@
                                         {{ $rc->category->name }}
                                     </span>
                                 </div>
-                                <div class="flex gap-s" style="flex-wrap:wrap;align-items:center;">
-                                    <button wire:click="approveCategoryAssignment({{ $rc->id }})" class="btn btn-sm btn-lime">Approve</button>
-                                    <button wire:click="rejectCategoryAssignment({{ $rc->id }})" class="btn btn-sm btn-ghost">Reject</button>
-                                    <select wire:model="moveToCategoryId" class="input-field" style="font-size:12px;">
+                                <div class="flex gap-s" x-data="{ notes: '', moveTo: 0 }" style="flex-wrap:wrap;align-items:center;">
+                                    <button @click="$wire.approveCategoryAssignment({{ $rc->id }}, notes)" class="btn btn-sm btn-lime">Approve</button>
+                                    <button @click="$wire.rejectCategoryAssignment({{ $rc->id }}, notes)" class="btn btn-sm btn-ghost">Reject</button>
+                                    <select x-model="moveTo" class="input-field" style="font-size:12px;">
                                         <option value="0">Move to…</option>
                                         @foreach($allCategories as $cat)
                                             @if($cat->id !== $rc->category_id)
@@ -329,10 +329,8 @@
                                             @endif
                                         @endforeach
                                     </select>
-                                    @if($moveToCategoryId)
-                                        <button wire:click="moveCategoryAssignment({{ $rc->id }})" class="btn btn-sm btn-ghost">Confirm Move</button>
-                                    @endif
-                                    <input type="text" wire:model="categoryNotes" placeholder="Notes (optional)" class="input-field" style="font-size:12px;flex:1;min-width:180px;" />
+                                    <button x-show="moveTo > 0" @click="$wire.moveCategoryAssignment({{ $rc->id }}, moveTo, notes)" class="btn btn-sm btn-ghost">Confirm Move</button>
+                                    <input type="text" x-model="notes" placeholder="Notes (optional)" class="input-field" style="font-size:12px;flex:1;min-width:180px;" />
                                 </div>
                             </div>
                         @endforeach

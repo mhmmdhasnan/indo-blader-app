@@ -28,12 +28,17 @@ class Dashboard extends Component
     public string $view = 'judging';
 
     // Judging
-    public float  $judgeExec        = 9.2;
-    public float  $judgeStyle       = 8.9;
-    public float  $judgeCreativity  = 9.4;
-    public float  $judgeDiff        = 9.5;
-    public float  $judgeConsistency = 9.0;
-    public bool   $scoreSubmitted   = false;
+    public float  $judgeExec         = 9.2;
+    public float  $judgeStyle        = 8.9;
+    public float  $judgeCreativity   = 9.4;
+    public float  $judgeDiff         = 9.5;
+    public float  $judgeConsistency  = 9.0;
+    public float  $judgeExecB        = 9.2;
+    public float  $judgeStyleB       = 8.9;
+    public float  $judgeCreativityB  = 9.4;
+    public float  $judgeDiffB        = 9.5;
+    public float  $judgeConsistencyB = 9.0;
+    public bool   $scoreSubmitted    = false;
     public int    $judgeEventId     = 0;
     public string $scoringMode      = 'live';   // live | knockout
     public string $koMatchType      = 'QUALIFICATION';
@@ -96,9 +101,10 @@ class Dashboard extends Component
         if (!$this->koMatchId) return;
 
         if ($this->koMatchType === 'BRACKET') {
-            $match = BracketMatch::findOrFail($this->koMatchId);
-            $total = round(($this->judgeExec + $this->judgeStyle + $this->judgeCreativity + $this->judgeDiff + $this->judgeConsistency) / 5 * 10, 1);
-            $match->update(['score_a' => $total]);
+            $match  = BracketMatch::findOrFail($this->koMatchId);
+            $totalA = round(($this->judgeExec + $this->judgeStyle + $this->judgeCreativity + $this->judgeDiff + $this->judgeConsistency) / 5 * 10, 1);
+            $totalB = round(($this->judgeExecB + $this->judgeStyleB + $this->judgeCreativityB + $this->judgeDiffB + $this->judgeConsistencyB) / 5 * 10, 1);
+            $match->update(['score_a' => $totalA, 'score_b' => $totalB]);
         }
 
         $this->scoreSubmitted = true;
@@ -106,59 +112,58 @@ class Dashboard extends Component
 
     public function resetScore(): void
     {
-        $this->scoreSubmitted  = false;
-        $this->judgeExec       = 9.2;
-        $this->judgeStyle      = 8.9;
-        $this->judgeCreativity = 9.4;
-        $this->judgeDiff       = 9.5;
-        $this->judgeConsistency = 9.0;
+        $this->scoreSubmitted    = false;
+        $this->judgeExec         = 9.2;
+        $this->judgeStyle        = 8.9;
+        $this->judgeCreativity   = 9.4;
+        $this->judgeDiff         = 9.5;
+        $this->judgeConsistency  = 9.0;
+        $this->judgeExecB        = 9.2;
+        $this->judgeStyleB       = 8.9;
+        $this->judgeCreativityB  = 9.4;
+        $this->judgeDiffB        = 9.5;
+        $this->judgeConsistencyB = 9.0;
     }
 
     // ─── Category Management ──────────────────────────────────────────────────
 
-    public function approveCategoryAssignment(int $ridCatId): void
+    public function approveCategoryAssignment(int $ridCatId, string $notes = ''): void
     {
         $ridCat = RiderCategory::with(['registration', 'category'])->findOrFail($ridCatId);
-        $ridCat->update([
-            'status'      => 'APPROVED',
-            'reviewed_by' => auth()->id(),
-            'reviewed_at' => now(),
-        ]);
+        $ridCat->update(['status' => 'APPROVED', 'reviewed_by' => auth()->id(), 'reviewed_at' => now()]);
         $ridCat->reviewLogs()->create([
             'action'         => 'APPROVED',
             'to_category_id' => $ridCat->category_id,
             'performed_by'   => auth()->id(),
-            'notes'          => $this->categoryNotes ?: null,
+            'notes'          => $notes ?: null,
         ]);
         NotificationService::send($ridCat->registration, 'registration_approved',
             'Category Approved',
             "Your category assignment ({$ridCat->category->name}) has been approved.");
-        $this->categoryNotes = '';
     }
 
-    public function rejectCategoryAssignment(int $ridCatId): void
+    public function rejectCategoryAssignment(int $ridCatId, string $notes = ''): void
     {
         $ridCat = RiderCategory::with(['registration', 'category'])->findOrFail($ridCatId);
         $ridCat->update([
             'status'      => 'REJECTED',
             'reviewed_by' => auth()->id(),
             'reviewed_at' => now(),
-            'notes'       => $this->categoryNotes ?: null,
+            'notes'       => $notes ?: null,
         ]);
         $ridCat->reviewLogs()->create([
             'action'           => 'REJECTED',
             'from_category_id' => $ridCat->category_id,
             'performed_by'     => auth()->id(),
-            'notes'            => $this->categoryNotes ?: null,
+            'notes'            => $notes ?: null,
         ]);
-        $this->categoryNotes = '';
     }
 
-    public function moveCategoryAssignment(int $ridCatId): void
+    public function moveCategoryAssignment(int $ridCatId, int $catId, string $notes = ''): void
     {
-        if (!$this->moveToCategoryId) return;
+        if (!$catId) return;
         $ridCat   = RiderCategory::with(['registration', 'category'])->findOrFail($ridCatId);
-        $newCat   = Category::findOrFail($this->moveToCategoryId);
+        $newCat   = Category::findOrFail($catId);
         $oldCatId = $ridCat->category_id;
 
         $ridCat->update([
@@ -166,40 +171,35 @@ class Dashboard extends Component
             'status'      => 'MOVED',
             'reviewed_by' => auth()->id(),
             'reviewed_at' => now(),
-            'notes'       => $this->categoryNotes ?: null,
+            'notes'       => $notes ?: null,
         ]);
         $ridCat->reviewLogs()->create([
             'action'           => 'MOVED',
             'from_category_id' => $oldCatId,
             'to_category_id'   => $newCat->id,
             'performed_by'     => auth()->id(),
-            'notes'            => $this->categoryNotes ?: null,
+            'notes'            => $notes ?: null,
         ]);
         NotificationService::send($ridCat->registration, 'category_changed',
             'Category Updated',
             "Your competition category has been changed to {$newCat->name}.");
-        $this->categoryNotes    = '';
-        $this->moveToCategoryId = 0;
     }
 
     // ─── Qualification ────────────────────────────────────────────────────────
 
-    public function addManualPairing(int $roundId): void
+    public function addManualPairing(int $roundId, int $riderA, int $riderB): void
     {
-        if (!$this->manualRiderAId || !$this->manualRiderBId) return;
-        if ($this->manualRiderAId === $this->manualRiderBId) {
+        if (!$riderA || !$riderB) return;
+        if ($riderA === $riderB) {
             $this->addError('manualRiderAId', 'Rider A dan B tidak boleh sama.');
             return;
         }
 
         QualificationMatch::create([
-            'qualification_round_id'    => $roundId,
-            'rider_a_registration_id'   => $this->manualRiderAId,
-            'rider_b_registration_id'   => $this->manualRiderBId,
+            'qualification_round_id'  => $roundId,
+            'rider_a_registration_id' => $riderA,
+            'rider_b_registration_id' => $riderB,
         ]);
-
-        $this->manualRiderAId = 0;
-        $this->manualRiderBId = 0;
     }
 
     public function editQualRound(int $id): void
@@ -314,26 +314,24 @@ class Dashboard extends Component
         ]);
     }
 
-    public function rejectSubmission(int $id): void
+    public function rejectSubmission(int $id, string $feedback = ''): void
     {
         BattleSubmission::findOrFail($id)->update([
             'status'         => 'REJECTED',
-            'judge_feedback' => $this->submissionFeedback ?: null,
+            'judge_feedback' => $feedback ?: null,
             'reviewed_by'    => auth()->id(),
             'reviewed_at'    => now(),
         ]);
-        $this->submissionFeedback = '';
     }
 
-    public function requestReupload(int $id): void
+    public function requestReupload(int $id, string $feedback = ''): void
     {
         BattleSubmission::findOrFail($id)->update([
             'status'         => 'NEED_REUPLOAD',
-            'judge_feedback' => $this->submissionFeedback ?: null,
+            'judge_feedback' => $feedback ?: null,
             'reviewed_by'    => auth()->id(),
             'reviewed_at'    => now(),
         ]);
-        $this->submissionFeedback = '';
     }
 
     // ─── Render ───────────────────────────────────────────────────────────────

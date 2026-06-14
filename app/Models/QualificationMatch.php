@@ -24,6 +24,11 @@ class QualificationMatch extends Model
         return $this->belongsTo(QualificationRound::class, 'qualification_round_id');
     }
 
+    public function qualificationRound(): BelongsTo
+    {
+        return $this->belongsTo(QualificationRound::class, 'qualification_round_id');
+    }
+
     public function riderA(): BelongsTo
     {
         return $this->belongsTo(Registration::class, 'rider_a_registration_id');
