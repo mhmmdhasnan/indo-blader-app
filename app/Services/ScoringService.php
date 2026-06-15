@@ -7,42 +7,25 @@ use App\Models\ScoreDetail;
 
 class ScoringService
 {
-    public function calculateTotal(
-        float $execution,
-        float $style,
-        float $creativity,
-        float $difficulty,
-        float $consistency
-    ): float {
-        return round((($execution + $style + $creativity + $difficulty + $consistency) / 5) * 10, 1);
+    public function calculateTotal(array $scores): float
+    {
+        $values = array_values(array_filter($scores, 'is_numeric'));
+        if (empty($values)) return 0;
+        return round((array_sum($values) / count($values)) * 10, 1);
     }
 
     public function submitScore(JudgeScore $score, array $criteria): void
     {
-        $total = $this->calculateTotal(
-            $criteria['execution'],
-            $criteria['style'],
-            $criteria['creativity'],
-            $criteria['difficulty'],
-            $criteria['consistency'],
-        );
+        $total = $this->calculateTotal($criteria);
 
         $score->update([
-            'execution'   => $criteria['execution'],
-            'style'       => $criteria['style'],
-            'creativity'  => $criteria['creativity'],
-            'difficulty'  => $criteria['difficulty'],
-            'consistency' => $criteria['consistency'],
-            'total'       => $total,
-            'status'      => 'DONE',
+            'total'  => $total,
+            'status' => 'DONE',
         ]);
 
-        foreach ($criteria as $criteriaName => $value) {
+        foreach ($criteria as $key => $value) {
             ScoreDetail::updateOrCreate(
-                [
-                    'judge_score_id' => $score->id,
-                    'criteria'       => strtoupper($criteriaName),
-                ],
+                ['judge_score_id' => $score->id, 'criteria' => $key],
                 ['score' => $value]
             );
         }

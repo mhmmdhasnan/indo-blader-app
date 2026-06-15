@@ -12,6 +12,11 @@ class ScoreDetail extends Model
 
     protected $fillable = ['judge_score_id', 'criteria', 'score'];
 
+    public function criterion(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(ScoringCriterion::class, 'criteria', 'key');
+    }
+
     protected $casts = [
         'score' => 'float',
     ];

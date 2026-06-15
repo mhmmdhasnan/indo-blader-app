@@ -7,13 +7,16 @@ use App\Models\BracketMatch;
 use App\Models\BattleSubmission;
 use App\Models\Category;
 use App\Models\Event;
+use App\Models\EventJudgeAssignment;
 use App\Models\JudgeScore;
 use App\Models\QualificationMatch;
 use App\Models\QualificationRound;
 use App\Models\Registration;
 use App\Models\Rider;
 use App\Models\RiderCategory;
+use App\Models\ScoringCriterion;
 use App\Models\Trick;
+use App\Services\BracketService;
 use App\Services\NotificationService;
 use App\Services\QualificationService;
 use App\Services\ScoringService;
@@ -27,24 +30,16 @@ class Dashboard extends Component
 {
     public string $view = 'judging';
 
-    // Judging
-    public float  $judgeExec         = 9.2;
-    public float  $judgeStyle        = 8.9;
-    public float  $judgeCreativity   = 9.4;
-    public float  $judgeDiff         = 9.5;
-    public float  $judgeConsistency  = 9.0;
-    public float  $judgeExecB        = 9.2;
-    public float  $judgeStyleB       = 8.9;
-    public float  $judgeCreativityB  = 9.4;
-    public float  $judgeDiffB        = 9.5;
-    public float  $judgeConsistencyB = 9.0;
-    public bool   $scoreSubmitted    = false;
-    public int    $judgeEventId     = 0;
-    public string $scoringMode      = 'live';   // live | knockout
-    public string $koMatchType      = 'QUALIFICATION';
-    public int    $koMatchId        = 0;
-    public int    $liveRiderId      = 0;
-    public int    $liveRunNumber    = 1;
+    // Scoring — dynamic criteria arrays
+    public array  $criteriaScores  = [];   // rider A (live + knockout)
+    public array  $criteriaScoresB = [];   // rider B (knockout only)
+    public bool   $scoreSubmitted  = false;
+    public int    $judgeEventId    = 0;
+    public string $scoringMode     = 'live';   // live | knockout
+    public string $koMatchType     = 'QUALIFICATION';
+    public int    $koMatchId       = 0;
+    public int    $liveRiderId     = 0;
+    public int    $liveRunNumber   = 1;
 
     // Category review
     public int    $moveToCategoryId = 0;
@@ -57,8 +52,6 @@ class Dashboard extends Component
     public int $manualRiderAId      = 0;
     public int $manualRiderBId      = 0;
 
-    // Bracket — trick selected per match via Alpine, not a shared Livewire property
-
     // Qualification editing
     public int    $editQualRoundId   = 0;
     public string $editQualRoundName = '';
@@ -66,6 +59,46 @@ class Dashboard extends Component
 
     // Submission review
     public string $submissionFeedback = '';
+
+    // ─── Criteria init ────────────────────────────────────────────────────────
+
+    public function updatedJudgeEventId(): void
+    {
+        $this->initCriteria();
+        $this->scoreSubmitted = false;
+        $this->koMatchId      = 0;
+    }
+
+    public function updatedScoringMode(): void
+    {
+        $this->initCriteria();
+        $this->scoreSubmitted = false;
+    }
+
+    private function initCriteria(): void
+    {
+        $mode     = strtoupper($this->scoringMode);  // LIVE | KNOCKOUT
+        $criteria = $this->loadCriteria($mode);
+
+        $this->criteriaScores  = [];
+        $this->criteriaScoresB = [];
+
+        foreach ($criteria as $c) {
+            $this->criteriaScores[$c->key]  = 9.0;
+            $this->criteriaScoresB[$c->key] = 9.0;
+        }
+    }
+
+    private function loadCriteria(string $mode): \Illuminate\Database\Eloquent\Collection
+    {
+        if ($this->judgeEventId) {
+            $event    = Event::find($this->judgeEventId);
+            $criteria = $event?->criteriaFor($mode) ?? collect();
+            if ($criteria->count()) return $criteria;
+        }
+        // Fallback to all active global criteria
+        return ScoringCriterion::where('is_active', true)->orderBy('display_order')->get();
+    }
 
     // ─── Scoring ─────────────────────────────────────────────────────────────
 
@@ -78,20 +111,16 @@ class Dashboard extends Component
 
         $score = JudgeScore::firstOrCreate(
             [
-                'event_id'   => $this->judgeEventId,
-                'rider_id'   => $this->liveRiderId,
-                'run_number' => $this->liveRunNumber,
+                'judge_user_id' => auth()->id(),
+                'event_id'      => $this->judgeEventId,
+                'rider_id'      => $this->liveRiderId,
+                'run_number'    => $this->liveRunNumber,
+                'scoring_mode'  => 'LIVE',
             ],
             ['status' => 'WAITING']
         );
 
-        app(ScoringService::class)->submitScore($score, [
-            'execution'   => $this->judgeExec,
-            'style'       => $this->judgeStyle,
-            'creativity'  => $this->judgeCreativity,
-            'difficulty'  => $this->judgeDiff,
-            'consistency' => $this->judgeConsistency,
-        ]);
+        app(ScoringService::class)->submitScore($score, $this->criteriaScores);
 
         $this->scoreSubmitted = true;
     }
@@ -100,11 +129,35 @@ class Dashboard extends Component
     {
         if (!$this->koMatchId) return;
 
+        $svc = app(ScoringService::class);
+
         if ($this->koMatchType === 'BRACKET') {
             $match  = BracketMatch::findOrFail($this->koMatchId);
-            $totalA = round(($this->judgeExec + $this->judgeStyle + $this->judgeCreativity + $this->judgeDiff + $this->judgeConsistency) / 5 * 10, 1);
-            $totalB = round(($this->judgeExecB + $this->judgeStyleB + $this->judgeCreativityB + $this->judgeDiffB + $this->judgeConsistencyB) / 5 * 10, 1);
+            $totalA = $svc->calculateTotal($this->criteriaScores);
+            $totalB = $svc->calculateTotal($this->criteriaScoresB);
             $match->update(['score_a' => $totalA, 'score_b' => $totalB]);
+
+            // Save per-judge KO scores so other judges can see them
+            if ($match->rider_a_registration_id) {
+                $riderIdA = Rider::where('user_id', Registration::find($match->rider_a_registration_id)?->user_id)->value('id');
+                if ($riderIdA) {
+                    $scoreA = JudgeScore::updateOrCreate(
+                        ['event_id' => $this->judgeEventId, 'rider_id' => $riderIdA, 'run_number' => $this->koMatchId, 'judge_user_id' => auth()->id(), 'scoring_mode' => 'KNOCKOUT'],
+                        ['total' => $totalA, 'status' => 'DONE']
+                    );
+                    $svc->submitScore($scoreA, $this->criteriaScores);
+                }
+            }
+            if ($match->rider_b_registration_id) {
+                $riderIdB = Rider::where('user_id', Registration::find($match->rider_b_registration_id)?->user_id)->value('id');
+                if ($riderIdB) {
+                    $scoreB = JudgeScore::updateOrCreate(
+                        ['event_id' => $this->judgeEventId, 'rider_id' => $riderIdB, 'run_number' => $this->koMatchId, 'judge_user_id' => auth()->id(), 'scoring_mode' => 'KNOCKOUT'],
+                        ['total' => $totalB, 'status' => 'DONE']
+                    );
+                    $svc->submitScore($scoreB, $this->criteriaScoresB);
+                }
+            }
         }
 
         $this->scoreSubmitted = true;
@@ -112,17 +165,46 @@ class Dashboard extends Component
 
     public function resetScore(): void
     {
-        $this->scoreSubmitted    = false;
-        $this->judgeExec         = 9.2;
-        $this->judgeStyle        = 8.9;
-        $this->judgeCreativity   = 9.4;
-        $this->judgeDiff         = 9.5;
-        $this->judgeConsistency  = 9.0;
-        $this->judgeExecB        = 9.2;
-        $this->judgeStyleB       = 8.9;
-        $this->judgeCreativityB  = 9.4;
-        $this->judgeDiffB        = 9.5;
-        $this->judgeConsistencyB = 9.0;
+        $this->scoreSubmitted  = false;
+        $this->initCriteria();
+    }
+
+    // ─── Reset winner ─────────────────────────────────────────────────────────
+
+    public function resetQualMatchWinner(int $matchId): void
+    {
+        if (!auth()->user()->isHeadJudge()) {
+            $this->addError('koMatchId', 'Hanya Head Judge yang dapat membatalkan pemenang.');
+            return;
+        }
+        $match = QualificationMatch::with('qualificationRound')->findOrFail($matchId);
+        $match->update(['winner_registration_id' => null, 'status' => 'PENDING']);
+
+        $this->scoreSubmitted = false;
+        $this->koMatchId      = $matchId;
+        $this->koMatchType    = 'QUALIFICATION';
+        $this->view           = 'judging';
+        $this->scoringMode    = 'knockout';
+        $this->judgeEventId   = $match->qualificationRound->event_id;
+        $this->initCriteria();
+    }
+
+    public function resetBracketMatchWinner(int $matchId): void
+    {
+        if (!auth()->user()->isHeadJudge()) {
+            $this->addError('koMatchId', 'Hanya Head Judge yang dapat membatalkan pemenang.');
+            return;
+        }
+        $match = BracketMatch::with('bracket')->findOrFail($matchId);
+        app(BracketService::class)->resetWinner($match);
+
+        $this->scoreSubmitted = false;
+        $this->koMatchId      = $matchId;
+        $this->koMatchType    = 'BRACKET';
+        $this->view           = 'judging';
+        $this->scoringMode    = 'knockout';
+        $this->judgeEventId   = $match->bracket->event_id;
+        $this->initCriteria();
     }
 
     // ─── Category Management ──────────────────────────────────────────────────
@@ -194,7 +276,6 @@ class Dashboard extends Component
             $this->addError('manualRiderAId', 'Rider A dan B tidak boleh sama.');
             return;
         }
-
         QualificationMatch::create([
             'qualification_round_id'  => $roundId,
             'rider_a_registration_id' => $riderA,
@@ -220,10 +301,7 @@ class Dashboard extends Component
         $this->editQualRoundId = 0;
     }
 
-    public function cancelEditQualRound(): void
-    {
-        $this->editQualRoundId = 0;
-    }
+    public function cancelEditQualRound(): void { $this->editQualRoundId = 0; }
 
     public function deleteQualRound(int $id): void
     {
@@ -237,6 +315,10 @@ class Dashboard extends Component
 
     public function setQualMatchWinner(int $matchId, int $winnerRegId): void
     {
+        if (!auth()->user()->isHeadJudge()) {
+            $this->addError('koMatchId', 'Hanya Head Judge yang dapat menetapkan pemenang.');
+            return;
+        }
         $match  = QualificationMatch::findOrFail($matchId);
         $winner = Registration::findOrFail($winnerRegId);
         app(QualificationService::class)->setWinner($match, $winner);
@@ -257,13 +339,18 @@ class Dashboard extends Component
         $this->qualTrickId = 0;
     }
 
+    // ─── Bracket ─────────────────────────────────────────────────────────────
+
     public function advanceBracketWinner(int $matchId, int $winnerRegId): void
     {
+        if (!auth()->user()->isHeadJudge()) {
+            $this->addError('koMatchId', 'Hanya Head Judge yang dapat menetapkan pemenang.');
+            return;
+        }
         $match  = BracketMatch::with('bracket')->findOrFail($matchId);
         $winner = Registration::findOrFail($winnerRegId);
 
-        $service = app(\App\Services\BracketService::class);
-
+        $service = app(BracketService::class);
         if ($match->bracket->type === 'DOUBLE_ELIMINATION') {
             $service->advanceWinnerDoubleElim($match, $winner);
         } else {
@@ -273,18 +360,6 @@ class Dashboard extends Component
         $this->scoreSubmitted = false;
         $this->koMatchId      = 0;
     }
-
-    public function deleteBracket(int $id): void
-    {
-        Bracket::findOrFail($id)->delete();
-    }
-
-    public function deleteBracketMatch(int $id): void
-    {
-        BracketMatch::findOrFail($id)->delete();
-    }
-
-    // ─── Bracket ─────────────────────────────────────────────────────────────
 
     public function assignTrickToBracketMatch(int $matchId, int $trickId): void
     {
@@ -302,6 +377,9 @@ class Dashboard extends Component
             }
         }
     }
+
+    public function deleteBracket(int $id): void   { Bracket::findOrFail($id)->delete(); }
+    public function deleteBracketMatch(int $id): void { BracketMatch::findOrFail($id)->delete(); }
 
     // ─── Submission Review ────────────────────────────────────────────────────
 
@@ -339,13 +417,80 @@ class Dashboard extends Component
     public function render()
     {
         $data = [
-            'events' => Event::orderBy('date')->get(),
+            'events'          => Event::orderBy('date')->get(),
+            'eventCriteria'   => collect(),
+            'judgeAssignment' => null,
+            'otherJudgeScores'=> collect(),
         ];
 
         if ($this->view === 'judging') {
+            $mode     = strtoupper($this->scoringMode);
+            $criteria = $this->loadCriteria($mode);
+
+            // Initialize criteria arrays if empty
+            if (empty($this->criteriaScores)) {
+                foreach ($criteria as $c) {
+                    $this->criteriaScores[$c->key]  = 9.0;
+                    $this->criteriaScoresB[$c->key] = 9.0;
+                }
+            }
+
+            $data['eventCriteria'] = $criteria;
+
+            // Judge assignment for selected event
+            $data['judgeAssignment'] = $this->judgeEventId
+                ? EventJudgeAssignment::where('event_id', $this->judgeEventId)
+                    ->where('user_id', auth()->id())
+                    ->first()
+                : null;
+
             $data['judgeRiders'] = $this->judgeEventId
                 ? Rider::whereHas('registrations', fn ($q) => $q->where('event_id', $this->judgeEventId))->orderBy('name')->get()
                 : Rider::orderBy('name')->get();
+
+            // Other judges' live scores for current rider/run
+            if ($this->scoringMode === 'live' && $this->judgeEventId && $this->liveRiderId) {
+                $data['otherJudgeScores'] = JudgeScore::where('event_id', $this->judgeEventId)
+                    ->where('rider_id', $this->liveRiderId)
+                    ->where('run_number', $this->liveRunNumber)
+                    ->where('scoring_mode', 'LIVE')
+                    ->with(['judge', 'scoreDetails'])
+                    ->get();
+            } else {
+                $data['otherJudgeScores'] = collect();
+            }
+
+            // Other judges' KO scores for current match (bracket only)
+            $data['koOtherJudgeScoresA'] = collect();
+            $data['koOtherJudgeScoresB'] = collect();
+            if ($this->scoringMode === 'knockout' && $this->koMatchId && $this->koMatchType === 'BRACKET') {
+                $match = BracketMatch::find($this->koMatchId);
+                if ($match) {
+                    if ($match->rider_a_registration_id) {
+                        $riderIdA = Rider::where('user_id', Registration::find($match->rider_a_registration_id)?->user_id)->value('id');
+                        if ($riderIdA) {
+                            $data['koOtherJudgeScoresA'] = JudgeScore::where('event_id', $this->judgeEventId)
+                                ->where('rider_id', $riderIdA)
+                                ->where('run_number', $this->koMatchId)
+                                ->where('scoring_mode', 'KNOCKOUT')
+                                ->with(['judge', 'scoreDetails'])
+                                ->get();
+                        }
+                    }
+                    if ($match->rider_b_registration_id) {
+                        $riderIdB = Rider::where('user_id', Registration::find($match->rider_b_registration_id)?->user_id)->value('id');
+                        if ($riderIdB) {
+                            $data['koOtherJudgeScoresB'] = JudgeScore::where('event_id', $this->judgeEventId)
+                                ->where('rider_id', $riderIdB)
+                                ->where('run_number', $this->koMatchId)
+                                ->where('scoring_mode', 'KNOCKOUT')
+                                ->with(['judge', 'scoreDetails'])
+                                ->get();
+                        }
+                    }
+                }
+            }
+
             if ($this->scoringMode === 'knockout' && $this->judgeEventId) {
                 if ($this->koMatchType === 'QUALIFICATION') {
                     $data['koMatches'] = QualificationMatch::whereHas('qualificationRound', fn ($q) => $q->where('event_id', $this->judgeEventId))
@@ -359,18 +504,28 @@ class Dashboard extends Component
                         ->get();
                 }
             }
+
             $data['koCurrentMatch'] = $this->koMatchId
                 ? ($this->koMatchType === 'QUALIFICATION'
-                    ? QualificationMatch::with(['riderA', 'riderB', 'trick'])->find($this->koMatchId)
-                    : BracketMatch::with(['riderA', 'riderB', 'trick'])->find($this->koMatchId))
+                    ? QualificationMatch::with(['riderA', 'riderB', 'trick', 'winner'])->find($this->koMatchId)
+                    : BracketMatch::with(['riderA', 'riderB', 'trick', 'winner'])->find($this->koMatchId))
                 : null;
+
+            if ($this->koMatchId) {
+                $submissionMatchType = $this->koMatchType === 'BRACKET' ? 'PLAYOFF' : 'QUALIFICATION';
+                $data['koApprovedSubmissions'] = BattleSubmission::where('match_type', $submissionMatchType)
+                    ->where('match_id', $this->koMatchId)
+                    ->where('status', 'APPROVED')
+                    ->with('registration')
+                    ->get();
+            } else {
+                $data['koApprovedSubmissions'] = collect();
+            }
         }
 
         if ($this->view === 'categories') {
             $data['pendingCategoryAssignments'] = RiderCategory::with(['registration.event', 'category'])
-                ->where('status', 'PENDING')
-                ->latest()
-                ->get();
+                ->where('status', 'PENDING')->latest()->get();
             $data['allCategories'] = Category::all();
         }
 
@@ -393,15 +548,12 @@ class Dashboard extends Component
 
         if ($this->view === 'submissions') {
             $data['pendingSubmissions'] = BattleSubmission::with('registration')
-                ->where('status', 'PENDING')
-                ->latest()
-                ->get();
+                ->where('status', 'PENDING')->latest()->get();
         }
 
         if ($this->view === 'brackets') {
             $data['brackets'] = Bracket::with(['event', 'bracketMatches.riderA', 'bracketMatches.riderB', 'bracketMatches.winner', 'bracketMatches.trick'])
-                ->latest()
-                ->get();
+                ->latest()->get();
             $data['tricks'] = Trick::where('is_active', true)->orderBy('name')->get();
         }
 

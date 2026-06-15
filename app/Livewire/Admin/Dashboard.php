@@ -7,6 +7,7 @@ use App\Models\BracketMatch;
 use App\Models\BattleSubmission;
 use App\Models\Category;
 use App\Models\Event;
+use App\Models\EventJudgeAssignment;
 use App\Models\JudgeScore;
 use App\Models\QualificationMatch;
 use App\Models\QualificationRound;
@@ -14,7 +15,9 @@ use App\Models\Ranking;
 use App\Models\Registration;
 use App\Models\Rider;
 use App\Models\RiderCategory;
+use App\Models\ScoringCriterion;
 use App\Models\Trick;
+use App\Models\User;
 use App\Services\BracketService;
 use App\Services\NotificationService;
 use App\Services\QualificationService;
@@ -31,19 +34,11 @@ class Dashboard extends Component
     public string $view = 'overview';
 
     // Judging state
-    public float  $judgeExec         = 9.2;
-    public float  $judgeStyle        = 8.9;
-    public float  $judgeCreativity   = 9.4;
-    public float  $judgeDiff         = 9.5;
-    public float  $judgeConsistency  = 9.0;
-    public float  $judgeExecB        = 9.2;
-    public float  $judgeStyleB       = 8.9;
-    public float  $judgeCreativityB  = 9.4;
-    public float  $judgeDiffB        = 9.5;
-    public float  $judgeConsistencyB = 9.0;
+    public array  $criteriaScores    = [];
+    public array  $criteriaScoresB   = [];
     public bool   $scoreSubmitted    = false;
     public int    $judgeEventId     = 0;
-    public string $scoringMode      = 'live';     // live | knockout
+    public string $scoringMode      = 'live';
     public string $koMatchType      = 'QUALIFICATION';
     public int    $koMatchId        = 0;
     public int    $liveRiderId      = 0;
@@ -77,6 +72,28 @@ class Dashboard extends Component
 
     // Submission review
     public string $submissionFeedback = '';
+
+    // Manual bracket setup
+    public string $bracketMode       = 'auto';   // auto | manual
+    public int    $manualQfCount     = 4;         // how many QF matches (2,4,8)
+    public array  $slotAssignments   = [];        // [matchId => ['a' => regId, 'b' => regId]]
+
+    // Scoring criteria management
+    public string $criterionName    = '';
+    public string $criterionKey     = '';
+    public int    $criterionOrder   = 0;
+    public int    $editCriterionId  = 0;
+
+    // Event scoring criteria assignment
+    public int    $scEventId        = 0;
+    public int    $scCriterionId    = 0;
+    public string $scAppliesTo      = 'BOTH';
+    public int    $scOrder          = 0;
+
+    // Event judge assignment
+    public int    $jaEventId        = 0;
+    public int    $jaJudgeUserId    = 0;
+    public string $jaScoringMode    = 'BOTH';
 
     // Event CRUD
     public bool   $evEditing    = false;
@@ -113,13 +130,7 @@ class Dashboard extends Component
             ['status' => 'WAITING']
         );
 
-        app(ScoringService::class)->submitScore($score, [
-            'execution'   => $this->judgeExec,
-            'style'       => $this->judgeStyle,
-            'creativity'  => $this->judgeCreativity,
-            'difficulty'  => $this->judgeDiff,
-            'consistency' => $this->judgeConsistency,
-        ]);
+        app(ScoringService::class)->submitScore($score, $this->criteriaScores);
 
         $this->scoreSubmitted = true;
     }
@@ -130,8 +141,8 @@ class Dashboard extends Component
 
         if ($this->koMatchType === 'BRACKET') {
             $match  = BracketMatch::findOrFail($this->koMatchId);
-            $totalA = round(($this->judgeExec + $this->judgeStyle + $this->judgeCreativity + $this->judgeDiff + $this->judgeConsistency) / 5 * 10, 1);
-            $totalB = round(($this->judgeExecB + $this->judgeStyleB + $this->judgeCreativityB + $this->judgeDiffB + $this->judgeConsistencyB) / 5 * 10, 1);
+            $totalA = app(ScoringService::class)->calculateTotal($this->criteriaScores);
+            $totalB = app(ScoringService::class)->calculateTotal($this->criteriaScoresB);
             $match->update(['score_a' => $totalA, 'score_b' => $totalB]);
         }
 
@@ -140,17 +151,9 @@ class Dashboard extends Component
 
     public function resetScore(): void
     {
-        $this->scoreSubmitted    = false;
-        $this->judgeExec         = 9.2;
-        $this->judgeStyle        = 8.9;
-        $this->judgeCreativity   = 9.4;
-        $this->judgeDiff         = 9.5;
-        $this->judgeConsistency  = 9.0;
-        $this->judgeExecB        = 9.2;
-        $this->judgeStyleB       = 8.9;
-        $this->judgeCreativityB  = 9.4;
-        $this->judgeDiffB        = 9.5;
-        $this->judgeConsistencyB = 9.0;
+        $this->scoreSubmitted  = false;
+        $this->criteriaScores  = [];
+        $this->criteriaScoresB = [];
     }
 
     // ─── Event CRUD ───────────────────────────────────────────────────────────
@@ -464,16 +467,24 @@ class Dashboard extends Component
         $event = Event::findOrFail($eventId);
 
         $existing = Bracket::where('event_id', $eventId)->first();
-        if ($existing) return;
+        if ($existing) {
+            $this->addError('bracket', 'Bracket untuk event ini sudah ada.');
+            return;
+        }
+
+        $registrations = Registration::where('event_id', $eventId)
+            ->where('status', 'APPROVED')
+            ->get();
+
+        if ($registrations->count() < 2) {
+            $this->addError('bracket', 'Minimal 2 peserta yang sudah diapprove diperlukan untuk generate bracket. Saat ini: ' . $registrations->count() . ' peserta.');
+            return;
+        }
 
         $bracket = Bracket::create([
             'event_id' => $eventId,
             'type'     => $this->bracketType,
         ]);
-
-        $registrations = Registration::where('event_id', $eventId)
-            ->where('status', 'APPROVED')
-            ->get();
 
         $service = app(BracketService::class);
 
@@ -482,6 +493,67 @@ class Dashboard extends Component
         } else {
             $service->generateSingleElimination($bracket, $registrations);
         }
+    }
+
+    public function generateManualBracket(int $eventId): void
+    {
+        if (!$eventId) return;
+
+        if (Bracket::where('event_id', $eventId)->exists()) {
+            $this->addError('bracket', 'Bracket untuk event ini sudah ada.');
+            return;
+        }
+
+        $bracket  = Bracket::create(['event_id' => $eventId, 'type' => $this->bracketType]);
+        $r1Count  = max(1, (int) $this->manualQfCount);
+
+        if ($this->bracketType === 'DOUBLE_ELIMINATION') {
+            // UB_R1
+            for ($i = 1; $i <= $r1Count; $i++) {
+                BracketMatch::create(['bracket_id' => $bracket->id, 'round' => 'UB_R1', 'match_number' => $i, 'status' => 'PENDING']);
+            }
+            // Remaining rounds via same structure as BracketService::doubleElimRounds()
+            $deRounds = match (true) {
+                $r1Count >= 8 => [
+                    'UB_R2' => $r1Count / 2, 'UB_SF' => $r1Count / 4, 'UB_F' => 1,
+                    'LB_R1' => $r1Count / 2, 'LB_R2' => $r1Count / 2,
+                    'LB_R3' => $r1Count / 4, 'LB_R4' => $r1Count / 4,
+                    'LB_SF' => 1, 'LB_F' => 1, 'GF' => 1,
+                ],
+                $r1Count === 4 => [
+                    'UB_R2' => 2, 'UB_F' => 1,
+                    'LB_R1' => 2, 'LB_R2' => 2, 'LB_SF' => 1, 'LB_F' => 1, 'GF' => 1,
+                ],
+                $r1Count === 2 => ['UB_F' => 1, 'LB_R1' => 1, 'LB_F' => 1, 'GF' => 1],
+                default        => ['GF' => 1],
+            };
+            foreach ($deRounds as $round => $count) {
+                for ($i = 1; $i <= $count; $i++) {
+                    BracketMatch::create(['bracket_id' => $bracket->id, 'round' => $round, 'match_number' => $i, 'status' => 'PENDING']);
+                }
+            }
+        } else {
+            // Single elimination
+            $rounds = [];
+            if ($r1Count >= 4) $rounds[] = ['round' => 'QF', 'count' => $r1Count];
+            if ($r1Count >= 2) $rounds[] = ['round' => 'SF', 'count' => max(1, (int) ($r1Count / 2))];
+            $rounds[] = ['round' => 'F', 'count' => 1];
+
+            foreach ($rounds as $r) {
+                for ($i = 1; $i <= $r['count']; $i++) {
+                    BracketMatch::create(['bracket_id' => $bracket->id, 'round' => $r['round'], 'match_number' => $i, 'status' => 'PENDING']);
+                }
+            }
+        }
+
+        $bracket->update(['status' => 'IN_PROGRESS']);
+    }
+
+    public function assignBracketSlot(int $matchId, string $slot, int $regId): void
+    {
+        $match = BracketMatch::findOrFail($matchId);
+        $col   = $slot === 'a' ? 'rider_a_registration_id' : 'rider_b_registration_id';
+        $match->update([$col => $regId ?: null]);
     }
 
     public function advanceBracketWinner(int $matchId, int $winnerRegId): void
@@ -570,6 +642,95 @@ class Dashboard extends Component
 
     // ─── Render ───────────────────────────────────────────────────────────────
 
+    // ─── Scoring Criteria ─────────────────────────────────────────────────────
+
+    public function saveCriterion(): void
+    {
+        $this->validate([
+            'criterionName'  => 'required|string|max:60',
+            'criterionKey'   => 'required|alpha_dash|max:40',
+        ]);
+
+        if ($this->editCriterionId) {
+            ScoringCriterion::findOrFail($this->editCriterionId)->update([
+                'name'          => $this->criterionName,
+                'key'           => $this->criterionKey,
+                'display_order' => $this->criterionOrder,
+            ]);
+            $this->editCriterionId = 0;
+        } else {
+            ScoringCriterion::create([
+                'name'          => $this->criterionName,
+                'key'           => $this->criterionKey,
+                'display_order' => $this->criterionOrder,
+                'is_active'     => true,
+            ]);
+        }
+        $this->criterionName  = '';
+        $this->criterionKey   = '';
+        $this->criterionOrder = 0;
+    }
+
+    public function editCriterion(int $id): void
+    {
+        $c = ScoringCriterion::findOrFail($id);
+        $this->editCriterionId = $id;
+        $this->criterionName   = $c->name;
+        $this->criterionKey    = $c->key;
+        $this->criterionOrder  = $c->display_order;
+    }
+
+    public function toggleCriterion(int $id): void
+    {
+        $c = ScoringCriterion::findOrFail($id);
+        $c->update(['is_active' => !$c->is_active]);
+    }
+
+    public function deleteCriterion(int $id): void
+    {
+        ScoringCriterion::findOrFail($id)->delete();
+    }
+
+    // ─── Event Scoring Criteria Assignment ───────────────────────────────────
+
+    public function assignCriterionToEvent(): void
+    {
+        if (!$this->scEventId || !$this->scCriterionId) return;
+
+        $event = Event::findOrFail($this->scEventId);
+        $event->scoringCriteria()->syncWithoutDetaching([
+            $this->scCriterionId => [
+                'applies_to'    => $this->scAppliesTo,
+                'display_order' => $this->scOrder,
+            ],
+        ]);
+        $this->scCriterionId = 0;
+        $this->scOrder       = 0;
+    }
+
+    public function removeCriterionFromEvent(int $eventId, int $criterionId): void
+    {
+        Event::findOrFail($eventId)->scoringCriteria()->detach($criterionId);
+    }
+
+    // ─── Event Judge Assignment ───────────────────────────────────────────────
+
+    public function assignJudgeToEvent(): void
+    {
+        if (!$this->jaEventId || !$this->jaJudgeUserId) return;
+
+        EventJudgeAssignment::updateOrCreate(
+            ['event_id' => $this->jaEventId, 'user_id' => $this->jaJudgeUserId],
+            ['scoring_mode' => $this->jaScoringMode]
+        );
+        $this->jaJudgeUserId = 0;
+    }
+
+    public function removeJudgeFromEvent(int $assignmentId): void
+    {
+        EventJudgeAssignment::findOrFail($assignmentId)->delete();
+    }
+
     public function render()
     {
         $registrations = Registration::with('event')->latest()->get();
@@ -578,11 +739,35 @@ class Dashboard extends Component
         $revenue       = $registrations->count() * 350000;
 
         $data = compact('registrations', 'events', 'riders', 'revenue');
+        $data['eventCriteria']        = collect();
+        $data['judgeAssignment']      = null;
+        $data['otherJudgeScores']     = collect();
+        $data['koOtherJudgeScoresA']  = collect();
+        $data['koOtherJudgeScoresB']  = collect();
 
         if ($this->view === 'judging') {
+            $mode     = strtoupper($this->scoringMode);
+            $criteria = $this->judgeEventId
+                ? Event::find($this->judgeEventId)?->criteriaFor($mode) ?? collect()
+                : collect();
+
+            if (empty($this->criteriaScores)) {
+                foreach ($criteria as $c) {
+                    $this->criteriaScores[$c->key]  = 9.0;
+                    $this->criteriaScoresB[$c->key] = 9.0;
+                }
+            }
+
+            $data['eventCriteria']   = $criteria;
+            $data['judgeAssignment'] = null;
+            $data['otherJudgeScores'] = collect();
+
             $data['judgeRiders'] = $this->judgeEventId
                 ? Rider::whereHas('registrations', fn ($q) => $q->where('event_id', $this->judgeEventId))->orderBy('name')->get()
                 : Rider::orderBy('name')->get();
+
+            $data['koApprovedSubmissions'] = collect();
+
             if ($this->scoringMode === 'knockout' && $this->judgeEventId) {
                 if ($this->koMatchType === 'QUALIFICATION') {
                     $data['koMatches'] = QualificationMatch::whereHas('qualificationRound', fn ($q) => $q->where('event_id', $this->judgeEventId))
@@ -596,6 +781,7 @@ class Dashboard extends Component
                         ->get();
                 }
             }
+
             $data['koCurrentMatch'] = $this->koMatchId
                 ? ($this->koMatchType === 'QUALIFICATION'
                     ? QualificationMatch::with(['riderA', 'riderB', 'trick'])->find($this->koMatchId)
@@ -642,6 +828,14 @@ class Dashboard extends Component
                 ->latest()
                 ->get();
             $data['tricks'] = Trick::where('is_active', true)->orderBy('name')->get();
+        }
+
+        if ($this->view === 'scoring') {
+            $data['scoringCriteria']   = ScoringCriterion::orderBy('display_order')->get();
+            $data['allCriteria']       = ScoringCriterion::where('is_active', true)->orderBy('display_order')->get();
+            $data['judgeUsers']        = User::whereIn('role', ['judge', 'head_judge'])->orderBy('name')->get();
+            $data['eventScoringList']  = Event::with(['scoringCriteria'])->orderBy('date')->get();
+            $data['judgeAssignments']  = EventJudgeAssignment::with(['event', 'user'])->latest()->get();
         }
 
         return view('livewire.admin.dashboard', $data);

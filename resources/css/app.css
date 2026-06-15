@@ -301,7 +301,8 @@ img { display: block; max-width: 100%; }
 ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 3px; }
 
 /* ── FORM INPUTS ────────────────────────────────────────────── */
-.field-input {
+.field-input,
+.input-field {
     width: 100%;
     padding: 12px 14px;
     background: var(--panel);
@@ -312,10 +313,17 @@ img { display: block; max-width: 100%; }
     outline: none;
     transition: border-color 0.15s;
 }
-.field-input:focus { border-color: var(--lime); }
-.field-input.error { border-color: var(--red); }
-.field-input::placeholder { color: var(--ink-faint); }
-select.field-input option { background: var(--panel); }
+.field-input:focus,
+.input-field:focus { border-color: var(--lime); }
+.field-input.error,
+.input-field.error { border-color: var(--red); }
+.field-input::placeholder,
+.input-field::placeholder { color: var(--ink-faint); }
+select.field-input option,
+select.input-field option {
+    background: var(--panel);
+    color: var(--ink);
+}
 
 /* ── AVATAR ─────────────────────────────────────────────────── */
 .avatar {

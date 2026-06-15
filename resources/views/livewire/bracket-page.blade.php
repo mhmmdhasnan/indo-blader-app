@@ -27,6 +27,7 @@
     @if($bracket && $matchesByRound->count())
     @php
         $roundLabels = [
+            'PRELIM' => 'PRELIMINARY',
             'QF'    => 'QUARTER FINALS',
             'SF'    => 'SEMI FINALS',
             'F'     => 'FINAL',
@@ -36,6 +37,8 @@
             'UB_F'  => 'UPPER FINAL',
             'LB_R1' => 'LOWER R1',
             'LB_R2' => 'LOWER R2',
+            'LB_R3' => 'LOWER R3',
+            'LB_R4' => 'LOWER R4',
             'LB_SF' => 'LOWER SEMI',
             'LB_F'  => 'LOWER FINAL',
             'GF'    => 'GRAND FINAL',

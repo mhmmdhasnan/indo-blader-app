@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Event extends Model
@@ -41,6 +42,27 @@ class Event extends Model
     public function rankingHistories(): HasMany
     {
         return $this->hasMany(RankingHistory::class);
+    }
+
+    public function scoringCriteria(): BelongsToMany
+    {
+        return $this->belongsToMany(ScoringCriterion::class, 'event_scoring_criteria')
+            ->withPivot('applies_to', 'display_order')
+            ->orderByPivot('display_order')
+            ->withTimestamps();
+    }
+
+    public function judgeAssignments(): HasMany
+    {
+        return $this->hasMany(EventJudgeAssignment::class);
+    }
+
+    public function criteriaFor(string $mode): \Illuminate\Database\Eloquent\Collection
+    {
+        return $this->scoringCriteria()
+            ->wherePivotIn('applies_to', [$mode, 'BOTH'])
+            ->orderByPivot('display_order')
+            ->get();
     }
 
     public function getFillPctAttribute(): int

@@ -33,7 +33,12 @@ class User extends Authenticatable
 
     public function isJudge(): bool
     {
-        return $this->role === 'judge';
+        return in_array($this->role, ['judge', 'head_judge']);
+    }
+
+    public function isHeadJudge(): bool
+    {
+        return $this->role === 'head_judge';
     }
 
     public function isRider(): bool

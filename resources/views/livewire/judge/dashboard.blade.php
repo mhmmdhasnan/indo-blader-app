@@ -34,7 +34,7 @@
         <div style="padding:14px;border-top:2px solid var(--ink);">
             <div style="margin-bottom:8px;">
                 <span class="label" style="font-size:12px;display:block;">{{ auth()->user()->name }}</span>
-                <span class="mono dim" style="font-size:10px;">{{ strtoupper(auth()->user()->role) }}</span>
+                <span class="mono dim" style="font-size:10px;">{{ auth()->user()->role === 'head_judge' ? 'HEAD JUDGE' : 'JUDGE' }}</span>
             </div>
             <form method="POST" action="{{ route('logout') }}" style="margin-bottom:8px;">
                 @csrf
@@ -65,7 +65,7 @@
                     <x-avatar :initials="collect(explode(' ', auth()->user()->name))->map(fn($w)=>strtoupper($w[0]))->take(2)->implode('')" :size="36" />
                     <div class="col">
                         <span class="label" style="font-size:13px;white-space:nowrap;">{{ auth()->user()->name }}</span>
-                        <span class="mono dim" style="font-size:10px;">JUDGE</span>
+                        <span class="mono dim" style="font-size:10px;">{{ auth()->user()->role === 'head_judge' ? 'HEAD JUDGE' : 'JUDGE' }}</span>
                     </div>
                 </div>
             </div>
@@ -76,22 +76,25 @@
             {{-- ── JUDGING ── --}}
             @if($view === 'judging')
                 @include('livewire.partials.judging-panel', [
-                    'events'          => $events,
-                    'judgeEventId'    => $judgeEventId,
-                    'scoringMode'     => $scoringMode,
-                    'koMatchType'     => $koMatchType,
-                    'koMatchId'       => $koMatchId,
-                    'koCurrentMatch'  => $koCurrentMatch ?? null,
-                    'koMatches'       => $koMatches ?? collect(),
-                    'judgeRiders'     => $judgeRiders ?? collect(),
-                    'liveRiderId'     => $liveRiderId,
-                    'liveRunNumber'   => $liveRunNumber,
-                    'judgeExec'       => $judgeExec,
-                    'judgeStyle'      => $judgeStyle,
-                    'judgeCreativity' => $judgeCreativity,
-                    'judgeDiff'       => $judgeDiff,
-                    'judgeConsistency'=> $judgeConsistency,
-                    'scoreSubmitted'  => $scoreSubmitted,
+                    'events'                 => $events,
+                    'judgeEventId'           => $judgeEventId,
+                    'scoringMode'            => $scoringMode,
+                    'koMatchType'            => $koMatchType,
+                    'koMatchId'              => $koMatchId,
+                    'koCurrentMatch'         => $koCurrentMatch ?? null,
+                    'koMatches'              => $koMatches ?? collect(),
+                    'koApprovedSubmissions'  => $koApprovedSubmissions ?? collect(),
+                    'judgeRiders'            => $judgeRiders ?? collect(),
+                    'liveRiderId'            => $liveRiderId,
+                    'liveRunNumber'          => $liveRunNumber,
+                    'criteriaScores'         => $criteriaScores,
+                    'criteriaScoresB'        => $criteriaScoresB,
+                    'scoreSubmitted'         => $scoreSubmitted,
+                    'eventCriteria'          => $eventCriteria ?? collect(),
+                    'judgeAssignment'        => $judgeAssignment ?? null,
+                    'otherJudgeScores'       => $otherJudgeScores ?? collect(),
+                    'koOtherJudgeScoresA'    => $koOtherJudgeScoresA ?? collect(),
+                    'koOtherJudgeScoresB'    => $koOtherJudgeScoresB ?? collect(),
                 ])
             @endif
 
@@ -175,8 +178,13 @@
                                             </div>
                                             <div class="flex gap-s">
                                                 @if($match->status === 'PENDING' && $match->rider_a_registration_id && $match->rider_b_registration_id)
-                                                    <button wire:click="setQualMatchWinner({{ $match->id }}, {{ $match->rider_a_registration_id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">{{ $match->riderA?->name }} Wins</button>
-                                                    <button wire:click="setQualMatchWinner({{ $match->id }}, {{ $match->rider_b_registration_id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">{{ $match->riderB?->name }} Wins</button>
+                                                    @if(auth()->user()->isHeadJudge())
+                                                        <button wire:click="setQualMatchWinner({{ $match->id }}, {{ $match->rider_a_registration_id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">{{ $match->riderA?->name }} Wins</button>
+                                                        <button wire:click="setQualMatchWinner({{ $match->id }}, {{ $match->rider_b_registration_id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">{{ $match->riderB?->name }} Wins</button>
+                                                    @endif
+                                                @endif
+                                                @if($match->winner_registration_id && auth()->user()->isHeadJudge())
+                                                    <button wire:click="resetQualMatchWinner({{ $match->id }})" class="btn btn-sm btn-ghost" style="color:var(--red);font-size:11px;" wire:confirm="Batalkan pemenang match ini?">Batalkan</button>
                                                 @endif
                                                 <button wire:click="deleteQualMatch({{ $match->id }})" class="btn btn-sm btn-ghost" style="color:var(--red);font-size:11px;" wire:confirm="Hapus match ini?">Hapus</button>
                                             </div>
@@ -237,6 +245,9 @@
                                                                 @endforeach
                                                             </select>
                                                             <button x-show="trickId > 0" @click="$wire.assignTrickToBracketMatch({{ $match->id }}, trickId)" class="btn btn-sm btn-ghost" style="font-size:11px;">Assign</button>
+                                                        @endif
+                                                        @if($match->winner_registration_id && auth()->user()->isHeadJudge())
+                                                            <button wire:click="resetBracketMatchWinner({{ $match->id }})" class="btn btn-sm btn-ghost" style="color:var(--red);font-size:11px;" wire:confirm="Batalkan pemenang bracket match ini? Score akan direset.">Batalkan</button>
                                                         @endif
                                                         <button wire:click="deleteBracketMatch({{ $match->id }})" class="btn btn-sm btn-ghost" style="color:var(--red);font-size:11px;" wire:confirm="Hapus bracket match ini?">Hapus</button>
                                                     </div>

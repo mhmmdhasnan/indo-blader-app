@@ -33,7 +33,7 @@ Route::post('/logout', function () {
 
 // ── Role-protected routes ────────────────────────────────────────────────────
 Route::get('/admin', Dashboard::class)->name('admin')->middleware('role:admin');
-Route::get('/judge', JudgeDashboard::class)->name('judge')->middleware('role:judge');
+Route::get('/judge', JudgeDashboard::class)->name('judge')->middleware('role:judge,head_judge');
 Route::get('/rider', RiderDashboard::class)->name('rider.dashboard')->middleware('role:rider');
 
 // ── Public routes ────────────────────────────────────────────────────────────

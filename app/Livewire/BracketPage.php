@@ -42,7 +42,7 @@ class BracketPage extends Component
                 ->groupBy('round');
         }
 
-        $roundOrder = ['QF', 'SF', 'F', 'UB_R1', 'UB_R2', 'UB_SF', 'UB_F', 'LB_R1', 'LB_R2', 'LB_SF', 'LB_F', 'GF'];
+        $roundOrder = ['PRELIM', 'QF', 'SF', 'F', 'UB_R1', 'UB_R2', 'UB_SF', 'UB_F', 'LB_R1', 'LB_R2', 'LB_R3', 'LB_R4', 'LB_SF', 'LB_F', 'GF'];
 
         return view('livewire.bracket-page', compact('matchesByRound', 'roundOrder'));
     }
