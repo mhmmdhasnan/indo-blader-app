@@ -7,14 +7,18 @@ use App\Models\BracketMatch;
 use App\Models\Notification;
 use App\Models\QualificationMatch;
 use App\Models\Registration;
+use App\Models\Rider;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 #[Layout('layouts.app')]
 #[Title('Dashboard — Indo Blader')]
 class Dashboard extends Component
 {
+    use WithFileUploads;
+
     public string $view = 'overview';
 
     // Submit video
@@ -23,6 +27,37 @@ class Dashboard extends Component
     public string $videoUrl          = '';
     public bool   $uploadSuccess     = false;
     public string $uploadError       = '';
+
+    // Profile photo
+    public $avatarFile        = null;
+    public bool $avatarSaved  = false;
+    public string $avatarError = '';
+
+    public function uploadAvatar(): void
+    {
+        $this->avatarSaved = false;
+        $this->avatarError = '';
+
+        $this->validate([
+            'avatarFile' => 'required|image|max:2048',
+        ], [
+            'avatarFile.required' => 'Pilih foto terlebih dahulu.',
+            'avatarFile.image'    => 'File harus berupa gambar (jpg, png, webp).',
+            'avatarFile.max'      => 'Ukuran foto maksimal 2MB.',
+        ]);
+
+        $rider = Rider::where('user_id', auth()->id())->first();
+        if (!$rider) {
+            $this->avatarError = 'Profil rider belum dibuat.';
+            return;
+        }
+
+        $path = $this->avatarFile->store('avatars', 'public');
+        $rider->update(['avatar' => $path]);
+
+        $this->avatarFile  = null;
+        $this->avatarSaved = true;
+    }
 
     public function markNotificationRead(int $id): void
     {
@@ -116,8 +151,9 @@ class Dashboard extends Component
         $regIds        = $registrations->pluck('id')->toArray();
 
         $unreadCount = Notification::whereIn('notifiable_id', $regIds)->whereNull('read_at')->count();
+        $rider       = Rider::where('user_id', $user->id)->first();
 
-        $data = compact('registrations', 'unreadCount');
+        $data = compact('registrations', 'unreadCount', 'rider');
 
         if ($this->view === 'notifications') {
             $data['notifications'] = Notification::whereIn('notifiable_id', $regIds)
@@ -129,15 +165,25 @@ class Dashboard extends Component
         if ($this->view === 'upload') {
             $data['qualMatches'] = QualificationMatch::whereIn('rider_a_registration_id', $regIds)
                 ->orWhereIn('rider_b_registration_id', $regIds)
-                ->with(['qualificationRound.event'])
+                ->with(['qualificationRound.event', 'trick'])
                 ->get();
             $data['bracketMatches'] = BracketMatch::whereIn('rider_a_registration_id', $regIds)
                 ->orWhereIn('rider_b_registration_id', $regIds)
-                ->with(['bracket.event'])
+                ->with(['bracket.event', 'trick'])
                 ->get();
             $data['submissions'] = BattleSubmission::whereIn('registration_id', $regIds)
                 ->latest()
                 ->get();
+
+            // Trick for currently selected match
+            $data['selectedTrick'] = null;
+            if ($this->selectedMatchId) {
+                if ($this->selectedMatchType === 'QUALIFICATION') {
+                    $data['selectedTrick'] = QualificationMatch::with('trick')->find($this->selectedMatchId)?->trick;
+                } else {
+                    $data['selectedTrick'] = BracketMatch::with('trick')->find($this->selectedMatchId)?->trick;
+                }
+            }
         }
 
         return view('livewire.rider.dashboard', $data);

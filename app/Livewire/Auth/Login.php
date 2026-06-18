@@ -30,9 +30,10 @@ class Login extends Component
         session()->regenerate();
 
         $redirect = match (auth()->user()->role) {
-            'admin' => route('admin'),
-            'judge' => route('judge'),
-            default => route('rider.dashboard'),
+            'admin'      => route('admin'),
+            'judge'      => route('judge'),
+            'head_judge' => route('judge'),
+            default      => route('rider.dashboard'),
         };
 
         $this->redirect($redirect, navigate: true);

@@ -1,5 +1,12 @@
 <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px 20px;">
     <div style="width:100%;max-width:420px;">
+
+        @if(session('info'))
+            <div style="padding:12px 16px;background:var(--bg-2);border:2px solid var(--lime);border-radius:3px;margin-bottom:20px;">
+                <span class="label" style="font-size:13px;color:var(--lime);">{{ session('info') }}</span>
+            </div>
+        @endif
+
         <div style="text-align:center;margin-bottom:32px;">
             <x-logo :size="48" />
             <h1 class="display" style="font-size:36px;margin-top:16px;">LOGIN</h1>

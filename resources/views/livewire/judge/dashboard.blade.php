@@ -3,9 +3,7 @@
     <aside class="admin-side" style="border-right:2px solid var(--ink);background:var(--bg-2);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;">
         <div style="padding:20px 18px;border-bottom:2px solid var(--ink);">
             <div style="display:flex;align-items:center;gap:10px;">
-                <div style="width:34px;height:34px;background:var(--lime);display:flex;align-items:center;justify-content:center;border-radius:2px;">
-                    <span class="display" style="font-size:18px;color:#0a0a0b;">IB</span>
-                </div>
+                <img src="{{ asset('images/logo.svg') }}" alt="Indo Blader" style="width:36px;height:36px;flex-shrink:0;">
                 <div class="col" style="line-height:0.9;">
                     <span class="display" style="font-size:16px;">Indo Blader</span>
                     <span class="mono" style="font-size:9px;letter-spacing:0.2em;color:var(--ink-dim);">AGGRESSIVE INLINE · ID</span>
@@ -13,22 +11,69 @@
             </div>
             <span class="badge badge-out" style="margin-top:12px;font-size:9px;">JUDGE PANEL</span>
         </div>
-        <nav class="col" style="padding:12px;gap:3px;flex:1;">
-            @foreach([
-                ['judging',       '★', 'Judge Panel'],
-                ['qualification', '⚡', 'Qualification'],
-                ['brackets',      '⊟', 'Brackets'],
-                ['submissions',   '▶', 'Submissions'],
-                ['categories',    '⊞', 'Categories'],
-            ] as [$k,$ic,$lbl])
-                <button wire:click="$set('view','{{ $k }}')" class="flex label" style="
-                    align-items:center;gap:12px;padding:11px 13px;border-radius:3px;font-size:13px;text-align:left;width:100%;
-                    background:{{ $view === $k ? 'var(--ink)' : 'transparent' }};
-                    color:{{ $view === $k ? 'var(--bg)' : 'var(--ink-dim)' }};
-                    transition:background .15s,color .15s;
-                ">
-                    <span style="font-size:15px;width:18px;">{{ $ic }}</span>{{ $lbl }}
-                </button>
+
+        {{-- ── GLOBAL EVENT SELECTOR ── --}}
+        <div style="padding:12px 14px;border-bottom:2px solid var(--ink);background:var(--bg);">
+            <span class="mono" style="font-size:9px;letter-spacing:0.16em;color:var(--ink-dim);display:block;margin-bottom:6px;">ACTIVE EVENT</span>
+            <select wire:model.live="activeEventId" style="
+                width:100%;padding:8px 10px;background:var(--bg-2);
+                border:2px solid var(--lime);border-radius:3px;
+                color:var(--ink);font-family:inherit;font-size:12px;outline:none;
+            ">
+                <option value="0">— pilih event —</option>
+                @foreach($events as $ev)
+                    <option value="{{ $ev->id }}">{{ $ev->title }}</option>
+                @endforeach
+            </select>
+            @if(isset($activeEvent) && $activeEvent)
+                <div class="flex" style="align-items:center;gap:6px;margin-top:6px;">
+                    <span class="badge badge-{{ $activeEvent->status === 'LIVE' ? 'lime' : ($activeEvent->status === 'DONE' ? 'out' : 'red') }}" style="font-size:8px;">
+                        {{ $activeEvent->status }}
+                    </span>
+                    <span class="mono dim" style="font-size:9px;">{{ $activeEvent->date?->format('d M Y') }}</span>
+                </div>
+            @endif
+        </div>
+
+        <nav class="col" style="padding:10px 10px;gap:0;flex:1;overflow-y:auto;">
+            @php
+            $navGroups = [
+                'SCORING' => [
+                    ['judging', '★', 'Judge Panel'],
+                ],
+                'KOMPETISI' => [
+                    ['qualification', '⚡', 'Qualification'],
+                    ['brackets',      '⊟', 'Brackets'],
+                    ['submissions',   '▶', 'Submissions'],
+                ],
+                'MANAJEMEN' => [
+                    ['categories', '⊞', 'Categories'],
+                ],
+            ];
+            @endphp
+
+            @foreach($navGroups as $groupLabel => $items)
+                <div style="margin-top:6px;">
+                    <span class="mono" style="
+                        display:block;padding:6px 10px 4px;
+                        font-size:8px;letter-spacing:0.18em;
+                        color:var(--ink-dim);opacity:0.55;
+                    ">{{ $groupLabel }}</span>
+                    @foreach($items as [$k, $ic, $lbl])
+                        <button wire:click="$set('view','{{ $k }}')" class="flex label" style="
+                            align-items:center;gap:10px;padding:9px 10px;border-radius:3px;
+                            font-size:12.5px;text-align:left;width:100%;
+                            background:{{ $view === $k ? 'var(--ink)' : 'transparent' }};
+                            color:{{ $view === $k ? 'var(--bg)' : 'var(--ink-dim)' }};
+                            transition:background .15s,color .15s;
+                        "
+                        onmouseover="if('{{ $view }}' !== '{{ $k }}') this.style.background='color-mix(in srgb,var(--ink) 10%,transparent)'"
+                        onmouseout="if('{{ $view }}' !== '{{ $k }}') this.style.background='transparent'">
+                            <span style="font-size:14px;width:16px;text-align:center;opacity:{{ $view === $k ? '1' : '0.7' }};">{{ $ic }}</span>
+                            {{ $lbl }}
+                        </button>
+                    @endforeach
+                </div>
             @endforeach
         </nav>
         <div style="padding:14px;border-top:2px solid var(--ink);">
@@ -48,7 +93,7 @@
     <div style="min-width:0;display:flex;flex-direction:column;">
         <header class="between admin-topbar" style="padding:16px 26px;border-bottom:2px solid var(--ink);position:sticky;top:0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);z-index:20;">
             <div class="col">
-                <span class="kicker">INDO BLADER NATIONALS '26</span>
+                <span class="kicker">{{ isset($activeEvent) && $activeEvent ? strtoupper($activeEvent->title) : 'INDO BLADER' }}</span>
                 <h1 class="display" style="font-size:26px;">
                     {{ collect([
                         'judging'      => 'Judge Panel',
@@ -297,12 +342,18 @@
                                         <a href="{{ $igUrl }}" target="_blank" class="btn btn-sm btn-ghost">▶ View Video</a>
                                     </div>
                                 @endif
-                                <div class="flex gap-s" x-data="{ feedback: '' }" style="flex-wrap:wrap;align-items:flex-end;">
-                                    <input type="text" x-model="feedback" placeholder="Feedback (optional)" class="input-field" style="flex:1;min-width:200px;font-size:12px;" />
-                                    <button wire:click="approveSubmission({{ $sub->id }})" class="btn btn-sm btn-lime">Approve</button>
-                                    <button @click="$wire.rejectSubmission({{ $sub->id }}, feedback)" class="btn btn-sm btn-ghost">Reject</button>
-                                    <button @click="$wire.requestReupload({{ $sub->id }}, feedback)" class="btn btn-sm btn-ghost">Need Re-upload</button>
-                                </div>
+                                @if(auth()->user()->isHeadJudge())
+                                    <div class="flex gap-s" x-data="{ feedback: '' }" style="flex-wrap:wrap;align-items:flex-end;">
+                                        <input type="text" x-model="feedback" placeholder="Feedback (optional)" class="input-field" style="flex:1;min-width:200px;font-size:12px;" />
+                                        <button wire:click="approveSubmission({{ $sub->id }})" class="btn btn-sm btn-lime">Approve</button>
+                                        <button @click="$wire.rejectSubmission({{ $sub->id }}, feedback)" class="btn btn-sm btn-ghost">Reject</button>
+                                        <button @click="$wire.requestReupload({{ $sub->id }}, feedback)" class="btn btn-sm btn-ghost">Need Re-upload</button>
+                                    </div>
+                                @else
+                                    <div class="panel" style="padding:10px 14px;background:var(--bg-2);border-left:2px solid var(--line);">
+                                        <span class="mono dim" style="font-size:11px;">Hanya Head Judge yang dapat approve / reject submission.</span>
+                                    </div>
+                                @endif
                             </div>
                         @endforeach
                     @else

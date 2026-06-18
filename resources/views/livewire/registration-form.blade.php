@@ -20,7 +20,7 @@
                 </div>
                 <div class="flex" style="flex-wrap:wrap;">
                     <div style="flex:1 1 280px;padding:24px;">
-                        @foreach([['RIDER',$name],['EVENT',$currentEvent?->title],['CATEGORY',$category],['DIVISION',$experience],['CITY',$city],['STATUS','PENDING APPROVAL']] as [$l,$v])
+                        @foreach([['RIDER',$name],['EVENT',$currentEvent?->title],['CATEGORY',$category],['CITY',$city],['PAYMENT','Transfer Bank'],['STATUS','PENDING APPROVAL']] as [$l,$v])
                             <div class="between" style="padding:11px 0;border-bottom:1px solid var(--line);">
                                 <span class="mono dim" style="font-size:10px;letter-spacing:0.12em;">{{ $l }}</span>
                                 <span class="label" style="font-size:14px;text-align:right;">{{ $v }}</span>
@@ -85,33 +85,77 @@
                         <h2 class="display" style="font-size:clamp(24px,3.2vw,34px);">Personal Data</h2>
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;" class="prof-grid">
-                        @foreach([
-                            ['Full Name','name','text','e.g. Rama Adhyaksa'],
-                            ['Email','email','email','you@email.com'],
-                            ['Phone / WA','phone','tel','+62 ...'],
-                            ['Date of Birth','dob','date',''],
-                            ['City','city','text','e.g. Jakarta'],
-                        ] as [$lbl,$field,$type,$ph])
-                            <label class="col" style="gap:7px;">
-                                <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors[$field]) ? 'var(--red)' : 'var(--ink-dim)' }};">
-                                    {{ strtoupper($lbl) }} *{{ isset($errors[$field]) ? ' — '.$errors[$field] : '' }}
-                                </span>
-                                <input wire:model.live="{{ $field }}" type="{{ $type }}" placeholder="{{ $ph }}"
-                                    class="field-input {{ isset($errors[$field]) ? 'error' : '' }}" />
-                            </label>
-                        @endforeach
-                        <div>
-                            <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:var(--ink-dim);display:block;margin-bottom:7px;">STANCE</span>
-                            <div class="flex gap-s">
-                                @foreach(['Regular','Goofy'] as $opt)
-                                    <button wire:click="$set('stance','{{ $opt }}')" class="label" style="
-                                        font-size:12px;padding:11px 18px;border:2px solid var(--ink);border-radius:3px;
-                                        background:{{ $stance === $opt ? 'var(--ink)' : 'transparent' }};
-                                        color:{{ $stance === $opt ? 'var(--bg)' : 'var(--ink)' }};
-                                    ">{{ $opt }}</button>
-                                @endforeach
+
+                        {{-- Name --}}
+                        <label class="col" style="gap:7px;">
+                            <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['name']) ? 'var(--red)' : 'var(--ink-dim)' }};">
+                                FULL NAME *{{ isset($errors['name']) ? ' — '.$errors['name'] : '' }}
+                            </span>
+                            <input wire:model.live="name" type="text" placeholder="e.g. Rama Adhyaksa"
+                                class="field-input {{ isset($errors['name']) ? 'error' : '' }}" />
+                        </label>
+
+                        {{-- Email --}}
+                        <label class="col" style="gap:7px;">
+                            <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['email']) ? 'var(--red)' : 'var(--ink-dim)' }};">
+                                EMAIL *{{ isset($errors['email']) ? ' — '.$errors['email'] : '' }}
+                            </span>
+                            <input wire:model.live="email" type="email" placeholder="you@email.com"
+                                class="field-input {{ isset($errors['email']) ? 'error' : '' }}" />
+                        </label>
+
+                        {{-- Phone / WA — kode negara dipisah --}}
+                        <label class="col" style="gap:7px;">
+                            <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['phone']) ? 'var(--red)' : 'var(--ink-dim)' }};">
+                                PHONE / WA *{{ isset($errors['phone']) ? ' — '.$errors['phone'] : '' }}
+                            </span>
+                            <div class="flex" style="gap:0;">
+                                <select wire:model="phoneCode" style="
+                                    padding:11px 10px;background:var(--bg-2);
+                                    border:2px solid {{ isset($errors['phone']) ? 'var(--red)' : 'var(--ink)' }};
+                                    border-right:none;border-radius:3px 0 0 3px;
+                                    color:var(--ink);font-family:inherit;font-size:13px;outline:none;
+                                    flex-shrink:0;
+                                ">
+                                    <option value="+62">🇮🇩 +62</option>
+                                    <option value="+60">🇲🇾 +60</option>
+                                    <option value="+65">🇸🇬 +65</option>
+                                    <option value="+63">🇵🇭 +63</option>
+                                    <option value="+66">🇹🇭 +66</option>
+                                    <option value="+1">🇺🇸 +1</option>
+                                    <option value="+44">🇬🇧 +44</option>
+                                    <option value="+61">🇦🇺 +61</option>
+                                </select>
+                                <input wire:model.live="phoneNumber" type="tel" placeholder="8123456789"
+                                    style="
+                                        flex:1;padding:11px 14px;background:var(--surface);
+                                        border:2px solid {{ isset($errors['phone']) ? 'var(--red)' : 'var(--ink)' }};
+                                        border-radius:0 3px 3px 0;color:var(--ink);
+                                        font-family:inherit;font-size:14px;outline:none;
+                                    "
+                                    onfocus="this.style.borderColor='var(--lime)';this.previousElementSibling.style.borderColor='var(--lime)'"
+                                    onblur="this.style.borderColor='{{ isset($errors['phone']) ? 'var(--red)' : 'var(--ink)' }}';this.previousElementSibling.style.borderColor='{{ isset($errors['phone']) ? 'var(--red)' : 'var(--ink)' }}'">
                             </div>
-                        </div>
+                        </label>
+
+                        {{-- Date of Birth --}}
+                        <label class="col" style="gap:7px;">
+                            <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['dob']) ? 'var(--red)' : 'var(--ink-dim)' }};">
+                                DATE OF BIRTH *{{ isset($errors['dob']) ? ' — '.$errors['dob'] : '' }}
+                            </span>
+                            <input wire:model.live="dob" type="date"
+                                class="field-input {{ isset($errors['dob']) ? 'error' : '' }}" />
+                        </label>
+
+                        {{-- City --}}
+                        <label class="col" style="gap:7px;">
+                            <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['city']) ? 'var(--red)' : 'var(--ink-dim)' }};">
+                                CITY *{{ isset($errors['city']) ? ' — '.$errors['city'] : '' }}
+                            </span>
+                            <input wire:model.live="city" type="text" placeholder="e.g. Jakarta"
+                                class="field-input {{ isset($errors['city']) ? 'error' : '' }}" />
+                        </label>
+
                     </div>
                 @endif
 
@@ -166,18 +210,6 @@
                             @endforeach
                         </div>
                     </div>
-                    <div style="margin-top:22px;">
-                        <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:var(--ink-dim);display:block;margin-bottom:7px;">EXPERIENCE LEVEL</span>
-                        <div class="flex gap-s" style="flex-wrap:wrap;">
-                            @foreach(['Amateur','Semi-Pro','Pro'] as $opt)
-                                <button wire:click="$set('experience','{{ $opt }}')" class="label" style="
-                                    font-size:12px;padding:11px 18px;border:2px solid var(--ink);border-radius:3px;
-                                    background:{{ $experience === $opt ? 'var(--ink)' : 'transparent' }};
-                                    color:{{ $experience === $opt ? 'var(--bg)' : 'var(--ink)' }};
-                                ">{{ $opt }}</button>
-                            @endforeach
-                        </div>
-                    </div>
                 @endif
 
                 {{-- Step 2: Emergency --}}
@@ -188,20 +220,59 @@
                     </div>
                     <p class="dim" style="font-size:14px;margin-bottom:20px;">Required for all competitors. This person is contacted only in case of injury.</p>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;" class="prof-grid">
-                        @foreach([
-                            ['Contact Name','ecName','text'],
-                            ['Contact Phone','ecPhone','tel'],
-                            ['Relationship','ecRelation','text'],
-                        ] as [$lbl,$field,$type])
-                            <label class="col" style="gap:7px;">
-                                <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors[$field]) ? 'var(--red)' : 'var(--ink-dim)' }};">
-                                    {{ strtoupper($lbl) }} *{{ isset($errors[$field]) ? ' — '.$errors[$field] : '' }}
-                                </span>
-                                <input wire:model="{{ $field }}" type="{{ $type }}"
-                                    placeholder="{{ $field === 'ecRelation' ? 'e.g. Parent, Sibling' : ($field === 'ecPhone' ? '+62 ...' : '') }}"
-                                    class="field-input {{ isset($errors[$field]) ? 'error' : '' }}" />
-                            </label>
-                        @endforeach
+
+                        {{-- Contact Name --}}
+                        <label class="col" style="gap:7px;">
+                            <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['ecName']) ? 'var(--red)' : 'var(--ink-dim)' }};">
+                                CONTACT NAME *{{ isset($errors['ecName']) ? ' — '.$errors['ecName'] : '' }}
+                            </span>
+                            <input wire:model="ecName" type="text" placeholder="e.g. Budi Santoso"
+                                class="field-input {{ isset($errors['ecName']) ? 'error' : '' }}" />
+                        </label>
+
+                        {{-- Contact Phone -- kode negara dipisah --}}
+                        <label class="col" style="gap:7px;">
+                            <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['ecPhone']) ? 'var(--red)' : 'var(--ink-dim)' }};">
+                                CONTACT PHONE *{{ isset($errors['ecPhone']) ? ' — '.$errors['ecPhone'] : '' }}
+                            </span>
+                            <div class="flex" style="gap:0;">
+                                <select wire:model="ecPhoneCode" style="
+                                    padding:11px 10px;background:var(--bg-2);
+                                    border:2px solid {{ isset($errors['ecPhone']) ? 'var(--red)' : 'var(--ink)' }};
+                                    border-right:none;border-radius:3px 0 0 3px;
+                                    color:var(--ink);font-family:inherit;font-size:13px;outline:none;
+                                    flex-shrink:0;
+                                ">
+                                    <option value="+62">🇮🇩 +62</option>
+                                    <option value="+60">🇲🇾 +60</option>
+                                    <option value="+65">🇸🇬 +65</option>
+                                    <option value="+63">🇵🇭 +63</option>
+                                    <option value="+66">🇹🇭 +66</option>
+                                    <option value="+1">🇺🇸 +1</option>
+                                    <option value="+44">🇬🇧 +44</option>
+                                    <option value="+61">🇦🇺 +61</option>
+                                </select>
+                                <input wire:model.live="ecPhoneNum" type="tel" placeholder="8123456789"
+                                    style="
+                                        flex:1;padding:11px 14px;background:var(--surface);
+                                        border:2px solid {{ isset($errors['ecPhone']) ? 'var(--red)' : 'var(--ink)' }};
+                                        border-radius:0 3px 3px 0;color:var(--ink);
+                                        font-family:inherit;font-size:14px;outline:none;
+                                    "
+                                    onfocus="this.style.borderColor='var(--lime)';this.previousElementSibling.style.borderColor='var(--lime)'"
+                                    onblur="this.style.borderColor='{{ isset($errors['ecPhone']) ? 'var(--red)' : 'var(--ink)' }}';this.previousElementSibling.style.borderColor='{{ isset($errors['ecPhone']) ? 'var(--red)' : 'var(--ink)' }}'">
+                            </div>
+                        </label>
+
+                        {{-- Relationship --}}
+                        <label class="col" style="gap:7px;">
+                            <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['ecRelation']) ? 'var(--red)' : 'var(--ink-dim)' }};">
+                                RELATIONSHIP *{{ isset($errors['ecRelation']) ? ' — '.$errors['ecRelation'] : '' }}
+                            </span>
+                            <input wire:model="ecRelation" type="text" placeholder="e.g. Parent, Sibling"
+                                class="field-input {{ isset($errors['ecRelation']) ? 'error' : '' }}" />
+                        </label>
+
                     </div>
                 @endif
 
@@ -218,16 +289,11 @@
                         </div>
                         <span class="display tnum" style="font-size:30px;color:var(--lime);">Rp 350.000</span>
                     </div>
-                    <div style="margin-bottom:20px;">
-                        <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:var(--ink-dim);display:block;margin-bottom:7px;">PAYMENT METHOD</span>
-                        <div class="flex gap-s" style="flex-wrap:wrap;">
-                            @foreach(['Transfer','E-Wallet','QRIS'] as $opt)
-                                <button wire:click="$set('payMethod','{{ $opt }}')" class="label" style="
-                                    font-size:12px;padding:11px 18px;border:2px solid var(--ink);border-radius:3px;
-                                    background:{{ $payMethod === $opt ? 'var(--ink)' : 'transparent' }};
-                                    color:{{ $payMethod === $opt ? 'var(--bg)' : 'var(--ink)' }};
-                                ">{{ $opt }}</button>
-                            @endforeach
+                    <div style="margin-bottom:20px;padding:14px 16px;background:var(--bg-2);border:2px solid var(--line);border-radius:3px;display:flex;align-items:center;gap:12px;">
+                        <span style="font-size:20px;">🏦</span>
+                        <div class="col" style="gap:3px;">
+                            <span class="label" style="font-size:13px;">Transfer Bank / Virtual Account</span>
+                            <span class="mono dim" style="font-size:11px;">Konfirmasi pembayaran akan dikirim via notifikasi setelah admin verifikasi.</span>
                         </div>
                     </div>
                     <div style="margin-top:20px;">

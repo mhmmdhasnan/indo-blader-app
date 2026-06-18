@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Rider extends Model
 {
     protected $fillable = [
-        'user_id', 'slug', 'name', 'nick', 'city', 'age', 'category', 'stance',
+        'user_id', 'avatar', 'slug', 'name', 'nick', 'city', 'age', 'category', 'stance',
         'points', 'sponsor', 'wins', 'podiums', 'comps', 'best_score',
         'bio', 'achievements', 'ig', 'yt', 'tt',
     ];

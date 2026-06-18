@@ -15,7 +15,14 @@
                     </span>
                 @endif
             </div>
-            <div class="flex gap-s">
+            <div class="flex gap-s" style="align-items:center;flex-wrap:wrap;">
+                @if($events->count() > 1)
+                    <select wire:model.live="selectedSlug" class="mono" style="background:var(--bg);color:var(--ink);border:1.5px solid var(--lime);border-radius:6px;padding:6px 12px;font-size:12px;letter-spacing:0.05em;cursor:pointer;outline:none;">
+                        @foreach($events as $ev)
+                            <option value="{{ $ev->slug }}">{{ strtoupper($ev->title) }}</option>
+                        @endforeach
+                    </select>
+                @endif
                 <a href="{{ route('live') }}" class="btn btn-ghost btn-sm"><span class="live-dot" style="margin-right:6px;"></span>Live Scoring</a>
                 @if($event)
                     <a href="{{ route('events.show', $event->slug) }}" class="btn btn-ghost btn-sm">Event →</a>

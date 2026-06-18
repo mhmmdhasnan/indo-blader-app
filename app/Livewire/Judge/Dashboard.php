@@ -30,6 +30,9 @@ class Dashboard extends Component
 {
     public string $view = 'judging';
 
+    // Global active event (synced to all sub-selectors)
+    public int $activeEventId = 0;
+
     // Scoring — dynamic criteria arrays
     public array  $criteriaScores  = [];   // rider A (live + knockout)
     public array  $criteriaScoresB = [];   // rider B (knockout only)
@@ -61,6 +64,30 @@ class Dashboard extends Component
     public string $submissionFeedback = '';
 
     // ─── Criteria init ────────────────────────────────────────────────────────
+
+    public function mount(): void
+    {
+        $active = Event::where('status', 'LIVE')->orderBy('date')->first()
+            ?? Event::orderByRaw("ABS(DATEDIFF(date, NOW()))")->orderBy('date')->first()
+            ?? Event::orderBy('date')->first();
+
+        if ($active) {
+            $this->activeEventId   = $active->id;
+            $this->judgeEventId    = $active->id;
+            $this->selectedEventId = $active->id;
+            $this->initCriteria();
+        }
+    }
+
+    public function updatedActiveEventId(): void
+    {
+        $this->judgeEventId    = $this->activeEventId;
+        $this->selectedEventId = $this->activeEventId;
+        $this->scoreSubmitted  = false;
+        $this->koMatchId       = 0;
+        $this->liveRiderId     = 0;
+        $this->initCriteria();
+    }
 
     public function updatedJudgeEventId(): void
     {
@@ -385,6 +412,10 @@ class Dashboard extends Component
 
     public function approveSubmission(int $id): void
     {
+        if (!auth()->user()->isHeadJudge()) {
+            $this->addError('submission', 'Hanya Head Judge yang dapat approve submission.');
+            return;
+        }
         BattleSubmission::findOrFail($id)->update([
             'status'      => 'APPROVED',
             'reviewed_by' => auth()->id(),
@@ -394,6 +425,10 @@ class Dashboard extends Component
 
     public function rejectSubmission(int $id, string $feedback = ''): void
     {
+        if (!auth()->user()->isHeadJudge()) {
+            $this->addError('submission', 'Hanya Head Judge yang dapat reject submission.');
+            return;
+        }
         BattleSubmission::findOrFail($id)->update([
             'status'         => 'REJECTED',
             'judge_feedback' => $feedback ?: null,
@@ -404,6 +439,10 @@ class Dashboard extends Component
 
     public function requestReupload(int $id, string $feedback = ''): void
     {
+        if (!auth()->user()->isHeadJudge()) {
+            $this->addError('submission', 'Hanya Head Judge yang dapat meminta re-upload.');
+            return;
+        }
         BattleSubmission::findOrFail($id)->update([
             'status'         => 'NEED_REUPLOAD',
             'judge_feedback' => $feedback ?: null,
@@ -418,6 +457,7 @@ class Dashboard extends Component
     {
         $data = [
             'events'          => Event::orderBy('date')->get(),
+            'activeEvent'     => $this->activeEventId ? Event::find($this->activeEventId) : null,
             'eventCriteria'   => collect(),
             'judgeAssignment' => null,
             'otherJudgeScores'=> collect(),
@@ -523,9 +563,14 @@ class Dashboard extends Component
             }
         }
 
+        $eid = $this->activeEventId ?: null;
+
         if ($this->view === 'categories') {
             $data['pendingCategoryAssignments'] = RiderCategory::with(['registration.event', 'category'])
-                ->where('status', 'PENDING')->latest()->get();
+                ->where('status', 'PENDING')
+                ->whereHas('registration', fn ($q) => $q->where('status', 'APPROVED')
+                    ->when($eid, fn ($q) => $q->where('event_id', $eid)))
+                ->latest()->get();
             $data['allCategories'] = Category::all();
         }
 
@@ -537,22 +582,24 @@ class Dashboard extends Component
                 'qualificationMatches.trick',
                 'qualificationMatches.winner',
             ])
-                ->when($this->selectedEventId, fn ($q) => $q->where('event_id', $this->selectedEventId))
-                ->orderBy('round_number')
-                ->get();
-            $data['tricks'] = Trick::where('is_active', true)->orderBy('name')->get();
-            $data['approvedRegistrations'] = $this->selectedEventId
-                ? Registration::where('event_id', $this->selectedEventId)->where('status', 'APPROVED')->orderBy('name')->get()
+                ->when($eid, fn ($q) => $q->where('event_id', $eid))
+                ->orderBy('round_number')->get();
+            $data['tricks']                = Trick::where('is_active', true)->orderBy('name')->get();
+            $data['approvedRegistrations'] = $eid
+                ? Registration::where('event_id', $eid)->where('status', 'APPROVED')->orderBy('name')->get()
                 : collect();
         }
 
         if ($this->view === 'submissions') {
             $data['pendingSubmissions'] = BattleSubmission::with('registration')
-                ->where('status', 'PENDING')->latest()->get();
+                ->where('status', 'PENDING')
+                ->when($eid, fn ($q) => $q->whereHas('registration', fn ($q) => $q->where('event_id', $eid)))
+                ->latest()->get();
         }
 
         if ($this->view === 'brackets') {
             $data['brackets'] = Bracket::with(['event', 'bracketMatches.riderA', 'bracketMatches.riderB', 'bracketMatches.winner', 'bracketMatches.trick'])
+                ->when($eid, fn ($q) => $q->where('event_id', $eid))
                 ->latest()->get();
             $data['tricks'] = Trick::where('is_active', true)->orderBy('name')->get();
         }

@@ -25,25 +25,25 @@ class RegistrationForm extends Component
     public string $entryCode = '';
 
     // Step 0 — Personal
-    public string $name     = '';
-    public string $email    = '';
-    public string $phone    = '';
-    public string $dob      = '';
-    public string $city     = '';
-    public string $stance   = 'Regular';
+    public string $name        = '';
+    public string $email       = '';
+    public string $phoneCode   = '+62';
+    public string $phoneNumber = '';
+    public string $dob         = '';
+    public string $city        = '';
 
     // Step 1 — Category
-    public string $eventSlug            = 'nationals';
-    public string $category              = '';
-    public string $competitionCategory   = '';
-    public string $experience            = 'Amateur';
+    public string $eventSlug          = 'nationals';
+    public string $category            = '';
+    public string $competitionCategory = '';
 
     // Step 2 — Emergency
-    public string $ecName     = '';
-    public string $ecPhone    = '';
-    public string $ecRelation = '';
+    public string $ecName      = '';
+    public string $ecPhoneCode = '+62';
+    public string $ecPhoneNum  = '';
+    public string $ecRelation  = '';
 
-    // Step 3 — Payment
+    // Step 3 — Payment (Transfer only)
     public string $payMethod = 'Transfer';
     public $payFile          = null;
     public bool $agree       = false;
@@ -52,7 +52,17 @@ class RegistrationForm extends Component
 
     public function mount(): void
     {
+        if (!auth()->check()) {
+            session()->flash('info', 'Kamu harus login dulu sebelum bisa daftar event.');
+            $this->redirect(route('login'), navigate: true);
+            return;
+        }
+
         $this->eventSlug = Event::orderBy('date')->first()?->slug ?? 'nationals';
+
+        $user = auth()->user();
+        $this->name  = $user->name;
+        $this->email = $user->email;
     }
 
     public function next(): void
@@ -60,11 +70,11 @@ class RegistrationForm extends Component
         $this->errors = [];
 
         if ($this->step === 0) {
-            if (!trim($this->name))                         $this->errors['name']  = 'required';
-            if (!filter_var($this->email, FILTER_VALIDATE_EMAIL)) $this->errors['email'] = 'invalid email';
-            if (!preg_match('/^[0-9+\-\s]{8,}$/', $this->phone)) $this->errors['phone'] = 'invalid';
-            if (!$this->dob)                                $this->errors['dob']   = 'required';
-            if (!trim($this->city))                         $this->errors['city']  = 'required';
+            if (!trim($this->name))                               $this->errors['name']        = 'required';
+            if (!filter_var($this->email, FILTER_VALIDATE_EMAIL)) $this->errors['email']       = 'invalid email';
+            if (!preg_match('/^[0-9]{6,}$/', trim($this->phoneNumber))) $this->errors['phone'] = 'min 6 digit';
+            if (!$this->dob)                                      $this->errors['dob']         = 'required';
+            if (!trim($this->city))                               $this->errors['city']        = 'required';
         }
 
         if ($this->step === 1) {
@@ -73,9 +83,9 @@ class RegistrationForm extends Component
         }
 
         if ($this->step === 2) {
-            if (!trim($this->ecName))                           $this->errors['ecName']     = 'required';
-            if (!preg_match('/^[0-9+\-\s]{8,}$/', $this->ecPhone)) $this->errors['ecPhone']    = 'invalid';
-            if (!trim($this->ecRelation))                       $this->errors['ecRelation'] = 'required';
+            if (!trim($this->ecName))                                    $this->errors['ecName']     = 'required';
+            if (!preg_match('/^[0-9]{6,}$/', trim($this->ecPhoneNum)))  $this->errors['ecPhone']    = 'min 6 digit';
+            if (!trim($this->ecRelation))                                $this->errors['ecRelation'] = 'required';
         }
 
         if ($this->step === 3) {
@@ -109,22 +119,22 @@ class RegistrationForm extends Component
 
         $this->entryCode = 'IB26-' . strtoupper(Str::random(5));
 
+        $phone = $this->phoneCode . $this->phoneNumber;
+
         $reg = Registration::create([
             'entry_code'           => $this->entryCode,
             'name'                 => $this->name,
             'email'                => $this->email,
-            'phone'                => $this->phone,
+            'phone'                => $phone,
             'dob'                  => $this->dob,
             'city'                 => $this->city,
-            'stance'               => $this->stance,
             'event_id'             => $event->id,
             'category'             => $this->category,
             'competition_category' => $this->competitionCategory,
-            'experience'           => $this->experience,
             'ec_name'              => $this->ecName,
-            'ec_phone'             => $this->ecPhone,
+            'ec_phone'             => $this->ecPhoneCode . $this->ecPhoneNum,
             'ec_relation'          => $this->ecRelation,
-            'payment_method'       => $this->payMethod,
+            'payment_method'       => 'Transfer',
             'payment_proof'        => $proofPath,
             'payment_status'       => 'PENDING',
             'status'               => 'PENDING',

@@ -3,9 +3,7 @@
     <aside class="admin-side" style="border-right:2px solid var(--ink);background:var(--bg-2);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;">
         <div style="padding:20px 18px;border-bottom:2px solid var(--ink);">
             <div style="display:flex;align-items:center;gap:10px;">
-                <div style="width:34px;height:34px;background:var(--lime);display:flex;align-items:center;justify-content:center;border-radius:2px;">
-                    <span class="display" style="font-size:18px;color:#0a0a0b;">IB</span>
-                </div>
+                <img src="{{ asset('images/logo.svg') }}" alt="Indo Blader" style="width:36px;height:36px;flex-shrink:0;">
                 <div class="col" style="line-height:0.9;">
                     <span class="display" style="font-size:16px;">Indo Blader</span>
                     <span class="mono" style="font-size:9px;letter-spacing:0.2em;color:var(--ink-dim);">AGGRESSIVE INLINE · ID</span>
@@ -13,30 +11,82 @@
             </div>
             <span class="badge badge-lime" style="margin-top:12px;font-size:9px;">ADMIN CONSOLE</span>
         </div>
-        <nav class="col" style="padding:12px;gap:3px;flex:1;">
-            @foreach([
-                ['overview',       '◧', 'Overview'],
-                ['registrations',  '✓', 'Registrations'],
-                ['payments',       '₨', 'Payments'],
-                ['riders',         '◉', 'Riders'],
-                ['events',         '◆', 'Events'],
-                ['judging',        '★', 'Judge Panel'],
-                ['brackets',       '⊟', 'Brackets'],
-                ['categories',     '⊞', 'Categories'],
-                ['qualification',  '⚡', 'Qualification'],
-                ['tricks',         '◈', 'Tricks'],
-                ['submissions',    '▶', 'Submissions'],
-                ['ranking_admin',  '▲', 'Rankings'],
-                ['scoring',        '◈', 'Scoring Setup'],
-            ] as [$k,$ic,$lbl])
-                <button wire:click="$set('view','{{ $k }}')" class="flex label" style="
-                    align-items:center;gap:12px;padding:11px 13px;border-radius:3px;font-size:13px;text-align:left;width:100%;
-                    background:{{ $view === $k ? 'var(--ink)' : 'transparent' }};
-                    color:{{ $view === $k ? 'var(--bg)' : 'var(--ink-dim)' }};
-                    transition:background .15s,color .15s;
-                ">
-                    <span style="font-size:15px;width:18px;">{{ $ic }}</span>{{ $lbl }}
-                </button>
+
+        {{-- ── GLOBAL EVENT SELECTOR ── --}}
+        <div style="padding:12px 14px;border-bottom:2px solid var(--ink);background:var(--bg);">
+            <span class="mono" style="font-size:9px;letter-spacing:0.16em;color:var(--ink-dim);display:block;margin-bottom:6px;">ACTIVE EVENT</span>
+            <select wire:model.live="activeEventId" style="
+                width:100%;padding:8px 10px;background:var(--bg-2);
+                border:2px solid var(--lime);border-radius:3px;
+                color:var(--ink);font-family:inherit;font-size:12px;outline:none;
+            ">
+                <option value="0">— pilih event —</option>
+                @foreach($events as $ev)
+                    <option value="{{ $ev->id }}">{{ $ev->title }}</option>
+                @endforeach
+            </select>
+            @if(isset($activeEvent) && $activeEvent)
+                <div class="flex" style="align-items:center;gap:6px;margin-top:6px;">
+                    <span class="badge badge-{{ $activeEvent->status === 'LIVE' ? 'lime' : ($activeEvent->status === 'DONE' ? 'out' : 'red') }}" style="font-size:8px;">
+                        {{ $activeEvent->status }}
+                    </span>
+                    <span class="mono dim" style="font-size:9px;">{{ $activeEvent->date?->format('d M Y') }}</span>
+                </div>
+            @endif
+        </div>
+
+        <nav class="col" style="padding:10px 10px;gap:0;flex:1;overflow-y:auto;">
+            @php
+            $navGroups = [
+                'MAIN' => [
+                    ['overview', '◧', 'Overview'],
+                ],
+                'PENDAFTARAN' => [
+                    ['registrations', '✓', 'Registrations'],
+                    ['payments',      '₨', 'Payments'],
+                    ['riders',        '◉', 'Riders'],
+                ],
+                'EVENT' => [
+                    ['events', '◆', 'Events'],
+                ],
+                'KOMPETISI' => [
+                    ['qualification', '⚡', 'Qualification'],
+                    ['brackets',      '⊟', 'Brackets'],
+                    ['judging',       '★', 'Judge Panel'],
+                    ['submissions',   '▶', 'Submissions'],
+                ],
+                'KONFIGURASI' => [
+                    ['categories',    '⊞', 'Categories'],
+                    ['tricks',        '◈', 'Tricks'],
+                    ['scoring',       '⊙', 'Scoring Setup'],
+                    ['ranking_admin', '▲', 'Rankings'],
+                    ['users',         '👤', 'Users'],
+                ],
+            ];
+            @endphp
+
+            @foreach($navGroups as $groupLabel => $items)
+                <div style="margin-top:6px;">
+                    <span class="mono" style="
+                        display:block;padding:6px 10px 4px;
+                        font-size:8px;letter-spacing:0.18em;
+                        color:var(--ink-dim);opacity:0.55;
+                    ">{{ $groupLabel }}</span>
+                    @foreach($items as [$k, $ic, $lbl])
+                        <button wire:click="$set('view','{{ $k }}')" class="flex label" style="
+                            align-items:center;gap:10px;padding:9px 10px;border-radius:3px;
+                            font-size:12.5px;text-align:left;width:100%;
+                            background:{{ $view === $k ? 'var(--ink)' : 'transparent' }};
+                            color:{{ $view === $k ? 'var(--bg)' : 'var(--ink-dim)' }};
+                            transition:background .15s,color .15s;
+                        "
+                        onmouseover="if('{{ $view }}' !== '{{ $k }}') this.style.background='color-mix(in srgb,var(--ink) 10%,transparent)'"
+                        onmouseout="if('{{ $view }}' !== '{{ $k }}') this.style.background='transparent'">
+                            <span style="font-size:14px;width:16px;text-align:center;opacity:{{ $view === $k ? '1' : '0.7' }};">{{ $ic }}</span>
+                            {{ $lbl }}
+                        </button>
+                    @endforeach
+                </div>
             @endforeach
         </nav>
         <div style="padding:14px;border-top:2px solid var(--ink);">
@@ -49,21 +99,24 @@
         {{-- Top bar --}}
         <header class="between admin-topbar" style="padding:16px 26px;border-bottom:2px solid var(--ink);position:sticky;top:0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);z-index:20;">
             <div class="col">
-                <span class="kicker">INDO BLADER NATIONALS '26</span>
+                <span class="kicker">{{ isset($activeEvent) && $activeEvent ? strtoupper($activeEvent->title) : 'INDO BLADER' }}</span>
                 <h1 class="display" style="font-size:26px;">
                     {{ collect([
                         'overview' => 'Overview', 'registrations' => 'Registrations', 'payments' => 'Payments',
                         'riders' => 'Riders', 'events' => 'Events', 'judging' => 'Judge Panel', 'brackets' => 'Brackets',
                         'categories' => 'Categories', 'qualification' => 'Qualification', 'tricks' => 'Tricks',
-                        'submissions' => 'Submissions', 'ranking_admin' => 'Rankings',
+                        'submissions' => 'Submissions', 'ranking_admin' => 'Rankings', 'users' => 'Users',
                     ])->get($view, 'Overview') }}
                 </h1>
             </div>
             <div class="flex" style="align-items:center;gap:14px;">
                 <span class="badge badge-out"><span class="live-dot"></span>SYSTEM LIVE</span>
                 <div class="flex adm-head-user" style="align-items:center;gap:10px;">
-                    <x-avatar initials="AH" :size="36" />
-                    <div class="col"><span class="label" style="font-size:13px;white-space:nowrap;">A. Hidayat</span><span class="mono dim" style="font-size:10px;">HEAD JUDGE</span></div>
+                    <x-avatar :initials="collect(explode(' ', auth()->user()->name))->map(fn($w)=>strtoupper($w[0]))->take(2)->implode('')" :size="36" />
+                    <div class="col">
+                        <span class="label" style="font-size:13px;white-space:nowrap;">{{ auth()->user()->name }}</span>
+                        <span class="mono dim" style="font-size:10px;">{{ strtoupper(auth()->user()->role) }}</span>
+                    </div>
                 </div>
             </div>
         </header>
@@ -74,11 +127,12 @@
             @if($view === 'overview')
                 <div class="col" style="gap:20px;">
                     <div class="adm-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
+                        @php $eventLabel = isset($activeEvent) && $activeEvent ? $activeEvent->title : 'all events'; @endphp
                         @foreach([
-                            ['TOTAL REGISTRATIONS', $registrations->count(), '▲ 12 today', 'var(--lime)'],
+                            ['TOTAL REGISTRATIONS', $registrations->count(), $eventLabel, 'var(--lime)'],
                             ['PENDING APPROVAL', $registrations->where('status','PENDING')->count(), 'needs review', 'var(--red)'],
-                            ['REVENUE (JT IDR)', round($revenue/1e6,1), '▲ Rp 4.2jt today', null],
-                            ['ACTIVE RIDERS', $riders->count(), 'across 5 events', null],
+                            ['REVENUE (EST IDR)', 'Rp ' . number_format($revenue,0,',','.'), $eventLabel, null],
+                            ['RIDERS TERDAFTAR', $riders->count(), $eventLabel, null],
                         ] as [$lbl,$val,$sub,$accent])
                             <div class="panel halftone" style="padding:18px;">
                                 <span class="mono dim" style="font-size:10px;letter-spacing:0.14em;">{{ $lbl }}</span>
@@ -157,13 +211,26 @@
                                 <span class="dim" style="font-size:12px;">{{ $reg->event?->title }}</span>
                                 <x-cat-badge :cat="$reg->category" :sm="true" />
                                 <span class="badge badge-{{ $reg->status_variant }}">{{ $reg->status }}</span>
-                                <div class="flex gap-s">
+                                <div class="flex gap-s" style="align-items:center;flex-wrap:wrap;">
                                     @if($reg->status === 'PENDING')
-                                        <button wire:click="approveRegistration({{ $reg->id }})" class="btn btn-sm btn-lime" style="padding:6px 12px;">Approve</button>
-                                        <button wire:click="rejectRegistration({{ $reg->id }})" class="btn btn-sm btn-ghost" style="padding:6px 12px;">Reject</button>
+                                        @if($reg->payment_status !== 'VERIFIED')
+                                            <span class="mono dim" style="font-size:10px;color:var(--red);">⚠ payment belum verify</span>
+                                        @endif
+                                        <button wire:click="approveRegistration({{ $reg->id }})"
+                                            class="btn btn-sm btn-lime" style="padding:6px 12px;"
+                                            @if($reg->payment_status !== 'VERIFIED') disabled title="Verify payment dulu" @endif>
+                                            Approve
+                                        </button>
+                                        <button wire:click="rejectRegistration({{ $reg->id }})"
+                                            wire:confirm="Reject registrasi {{ $reg->name }}?"
+                                            class="btn btn-sm btn-ghost" style="padding:6px 12px;">Reject</button>
                                     @else
+                                        <span class="badge badge-{{ $reg->status_variant }}" style="font-size:9px;">{{ $reg->status }}</span>
                                         <button wire:click="pendingRegistration({{ $reg->id }})" class="mono dim" style="font-size:11px;text-decoration:underline;">undo</button>
                                     @endif
+                                    @error('registration_' . $reg->id)
+                                        <span style="font-size:10px;color:var(--red);">{{ $message }}</span>
+                                    @enderror
                                 </div>
                             </div>
                         @empty
@@ -190,12 +257,48 @@
                             <span class="mono tnum" style="font-size:13px;">Rp 350.000</span>
                             <span class="dim mono" style="font-size:12px;">{{ $reg->payment_method }}</span>
                             <span class="badge badge-{{ $reg->payment_status_variant }}">{{ $reg->payment_status }}</span>
-                            <div class="flex gap-s" style="align-items:center;">
+                            <div class="flex gap-s" style="align-items:center;flex-wrap:wrap;">
                                 @if($reg->payment_proof)
-                                    <span class="badge badge-out" style="font-size:9px;">📎 proof</span>
+                                    <a href="{{ asset('storage/' . $reg->payment_proof) }}"
+                                       target="_blank"
+                                       x-data
+                                       @click.prevent="
+                                           const m = document.getElementById('proof-modal-{{ $reg->id }}');
+                                           m.style.display = 'flex';
+                                       "
+                                       class="btn btn-sm btn-ghost" style="font-size:11px;">📷 Lihat Transfer</a>
+
+                                    {{-- Proof modal --}}
+                                    <div id="proof-modal-{{ $reg->id }}"
+                                         style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);align-items:center;justify-content:center;padding:20px;"
+                                         @click.self="$el.style.display='none'">
+                                        <div style="position:relative;max-width:90vw;max-height:90vh;background:var(--bg);border:2px solid var(--ink);border-radius:4px;overflow:hidden;">
+                                            <div class="between" style="padding:12px 16px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
+                                                <span class="label" style="font-size:13px;">Bukti Transfer — {{ $reg->name }}</span>
+                                                <div class="flex gap-s">
+                                                    <a href="{{ asset('storage/' . $reg->payment_proof) }}" target="_blank" class="btn btn-sm btn-ghost" style="font-size:11px;">Buka ↗</a>
+                                                    <button @click="document.getElementById('proof-modal-{{ $reg->id }}').style.display='none'" class="btn btn-sm btn-ghost" style="font-size:11px;">✕ Tutup</button>
+                                                </div>
+                                            </div>
+                                            <div style="padding:16px;overflow:auto;max-height:75vh;text-align:center;">
+                                                <img src="{{ asset('storage/' . $reg->payment_proof) }}"
+                                                     alt="Bukti transfer"
+                                                     style="max-width:100%;max-height:65vh;object-fit:contain;border-radius:2px;">
+                                            </div>
+                                        </div>
+                                    </div>
+                                @else
+                                    <span class="mono dim" style="font-size:10px;">— belum upload</span>
                                 @endif
                                 @if($reg->payment_status === 'PENDING')
                                     <button wire:click="verifyPayment({{ $reg->id }})" class="btn btn-sm btn-lime" style="padding:6px 12px;">Verify</button>
+                                    <button wire:click="rejectPayment({{ $reg->id }})"
+                                        wire:confirm="Tolak payment {{ $reg->name }}? Status akan kembali ke UNPAID."
+                                        class="btn btn-sm btn-ghost" style="padding:6px 12px;color:var(--red);">Reject</button>
+                                @elseif($reg->payment_status === 'VERIFIED')
+                                    <button wire:click="rejectPayment({{ $reg->id }})"
+                                        wire:confirm="Batalkan verifikasi payment {{ $reg->name }}?"
+                                        class="mono dim" style="font-size:11px;text-decoration:underline;">undo verify</button>
                                 @endif
                             </div>
                         </div>
@@ -862,6 +965,137 @@
                             <p class="dim">No ranking data yet. Rankings are generated automatically when a bracket is completed.</p>
                         </div>
                     @endif
+                </div>
+            @endif
+
+            {{-- ── USERS ── --}}
+            @if($view === 'users')
+                <div class="col" style="gap:20px;">
+
+                    {{-- Form create / edit --}}
+                    @if($userEditing)
+                        <div class="panel" style="padding:22px;border-left:3px solid var(--lime);">
+                            <span class="kicker" style="display:block;margin-bottom:16px;">{{ $userId ? 'EDIT USER' : 'TAMBAH USER BARU' }}</span>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" class="prof-grid">
+                                <div class="col" style="gap:14px;">
+                                    <div>
+                                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">NAMA</span>
+                                        <input wire:model="userName" type="text" placeholder="Nama lengkap" class="input-field" style="width:100%;">
+                                        @error('userName') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
+                                    </div>
+                                    <div>
+                                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">EMAIL</span>
+                                        <input wire:model="userEmail" type="email" placeholder="email@example.com" class="input-field" style="width:100%;">
+                                        @error('userEmail') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
+                                    </div>
+                                </div>
+                                <div class="col" style="gap:14px;">
+                                    <div>
+                                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">ROLE</span>
+                                        <select wire:model="userRole" class="input-field" style="width:100%;">
+                                            <option value="rider">Rider</option>
+                                            <option value="judge">Judge</option>
+                                            <option value="head_judge">Head Judge</option>
+                                            <option value="admin">Admin</option>
+                                        </select>
+                                        @error('userRole') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
+                                    </div>
+                                    <div>
+                                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">
+                                            PASSWORD {{ $userId ? '(kosongkan jika tidak diubah)' : '' }}
+                                        </span>
+                                        <input wire:model="userPassword" type="password" placeholder="Min. 8 karakter" class="input-field" style="width:100%;">
+                                        @error('userPassword') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex gap-s" style="margin-top:18px;">
+                                <button wire:click="userSave" class="btn btn-lime">{{ $userId ? '✓ Simpan Perubahan' : '+ Buat User' }}</button>
+                                <button wire:click="userCancel" class="btn btn-ghost">Batal</button>
+                            </div>
+                        </div>
+                    @endif
+
+                    {{-- Search + Add button --}}
+                    <div class="between" style="flex-wrap:wrap;gap:10px;">
+                        <div style="position:relative;flex:1;min-width:200px;max-width:340px;">
+                            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ink-dim);font-size:13px;">⌕</span>
+                            <input wire:model.live="userSearch" type="text" placeholder="Cari nama atau email..."
+                                style="width:100%;padding:10px 14px 10px 34px;background:var(--surface);border:2px solid var(--line);border-radius:3px;color:var(--ink);font-family:inherit;font-size:13px;outline:none;"
+                                onfocus="this.style.borderColor='var(--lime)'" onblur="this.style.borderColor='var(--line)'">
+                        </div>
+                        @if(!$userEditing)
+                            <button wire:click="userNew" class="btn btn-lime">+ User Baru</button>
+                        @endif
+                    </div>
+
+                    {{-- User table --}}
+                    @if(isset($users) && $users->count())
+                        <div class="panel" style="overflow:hidden;overflow-x:auto;">
+                            {{-- Header --}}
+                            <div style="display:grid;grid-template-columns:2fr 2fr 130px 100px 120px;padding:12px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);min-width:640px;">
+                                @foreach(['NAMA', 'EMAIL', 'ROLE', 'BERGABUNG', ''] as $h)
+                                    <span class="mono dim" style="font-size:10px;letter-spacing:0.12em;">{{ $h }}</span>
+                                @endforeach
+                            </div>
+                            {{-- Rows --}}
+                            @foreach($users as $u)
+                                <div style="display:grid;grid-template-columns:2fr 2fr 130px 100px 120px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);min-width:640px;">
+                                    <div class="flex" style="align-items:center;gap:10px;">
+                                        <x-avatar
+                                            :initials="collect(explode(' ', $u->name))->map(fn($w)=>strtoupper($w[0]))->take(2)->implode('')"
+                                            :size="32"
+                                        />
+                                        <div class="col" style="gap:2px;">
+                                            <span class="label" style="font-size:13px;">{{ $u->name }}</span>
+                                            @if($u->id === auth()->id())
+                                                <span class="mono" style="font-size:9px;color:var(--lime);">● kamu</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <span class="mono dim" style="font-size:12px;word-break:break-all;">{{ $u->email }}</span>
+                                    <span class="badge badge-{{
+                                        match($u->role) {
+                                            'admin'      => 'lime',
+                                            'head_judge' => 'red',
+                                            'judge'      => 'out',
+                                            default      => 'solid',
+                                        }
+                                    }}" style="font-size:9px;justify-self:start;">{{ strtoupper(str_replace('_', ' ', $u->role)) }}</span>
+                                    <span class="mono dim" style="font-size:11px;">{{ $u->created_at->format('d M Y') }}</span>
+                                    <div class="flex gap-s" style="justify-content:flex-end;">
+                                        <button wire:click="userEdit({{ $u->id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">Edit</button>
+                                        @if($u->id !== auth()->id())
+                                            <button wire:click="userDelete({{ $u->id }})"
+                                                wire:confirm="Hapus user {{ $u->name }}? Tindakan ini tidak bisa dibatalkan."
+                                                class="btn btn-sm btn-ghost" style="font-size:11px;color:var(--red);">Hapus</button>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        {{-- Summary per role --}}
+                        <div class="flex gap-s" style="flex-wrap:wrap;">
+                            @foreach($users->groupBy('role') as $role => $group)
+                                <div class="panel" style="padding:12px 18px;display:flex;align-items:center;gap:10px;">
+                                    <span class="display tnum" style="font-size:24px;color:var(--lime);">{{ $group->count() }}</span>
+                                    <span class="mono dim" style="font-size:10px;letter-spacing:0.1em;">{{ strtoupper(str_replace('_', ' ', $role)) }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="panel center col" style="padding:50px;gap:12px;text-align:center;">
+                            <span style="font-size:40px;">👤</span>
+                            <p class="dim">{{ $userSearch ? 'Tidak ada user yang cocok dengan pencarian.' : 'Belum ada user.' }}</p>
+                        </div>
+                    @endif
+
+                    @error('userDelete')
+                        <div style="padding:12px 16px;border-left:3px solid var(--red);background:var(--bg-2);border-radius:2px;">
+                            <span style="color:var(--red);font-size:13px;">{{ $message }}</span>
+                        </div>
+                    @enderror
                 </div>
             @endif
 

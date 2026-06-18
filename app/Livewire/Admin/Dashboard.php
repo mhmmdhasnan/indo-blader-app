@@ -33,6 +33,9 @@ class Dashboard extends Component
 {
     public string $view = 'overview';
 
+    // Global active event (synced to all sub-selectors)
+    public int $activeEventId = 0;
+
     // Judging state
     public array  $criteriaScores    = [];
     public array  $criteriaScoresB   = [];
@@ -111,6 +114,45 @@ class Dashboard extends Component
     public int    $evSlots      = 32;
     public string $evBlurb      = '';
     public bool   $evFeatured   = false;
+
+    // User CRUD
+    public bool   $userEditing  = false;
+    public int    $userId       = 0;
+    public string $userName     = '';
+    public string $userEmail    = '';
+    public string $userRole     = 'rider';
+    public string $userPassword = '';
+    public string $userSearch   = '';
+
+    // ─── Boot ────────────────────────────────────────────────────────────────
+
+    public function mount(): void
+    {
+        $active = Event::where('status', 'LIVE')->orderBy('date')->first()
+            ?? Event::orderByRaw("ABS(DATEDIFF(date, NOW()))")->orderBy('date')->first()
+            ?? Event::orderBy('date')->first();
+
+        if ($active) {
+            $this->activeEventId   = $active->id;
+            $this->judgeEventId    = $active->id;
+            $this->selectedEventId = $active->id;
+            $this->jaEventId       = $active->id;
+            $this->scEventId       = $active->id;
+        }
+    }
+
+    public function updatedActiveEventId(): void
+    {
+        $this->judgeEventId    = $this->activeEventId;
+        $this->selectedEventId = $this->activeEventId;
+        $this->jaEventId       = $this->activeEventId;
+        $this->scEventId       = $this->activeEventId;
+        $this->scoreSubmitted  = false;
+        $this->koMatchId       = 0;
+        $this->liveRiderId     = 0;
+        $this->criteriaScores  = [];
+        $this->criteriaScoresB = [];
+    }
 
     // ─── Scoring ─────────────────────────────────────────────────────────────
 
@@ -258,11 +300,97 @@ class Dashboard extends Component
         $this->evId      = 0;
     }
 
+    // ─── User CRUD ────────────────────────────────────────────────────────────
+
+    public function userNew(): void
+    {
+        $this->userEditing  = true;
+        $this->userId       = 0;
+        $this->userName     = '';
+        $this->userEmail    = '';
+        $this->userRole     = 'rider';
+        $this->userPassword = '';
+    }
+
+    public function userEdit(int $id): void
+    {
+        $user               = User::findOrFail($id);
+        $this->userEditing  = true;
+        $this->userId       = $id;
+        $this->userName     = $user->name;
+        $this->userEmail    = $user->email;
+        $this->userRole     = $user->role;
+        $this->userPassword = '';
+    }
+
+    public function userSave(): void
+    {
+        $rules = [
+            'userName'  => 'required|string|max:100',
+            'userEmail' => 'required|email|unique:users,email' . ($this->userId ? ",{$this->userId}" : ''),
+            'userRole'  => 'required|in:admin,head_judge,judge,rider',
+        ];
+        if (!$this->userId) {
+            $rules['userPassword'] = 'required|min:8';
+        } elseif ($this->userPassword) {
+            $rules['userPassword'] = 'min:8';
+        }
+
+        $this->validate($rules, [
+            'userName.required'      => 'Nama wajib diisi.',
+            'userEmail.required'     => 'Email wajib diisi.',
+            'userEmail.unique'       => 'Email sudah dipakai.',
+            'userPassword.required'  => 'Password wajib diisi untuk user baru.',
+            'userPassword.min'       => 'Password minimal 8 karakter.',
+        ]);
+
+        $payload = [
+            'name'  => $this->userName,
+            'email' => $this->userEmail,
+            'role'  => $this->userRole,
+        ];
+        if ($this->userPassword) {
+            $payload['password'] = bcrypt($this->userPassword);
+        }
+
+        if ($this->userId) {
+            User::findOrFail($this->userId)->update($payload);
+        } else {
+            User::create($payload);
+        }
+
+        $this->userEditing  = false;
+        $this->userId       = 0;
+        $this->userPassword = '';
+    }
+
+    public function userCancel(): void
+    {
+        $this->userEditing  = false;
+        $this->userId       = 0;
+        $this->userPassword = '';
+    }
+
+    public function userDelete(int $id): void
+    {
+        if ($id === auth()->id()) {
+            $this->addError('userDelete', 'Tidak bisa menghapus akun sendiri.');
+            return;
+        }
+        User::findOrFail($id)->delete();
+    }
+
     // ─── Registration ─────────────────────────────────────────────────────────
 
     public function approveRegistration(int $id): void
     {
         $reg = Registration::findOrFail($id);
+
+        if ($reg->payment_status !== 'VERIFIED') {
+            $this->addError('registration_' . $id, 'Payment harus diverifikasi dulu sebelum approve registrasi.');
+            return;
+        }
+
         $reg->update(['status' => 'APPROVED']);
         NotificationService::send($reg, 'registration_approved', 'Registration Approved',
             "Your registration for {$reg->event->title} has been approved. Entry: {$reg->entry_code}.");
@@ -280,7 +408,18 @@ class Dashboard extends Component
 
     public function verifyPayment(int $id): void
     {
-        Registration::findOrFail($id)->update(['payment_status' => 'VERIFIED']);
+        $reg = Registration::findOrFail($id);
+        $reg->update(['payment_status' => 'VERIFIED']);
+        NotificationService::send($reg, 'payment_verified', 'Payment Verified',
+            "Pembayaran kamu untuk {$reg->event->title} sudah terverifikasi. Registrasi sedang diproses.");
+    }
+
+    public function rejectPayment(int $id): void
+    {
+        $reg = Registration::findOrFail($id);
+        $reg->update(['payment_status' => 'UNPAID']);
+        NotificationService::send($reg, 'payment_rejected', 'Payment Rejected',
+            "Bukti transfer untuk {$reg->event->title} tidak valid. Harap upload ulang bukti pembayaran yang benar.");
     }
 
     // ─── Category Management ──────────────────────────────────────────────────
@@ -733,22 +872,28 @@ class Dashboard extends Component
 
     public function render()
     {
-        $registrations = Registration::with('event')->latest()->get();
-        $events        = Event::orderBy('date')->get();
-        $riders        = Rider::orderByDesc('points')->get();
-        $revenue       = $registrations->count() * 350000;
+        $eid    = $this->activeEventId ?: null;
+        $events = Event::orderBy('date')->get();
 
-        $data = compact('registrations', 'events', 'riders', 'revenue');
-        $data['eventCriteria']        = collect();
-        $data['judgeAssignment']      = null;
-        $data['otherJudgeScores']     = collect();
-        $data['koOtherJudgeScoresA']  = collect();
-        $data['koOtherJudgeScoresB']  = collect();
+        $activeEvent    = $eid ? Event::find($eid) : null;
+        $registrations  = Registration::with('event')
+            ->when($eid, fn ($q) => $q->where('event_id', $eid))
+            ->latest()->get();
+        $riders         = Rider::whereHas('user.registrations', fn ($q) => $q->when($eid, fn ($q) => $q->where('event_id', $eid)))
+            ->orderByDesc('points')->get();
+        $revenue        = $registrations->count() * 350000;
+
+        $data = compact('registrations', 'events', 'riders', 'revenue', 'activeEvent');
+        $data['eventCriteria']       = collect();
+        $data['judgeAssignment']     = null;
+        $data['otherJudgeScores']    = collect();
+        $data['koOtherJudgeScoresA'] = collect();
+        $data['koOtherJudgeScoresB'] = collect();
 
         if ($this->view === 'judging') {
             $mode     = strtoupper($this->scoringMode);
-            $criteria = $this->judgeEventId
-                ? Event::find($this->judgeEventId)?->criteriaFor($mode) ?? collect()
+            $criteria = $eid
+                ? Event::find($eid)?->criteriaFor($mode) ?? collect()
                 : collect();
 
             if (empty($this->criteriaScores)) {
@@ -758,27 +903,22 @@ class Dashboard extends Component
                 }
             }
 
-            $data['eventCriteria']   = $criteria;
-            $data['judgeAssignment'] = null;
-            $data['otherJudgeScores'] = collect();
-
-            $data['judgeRiders'] = $this->judgeEventId
-                ? Rider::whereHas('registrations', fn ($q) => $q->where('event_id', $this->judgeEventId))->orderBy('name')->get()
+            $data['eventCriteria']  = $criteria;
+            $data['judgeRiders']    = $eid
+                ? Rider::whereHas('user.registrations', fn ($q) => $q->where('event_id', $eid))->orderBy('name')->get()
                 : Rider::orderBy('name')->get();
 
             $data['koApprovedSubmissions'] = collect();
 
-            if ($this->scoringMode === 'knockout' && $this->judgeEventId) {
+            if ($this->scoringMode === 'knockout' && $eid) {
                 if ($this->koMatchType === 'QUALIFICATION') {
-                    $data['koMatches'] = QualificationMatch::whereHas('qualificationRound', fn ($q) => $q->where('event_id', $this->judgeEventId))
+                    $data['koMatches'] = QualificationMatch::whereHas('qualificationRound', fn ($q) => $q->where('event_id', $eid))
                         ->with(['riderA', 'riderB', 'qualificationRound'])
-                        ->where('status', 'PENDING')
-                        ->get();
+                        ->where('status', 'PENDING')->get();
                 } else {
-                    $data['koMatches'] = BracketMatch::whereHas('bracket', fn ($q) => $q->where('event_id', $this->judgeEventId))
+                    $data['koMatches'] = BracketMatch::whereHas('bracket', fn ($q) => $q->where('event_id', $eid))
                         ->with(['riderA', 'riderB', 'bracket'])
-                        ->where('status', 'PENDING')
-                        ->get();
+                        ->where('status', 'PENDING')->get();
                 }
             }
 
@@ -792,8 +932,9 @@ class Dashboard extends Component
         if ($this->view === 'categories') {
             $data['pendingCategoryAssignments'] = RiderCategory::with(['registration.event', 'category'])
                 ->where('status', 'PENDING')
-                ->latest()
-                ->get();
+                ->whereHas('registration', fn ($q) => $q->where('status', 'APPROVED')
+                    ->when($eid, fn ($q) => $q->where('event_id', $eid)))
+                ->latest()->get();
             $data['allCategories'] = Category::all();
         }
 
@@ -803,20 +944,19 @@ class Dashboard extends Component
 
         if ($this->view === 'qualification') {
             $data['qualificationRounds'] = QualificationRound::with(['event', 'qualificationMatches.riderA', 'qualificationMatches.riderB', 'qualificationMatches.trick', 'qualificationMatches.winner'])
-                ->when($this->selectedEventId, fn ($q) => $q->where('event_id', $this->selectedEventId))
-                ->orderBy('round_number')
-                ->get();
-            $data['tricks'] = Trick::where('is_active', true)->orderBy('name')->get();
-            $data['approvedRegistrations'] = $this->selectedEventId
-                ? Registration::where('event_id', $this->selectedEventId)->where('status', 'APPROVED')->orderBy('name')->get()
+                ->when($eid, fn ($q) => $q->where('event_id', $eid))
+                ->orderBy('round_number')->get();
+            $data['tricks']                = Trick::where('is_active', true)->orderBy('name')->get();
+            $data['approvedRegistrations'] = $eid
+                ? Registration::where('event_id', $eid)->where('status', 'APPROVED')->orderBy('name')->get()
                 : collect();
         }
 
         if ($this->view === 'submissions') {
             $data['pendingSubmissions'] = BattleSubmission::with('registration')
                 ->where('status', 'PENDING')
-                ->latest()
-                ->get();
+                ->when($eid, fn ($q) => $q->whereHas('registration', fn ($q) => $q->where('event_id', $eid)))
+                ->latest()->get();
         }
 
         if ($this->view === 'ranking_admin') {
@@ -825,17 +965,24 @@ class Dashboard extends Component
 
         if ($this->view === 'brackets') {
             $data['brackets'] = Bracket::with(['event', 'bracketMatches.riderA', 'bracketMatches.riderB', 'bracketMatches.winner', 'bracketMatches.trick'])
-                ->latest()
-                ->get();
+                ->when($eid, fn ($q) => $q->where('event_id', $eid))
+                ->latest()->get();
             $data['tricks'] = Trick::where('is_active', true)->orderBy('name')->get();
         }
 
         if ($this->view === 'scoring') {
-            $data['scoringCriteria']   = ScoringCriterion::orderBy('display_order')->get();
-            $data['allCriteria']       = ScoringCriterion::where('is_active', true)->orderBy('display_order')->get();
-            $data['judgeUsers']        = User::whereIn('role', ['judge', 'head_judge'])->orderBy('name')->get();
-            $data['eventScoringList']  = Event::with(['scoringCriteria'])->orderBy('date')->get();
-            $data['judgeAssignments']  = EventJudgeAssignment::with(['event', 'user'])->latest()->get();
+            $data['scoringCriteria']  = ScoringCriterion::orderBy('display_order')->get();
+            $data['allCriteria']      = ScoringCriterion::where('is_active', true)->orderBy('display_order')->get();
+            $data['judgeUsers']       = User::whereIn('role', ['judge', 'head_judge'])->orderBy('name')->get();
+            $data['eventScoringList'] = Event::with(['scoringCriteria'])->orderBy('date')->get();
+            $data['judgeAssignments'] = EventJudgeAssignment::with(['event', 'user'])->latest()->get();
+        }
+
+        if ($this->view === 'users') {
+            $search         = trim($this->userSearch);
+            $data['users']  = User::when($search, fn ($q) => $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%"))
+                ->orderBy('role')->orderBy('name')->get();
         }
 
         return view('livewire.admin.dashboard', $data);

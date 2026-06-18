@@ -13,30 +13,29 @@ use Livewire\Component;
 #[Title('Bracket — Indo Blader')]
 class BracketPage extends Component
 {
-    public ?Event $event   = null;
-    public ?Bracket $bracket = null;
+    public string $selectedSlug = '';
 
     public function mount(string $slug = null): void
     {
         if ($slug) {
-            $this->event = Event::where('slug', $slug)->firstOrFail();
+            $this->selectedSlug = $slug;
         } else {
-            $this->event = Event::has('bracket')->orderByDesc('date')->first()
+            $event = Event::has('bracket')->orderByDesc('date')->first()
                 ?? Event::orderByDesc('date')->first();
-        }
-
-        if ($this->event) {
-            $this->bracket = Bracket::where('event_id', $this->event->id)->first();
+            $this->selectedSlug = $event?->slug ?? '';
         }
     }
 
     public function render()
     {
-        $matchesByRound = collect();
+        $events  = Event::has('bracket')->orderByDesc('date')->get();
+        $event   = $this->selectedSlug ? Event::where('slug', $this->selectedSlug)->first() : null;
+        $bracket = $event ? Bracket::where('event_id', $event->id)->first() : null;
 
-        if ($this->bracket) {
+        $matchesByRound = collect();
+        if ($bracket) {
             $matchesByRound = BracketMatch::with(['riderA', 'riderB', 'winner', 'trick'])
-                ->where('bracket_id', $this->bracket->id)
+                ->where('bracket_id', $bracket->id)
                 ->orderBy('match_number')
                 ->get()
                 ->groupBy('round');
@@ -44,6 +43,6 @@ class BracketPage extends Component
 
         $roundOrder = ['PRELIM', 'QF', 'SF', 'F', 'UB_R1', 'UB_R2', 'UB_SF', 'UB_F', 'LB_R1', 'LB_R2', 'LB_R3', 'LB_R4', 'LB_SF', 'LB_F', 'GF'];
 
-        return view('livewire.bracket-page', compact('matchesByRound', 'roundOrder'));
+        return view('livewire.bracket-page', compact('events', 'event', 'bracket', 'matchesByRound', 'roundOrder'));
     }
 }

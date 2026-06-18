@@ -24,6 +24,7 @@
             ['registrations',  'Registrasi'],
             ['notifications',  'Notifikasi' . ($unreadCount > 0 ? " ({$unreadCount})" : '')],
             ['upload',         'Upload Video'],
+            ['profile',        'Profil'],
         ] as [$k,$lbl])
             <button wire:click="$set('view','{{ $k }}')" class="label" style="
                 padding:10px 16px;font-size:12px;white-space:nowrap;border-bottom:2px solid {{ $view === $k ? 'var(--lime)' : 'transparent' }};
@@ -134,6 +135,70 @@
         @endif
     @endif
 
+    {{-- ── PROFIL ── --}}
+    @if($view === 'profile')
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;" class="prof-grid">
+            {{-- Current Photo --}}
+            <div class="panel" style="padding:22px;">
+                <span class="kicker" style="display:block;margin-bottom:16px;">FOTO PROFILE SAAT INI</span>
+                @if(isset($rider) && $rider?->avatar)
+                    <img src="{{ asset('storage/' . $rider->avatar) }}"
+                         alt="Foto profile"
+                         style="width:160px;height:160px;object-fit:cover;border-radius:4px;border:2px solid var(--ink);display:block;margin-bottom:12px;">
+                @else
+                    <div style="width:160px;height:160px;background:var(--bg-2);border:2px solid var(--line);border-radius:4px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
+                        <span class="display" style="font-size:48px;color:var(--ink-dim);">
+                            {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                        </span>
+                    </div>
+                    <p class="mono dim" style="font-size:11px;">Belum ada foto profile.</p>
+                @endif
+            </div>
+
+            {{-- Upload Form --}}
+            <div class="panel" style="padding:22px;">
+                <span class="kicker" style="display:block;margin-bottom:4px;">UPLOAD FOTO PROFILE</span>
+                <p class="mono dim" style="font-size:11px;margin-bottom:16px;">Format: JPG, PNG, WEBP. Maks 2MB.</p>
+
+                @if($avatarSaved)
+                    <div style="padding:12px 16px;background:var(--bg-2);border-left:3px solid var(--lime);border-radius:2px;margin-bottom:16px;">
+                        <span class="label" style="font-size:13px;color:var(--lime);">✓ Foto profile berhasil diperbarui!</span>
+                    </div>
+                @endif
+                @if($avatarError)
+                    <div style="padding:12px 16px;background:var(--bg-2);border-left:3px solid var(--red);border-radius:2px;margin-bottom:16px;">
+                        <span class="label" style="font-size:13px;color:var(--red);">{{ $avatarError }}</span>
+                    </div>
+                @endif
+
+                <div class="col" style="gap:14px;">
+                    <div>
+                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:6px;">PILIH FOTO</span>
+                        <input wire:model="avatarFile" type="file" accept="image/*"
+                               style="width:100%;padding:10px 14px;background:var(--surface);border:2px solid var(--line);border-radius:3px;color:var(--ink);font-family:inherit;font-size:13px;outline:none;"
+                               onfocus="this.style.borderColor='var(--lime)'" onblur="this.style.borderColor='var(--line)'">
+                        @error('avatarFile') <p style="color:var(--red);font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
+                    </div>
+
+                    {{-- Preview before upload --}}
+                    @if($avatarFile)
+                        <div>
+                            <span class="mono dim" style="font-size:10px;display:block;margin-bottom:6px;">PREVIEW</span>
+                            <img src="{{ $avatarFile->temporaryUrl() }}"
+                                 style="width:120px;height:120px;object-fit:cover;border-radius:4px;border:2px solid var(--lime);">
+                        </div>
+                    @endif
+
+                    <button wire:click="uploadAvatar" class="btn btn-lime"
+                            wire:loading.attr="disabled">
+                        <span wire:loading.remove wire:target="uploadAvatar">↑ Simpan Foto</span>
+                        <span wire:loading wire:target="uploadAvatar">Mengupload...</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- ── UPLOAD VIDEO ── --}}
     @if($view === 'upload')
         @if($uploadSuccess)
@@ -186,6 +251,26 @@
                             @endif
                         </select>
                     </div>
+
+                    {{-- Trick yang harus dilakukan --}}
+                    @if($selectedMatchId && isset($selectedTrick))
+                        @if($selectedTrick)
+                            <div style="padding:14px 16px;background:var(--bg-2);border:2px solid var(--lime);border-radius:3px;">
+                                <span class="mono" style="font-size:9px;letter-spacing:0.14em;color:var(--lime);display:block;margin-bottom:6px;">TRICK YANG HARUS DILAKUKAN</span>
+                                <span class="label" style="font-size:15px;">{{ $selectedTrick->name }}</span>
+                                @if($selectedTrick->difficulty)
+                                    <span class="badge badge-{{ match($selectedTrick->difficulty){ 'Easy'=>'lime','Medium'=>'out','Hard'=>'red',default=>'out' } }}" style="margin-left:8px;font-size:9px;">{{ strtoupper($selectedTrick->difficulty) }}</span>
+                                @endif
+                                @if($selectedTrick->description)
+                                    <p class="mono dim" style="font-size:12px;margin-top:8px;line-height:1.5;">{{ $selectedTrick->description }}</p>
+                                @endif
+                            </div>
+                        @else
+                            <div style="padding:12px 16px;background:var(--bg-2);border:1px solid var(--line);border-radius:3px;">
+                                <span class="mono dim" style="font-size:11px;">Belum ada trick yang ditentukan untuk match ini.</span>
+                            </div>
+                        @endif
+                    @endif
 
                     <div>
                         <span class="mono dim" style="font-size:10px;display:block;margin-bottom:6px;">LINK INSTAGRAM</span>
