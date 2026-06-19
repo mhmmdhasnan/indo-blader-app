@@ -672,11 +672,27 @@ class Dashboard extends Component
                 }
             }
         } else {
-            // Single elimination
-            $rounds = [];
-            if ($r1Count >= 4) $rounds[] = ['round' => 'QF', 'count' => $r1Count];
-            if ($r1Count >= 2) $rounds[] = ['round' => 'SF', 'count' => max(1, (int) ($r1Count / 2))];
-            $rounds[] = ['round' => 'F', 'count' => 1];
+            // Single elimination — explicit structure per slot count
+            $rounds = match ((int) $r1Count) {
+                8 => [
+                    ['round' => 'QF', 'count' => 8],
+                    ['round' => 'SF', 'count' => 4],
+                    ['round' => 'F',  'count' => 2],
+                    ['round' => 'GF', 'count' => 1],
+                ],
+                4 => [
+                    ['round' => 'QF', 'count' => 4],
+                    ['round' => 'SF', 'count' => 2],
+                    ['round' => 'F',  'count' => 1],
+                ],
+                2 => [
+                    ['round' => 'SF', 'count' => 2],
+                    ['round' => 'F',  'count' => 1],
+                ],
+                default => [
+                    ['round' => 'F',  'count' => 1],
+                ],
+            };
 
             foreach ($rounds as $r) {
                 for ($i = 1; $i <= $r['count']; $i++) {
@@ -693,6 +709,12 @@ class Dashboard extends Component
         $match = BracketMatch::findOrFail($matchId);
         $col   = $slot === 'a' ? 'rider_a_registration_id' : 'rider_b_registration_id';
         $match->update([$col => $regId ?: null]);
+    }
+
+    public function setMatchDeadline(int $matchId, string $deadline): void
+    {
+        $match = BracketMatch::findOrFail($matchId);
+        $match->update(['submission_deadline' => $deadline ?: null]);
     }
 
     public function advanceBracketWinner(int $matchId, int $winnerRegId): void

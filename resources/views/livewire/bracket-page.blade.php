@@ -135,6 +135,11 @@
                                                 <span class="mono tnum" style="font-size:13px;font-weight:700;color:{{ $winnerB ? 'var(--lime)' : 'var(--ink-dim)' }};margin-left:8px;flex-shrink:0;">{{ $match->score_b ?? '—' }}</span>
                                             </div>
                                         </div>
+                                        @if($match->submission_deadline)
+                                            <div class="mono" style="font-size:8px;letter-spacing:0.1em;color:{{ now()->gt($match->submission_deadline) ? 'var(--red)' : 'var(--ink-dim)' }};margin-top:4px;">
+                                                DEADLINE {{ $match->submission_deadline->format('d M H:i') }}{{ now()->gt($match->submission_deadline) ? ' · CLOSED' : '' }}
+                                            </div>
+                                        @endif
                                     </div>
                                 @endforeach
                             </div>
@@ -188,6 +193,11 @@
                                                 <span class="mono tnum" style="font-size:13px;font-weight:700;color:{{ $winnerB ? 'var(--lime)' : 'var(--ink-dim)' }};margin-left:8px;flex-shrink:0;">{{ $match->score_b ?? '—' }}</span>
                                             </div>
                                         </div>
+                                        @if($match->submission_deadline)
+                                            <div class="mono" style="font-size:8px;letter-spacing:0.1em;color:{{ now()->gt($match->submission_deadline) ? 'var(--red)' : 'var(--ink-dim)' }};margin-top:4px;">
+                                                DEADLINE {{ $match->submission_deadline->format('d M H:i') }}{{ now()->gt($match->submission_deadline) ? ' · CLOSED' : '' }}
+                                            </div>
+                                        @endif
                                     </div>
                                 @endforeach
                             </div>
@@ -222,6 +232,11 @@
                                     <span class="mono tnum" style="font-size:14px;font-weight:700;color:{{ $winnerB ? 'var(--lime)' : 'var(--ink-dim)' }};margin-left:8px;flex-shrink:0;">{{ $gfMatch->score_b ?? '—' }}</span>
                                 </div>
                             </div>
+                            @if($gfMatch->submission_deadline)
+                                <div class="mono" style="font-size:8px;letter-spacing:0.1em;color:{{ now()->gt($gfMatch->submission_deadline) ? 'var(--red)' : 'var(--lime)' }};margin-top:6px;text-align:center;">
+                                    DEADLINE {{ $gfMatch->submission_deadline->format('d M H:i') }}{{ now()->gt($gfMatch->submission_deadline) ? ' · CLOSED' : '' }}
+                                </div>
+                            @endif
                             @if($gfMatch->winner_registration_id)
                                 <div style="margin-top:10px;text-align:center;">
                                     <span class="badge badge-lime" style="font-size:10px;">🏆 CHAMPION: {{ $gfMatch->winner?->name }}</span>
@@ -279,6 +294,11 @@
                                     <span class="mono tnum" style="font-size:{{ $isFinal ? 14 : 13 }}px;font-weight:700;color:{{ $winnerB ? 'var(--lime)' : 'var(--ink-dim)' }};margin-left:8px;flex-shrink:0;">{{ $match->score_b ?? '—' }}</span>
                                 </div>
                             </div>
+                            @if($match->submission_deadline)
+                                <div class="mono" style="font-size:8px;letter-spacing:0.1em;color:{{ now()->gt($match->submission_deadline) ? 'var(--red)' : ($isFinal ? 'var(--lime)' : 'var(--ink-dim)') }};margin-top:4px;">
+                                    DEADLINE {{ $match->submission_deadline->format('d M H:i') }}{{ now()->gt($match->submission_deadline) ? ' · CLOSED' : '' }}
+                                </div>
+                            @endif
                             @if($isFinal && $match->winner_registration_id)
                                 <div style="margin-top:8px;">
                                     <span class="badge badge-lime" style="font-size:10px;">🏆 CHAMPION: {{ $match->winner?->name }}</span>

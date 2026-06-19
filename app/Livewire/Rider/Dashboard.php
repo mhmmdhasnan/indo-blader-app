@@ -99,6 +99,10 @@ class Dashboard extends Component
             )->first();
         } else {
             $match = BracketMatch::findOrFail($this->selectedMatchId);
+            if ($match->submission_deadline && now()->gt($match->submission_deadline)) {
+                $this->uploadError = 'Batas waktu submit untuk match ini sudah berakhir.';
+                return;
+            }
             $regId = $registrations->intersect(
                 collect([$match->rider_a_registration_id, $match->rider_b_registration_id])
             )->first();

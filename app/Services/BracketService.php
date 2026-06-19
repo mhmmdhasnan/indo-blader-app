@@ -388,7 +388,7 @@ class BracketService
         return match ($round) {
             'QF'  => 'SF',
             'SF'  => 'F',
-            'F'   => null,
+            'F'   => 'GF',
             'GF'  => null,
             default => null,
         };
@@ -421,9 +421,10 @@ class BracketService
     private function roundsForSlots(int $slots): array
     {
         return match (true) {
-            $slots >= 8 => ['QF', 'SF', 'F'],
-            $slots >= 4 => ['SF', 'F'],
-            default     => ['F'],
+            $slots >= 16 => ['QF', 'SF', 'F', 'GF'],  // 16+ players: R16→QF→SF→F
+            $slots >= 8  => ['QF', 'SF', 'F'],          // 8-15 players
+            $slots >= 4  => ['SF', 'F'],
+            default      => ['F'],
         };
     }
 

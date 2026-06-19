@@ -21,11 +21,13 @@ class BracketMatch extends Model
         'score_a',
         'score_b',
         'status',
+        'submission_deadline',
     ];
 
     protected $casts = [
-        'score_a' => 'float',
-        'score_b' => 'float',
+        'score_a'             => 'float',
+        'score_b'             => 'float',
+        'submission_deadline' => 'datetime',
     ];
 
     public function bracket(): BelongsTo
