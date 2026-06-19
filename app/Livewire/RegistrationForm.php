@@ -89,7 +89,6 @@ class RegistrationForm extends Component
         }
 
         if ($this->step === 3) {
-            if (!$this->payFile) $this->errors['payFile'] = 'upload required';
             if (!$this->agree)   $this->errors['agree']   = 'must agree';
         }
 
