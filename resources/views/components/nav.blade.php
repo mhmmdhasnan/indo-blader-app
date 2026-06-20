@@ -13,20 +13,20 @@ $current = Route::currentRouteName();
 
 <header style="position:sticky;top:0;z-index:200;" x-data="{ scrolled: false }" @scroll.window="scrolled = window.scrollY > 24">
     <div class="between" style="
-        padding: 0 clamp(16px,3vw,30px);
-        height: 70px;
+        padding: 0 clamp(16px,3vw,40px);
+        height: 84px;
         border-bottom: 2px solid var(--ink);
         transition: background .2s;
         backdrop-filter: blur(10px);
     " :style="scrolled ? 'background:color-mix(in srgb,var(--bg) 86%,transparent)' : 'background:var(--bg)'">
 
-        <x-logo :size="36" />
+        <x-logo :size="44" />
 
         {{-- Desktop Nav --}}
-        <nav class="nav-links flex" style="gap:4px;align-items:center;">
+        <nav class="nav-links flex" style="gap:6px;align-items:center;">
             @foreach($navLinks as $link)
                 <a href="{{ route($link['route']) }}" class="label" style="
-                    font-size:12px;padding:9px 13px;position:relative;
+                    font-size:13px;padding:10px 16px;position:relative;
                     color:{{ $current === $link['route'] ? 'var(--ink)' : 'var(--ink-dim)' }};
                     border-bottom: 2px solid {{ $current === $link['route'] ? 'var(--lime)' : 'transparent' }};
                     transition: color .15s, border-color .15s;
@@ -43,7 +43,7 @@ $current = Route::currentRouteName();
             </a> -->
 
             {{-- Theme toggle --}}
-            <button @click="dark = !dark" class="center" style="width:40px;height:40px;border:2px solid var(--ink);border-radius:3px;" aria-label="Toggle theme">
+            <button @click="dark = !dark" class="center" style="width:44px;height:44px;border:2px solid var(--ink);border-radius:3px;" aria-label="Toggle theme">
                 <span x-show="dark">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 1v3M12 20v3M4 12H1M23 12h-3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>
                 </span>
@@ -71,7 +71,7 @@ $current = Route::currentRouteName();
             @endauth
 
             {{-- Mobile burger --}}
-            <button class="burger center" @click="$dispatch('toggle-menu')" style="width:40px;height:40px;border:2px solid var(--ink);border-radius:3px;" aria-label="Menu">
+            <button class="burger center" @click="$dispatch('toggle-menu')" style="width:44px;height:44px;border:2px solid var(--ink);border-radius:3px;" aria-label="Menu">
                 <div class="col" style="gap:4px;">
                     <span style="width:16px;height:2px;background:var(--ink);display:block;"></span>
                     <span style="width:16px;height:2px;background:var(--ink);display:block;"></span>

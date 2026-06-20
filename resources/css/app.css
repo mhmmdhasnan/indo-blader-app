@@ -493,3 +493,9 @@ select.input-field option {
 .gallery-item { break-inside: avoid; margin-bottom: 16px; }
 @media (max-width: 900px) { .gallery-grid { columns: 2; } }
 @media (max-width: 600px) { .gallery-grid { columns: 1; } }
+
+/* ── LOGO THEME ─────────────────────────────────────────────── */
+[data-theme="dark"]  .logo-light { display: none; }
+[data-theme="dark"]  .logo-dark  { display: block; }
+[data-theme="light"] .logo-dark  { display: none; }
+[data-theme="light"] .logo-light { display: block; }
