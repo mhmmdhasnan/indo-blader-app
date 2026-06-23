@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Bracket;
 use App\Models\BracketMatch;
 use App\Models\Event;
+use App\Models\EventDivision;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -13,8 +14,8 @@ use Livewire\Component;
 #[Title('Bracket — Indo Blader')]
 class BracketPage extends Component
 {
-    public string $selectedSlug  = '';
-    public string $selectedLevel = '';
+    public string $selectedSlug       = '';
+    public int    $selectedDivisionId = 0;
 
     public function mount(string $slug = null): void
     {
@@ -26,35 +27,42 @@ class BracketPage extends Component
             $this->selectedSlug = $event?->slug ?? '';
         }
 
-        $this->initLevel();
+        $this->initDivision();
     }
 
     public function updatedSelectedSlug(): void
     {
-        $this->initLevel();
+        $this->initDivision();
     }
 
-    private function initLevel(): void
+    private function initDivision(): void
     {
         $event = $this->selectedSlug ? Event::where('slug', $this->selectedSlug)->first() : null;
-        $levels = $event?->competition_levels ?? [];
-        $this->selectedLevel = $levels[0] ?? '';
+        $firstBracket = $event ? Bracket::where('event_id', $event->id)->first() : null;
+        $this->selectedDivisionId = $firstBracket?->division_id ?? 0;
     }
 
     public function render()
     {
-        $events  = Event::has('brackets')->orderByDesc('date')->get();
-        $event   = $this->selectedSlug ? Event::where('slug', $this->selectedSlug)->first() : null;
+        $events = Event::has('brackets')->orderByDesc('date')->get();
+        $event  = $this->selectedSlug ? Event::where('slug', $this->selectedSlug)->first() : null;
 
-        $levels  = $event?->competition_levels ?? [];
-        if ($this->selectedLevel === '' && count($levels)) {
-            $this->selectedLevel = $levels[0];
+        // All divisions that have a bracket for this event
+        $divisions = $event
+            ? EventDivision::whereHas('brackets', fn($q) => $q->where('event_id', $event->id))
+                ->where('event_id', $event->id)
+                ->orderBy('name')
+                ->get()
+            : collect();
+
+        if ($this->selectedDivisionId === 0 && $divisions->count()) {
+            $this->selectedDivisionId = $divisions->first()->id;
         }
 
         $bracket = null;
-        if ($event && $this->selectedLevel) {
+        if ($event && $this->selectedDivisionId) {
             $bracket = Bracket::where('event_id', $event->id)
-                ->where('competition_level', $this->selectedLevel)
+                ->where('division_id', $this->selectedDivisionId)
                 ->first();
         } elseif ($event) {
             $bracket = Bracket::where('event_id', $event->id)->first();
@@ -71,6 +79,6 @@ class BracketPage extends Component
 
         $roundOrder = ['PRELIM', 'QF', 'SF', 'F', 'UB_R1', 'UB_R2', 'UB_SF', 'UB_F', 'LB_R1', 'LB_R2', 'LB_R3', 'LB_R4', 'LB_SF', 'LB_F', 'GF'];
 
-        return view('livewire.bracket-page', compact('events', 'event', 'levels', 'bracket', 'matchesByRound', 'roundOrder'));
+        return view('livewire.bracket-page', compact('events', 'event', 'divisions', 'bracket', 'matchesByRound', 'roundOrder'));
     }
 }

@@ -394,6 +394,13 @@
                                             </select>
                                         </div>
                                         <div>
+                                            <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">TIPE EVENT *</span>
+                                            <select wire:model.live="evType" class="input-field" style="width:100%;">
+                                                <option value="KO">KO (Online — Upload Video)</option>
+                                                <option value="LIVE_SCORE">Live Score (Offline)</option>
+                                            </select>
+                                        </div>
+                                        <div>
                                             <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">SLOTS *</span>
                                             <input wire:model="evSlots" type="number" min="1" class="input-field" style="width:100%;">
                                             @error('evSlots') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
@@ -404,6 +411,7 @@
                                         <input wire:model="evPrize" type="number" min="0" class="input-field" style="width:100%;" placeholder="5000000">
                                         @error('evPrize') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
                                     </div>
+                                    @if($evType === 'LIVE_SCORE')
                                     <div>
                                         <span class="mono dim" style="font-size:10px;display:block;margin-bottom:8px;">CATEGORIES (DISCIPLINE)</span>
                                         <div class="flex gap-s" style="flex-wrap:wrap;">
@@ -415,6 +423,7 @@
                                             @endforeach
                                         </div>
                                     </div>
+                                    @endif
                                     <div>
                                         <span class="mono dim" style="font-size:10px;display:block;margin-bottom:8px;">COMPETITION LEVELS</span>
                                         @if($competitionLevels->where('is_active', true)->count())
@@ -455,11 +464,12 @@
 
                     {{-- Event list --}}
                     @foreach($events as $ev)
-                        <div class="panel" style="padding:18px;">
-                            <div class="between" style="flex-wrap:wrap;gap:10px;">
+                        <div class="panel" style="overflow:hidden;">
+                            <div class="between" style="padding:18px;flex-wrap:wrap;gap:10px;">
                                 <div class="col" style="gap:4px;">
                                     <div class="flex gap-s" style="align-items:center;flex-wrap:wrap;">
                                         <x-status-badge :status="$ev->status" />
+                                        <span class="mono" style="font-size:9px;padding:1px 6px;background:var(--bg-2);border:1px solid var(--line);">{{ $ev->type }}</span>
                                         <span class="mono dim" style="font-size:10px;">{{ $ev->edition }}</span>
                                         @if($ev->featured) <span class="badge badge-lime" style="font-size:9px;">FEATURED</span> @endif
                                     </div>
@@ -467,14 +477,128 @@
                                     <span class="mono dim" style="font-size:11px;">{{ $ev->date_label }} · {{ $ev->venue }}, {{ $ev->city }}</span>
                                     <span class="mono dim" style="font-size:10px;">{{ $ev->prize_formatted }} prize · {{ $ev->filled }}/{{ $ev->slots }} filled</span>
                                 </div>
-                                <div class="flex gap-s" style="align-items:center;">
+                                <div class="flex gap-s" style="align-items:center;flex-wrap:wrap;">
                                     <a href="{{ route('events.show', $ev->slug) }}" class="btn btn-sm btn-ghost">View →</a>
                                     <button wire:click="openEditEvent({{ $ev->id }})" class="btn btn-sm btn-ghost">Edit</button>
+                                    <button wire:click="manageDivisions({{ $ev->id }})" class="btn btn-sm {{ $divManageEventId === $ev->id ? 'btn-lime' : 'btn-ghost' }}">
+                                        Divisi ({{ $ev->divisions->count() }})
+                                    </button>
                                     <button wire:click="deleteEvent({{ $ev->id }})" class="btn btn-sm btn-ghost"
                                         wire:confirm="Yakin hapus event '{{ $ev->title }}'? Semua registrasi terkait akan terpengaruh."
                                         style="color:var(--red);">Delete</button>
                                 </div>
                             </div>
+
+                            {{-- Division panel --}}
+                            @if($divManageEventId === $ev->id)
+                                <div style="border-top:2px solid var(--lime);background:color-mix(in srgb,var(--lime) 4%,transparent);">
+                                    <div class="between" style="padding:12px 18px;border-bottom:1px solid var(--line);">
+                                        <span class="mono" style="font-size:10px;font-weight:700;letter-spacing:0.1em;">DIVISI EVENT INI</span>
+                                        <div class="flex gap-s">
+                                            @if($ev->competition_levels && count($ev->competition_levels))
+                                                <button wire:click="autoGenerateDivisions({{ $ev->id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">
+                                                    ⚡ Auto-generate
+                                                </button>
+                                            @endif
+                                            <button wire:click="openCreateDivision({{ $ev->id }})" class="btn btn-sm btn-lime" style="font-size:11px;">+ Tambah Divisi</button>
+                                        </div>
+                                    </div>
+
+                                    {{-- Create/Edit form --}}
+                                    @if($divEditing && $divManageEventId === $ev->id)
+                                        <div style="padding:14px 18px;border-bottom:1px solid var(--line);background:var(--bg);">
+                                            <div class="flex gap-m" style="flex-wrap:wrap;align-items:flex-end;">
+                                                @if($ev->type === 'LIVE_SCORE')
+                                                <div class="col" style="gap:4px;min-width:120px;">
+                                                    <span class="mono dim" style="font-size:9px;">DISCIPLINE *</span>
+                                                    <select wire:model.live="divDiscipline" class="input-field" style="font-size:12px;">
+                                                        <option value="">— pilih —</option>
+                                                        @foreach($ev->categories ?? ['STREET','PARK','VERT','FLAT'] as $d)
+                                                            <option value="{{ $d }}">{{ $d }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('divDiscipline') <span style="color:var(--red);font-size:10px;">{{ $message }}</span> @enderror
+                                                </div>
+                                                @endif
+                                                <div class="col" style="gap:4px;min-width:120px;">
+                                                    <span class="mono dim" style="font-size:9px;">LEVEL *</span>
+                                                    <select wire:model.live="divLevel" class="input-field" style="font-size:12px;">
+                                                        <option value="">— pilih —</option>
+                                                        @foreach($competitionLevels->where('is_active', true) as $lvl)
+                                                            <option value="{{ $lvl->name }}">{{ $lvl->name }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('divLevel') <span style="color:var(--red);font-size:10px;">{{ $message }}</span> @enderror
+                                                </div>
+                                                <div class="col" style="gap:6px;">
+                                                    <span class="mono dim" style="font-size:9px;">SLOTS</span>
+                                                    <label class="flex label" style="gap:6px;align-items:center;font-size:11px;cursor:pointer;">
+                                                        <input type="checkbox" wire:model.live="divUnlimited" style="accent-color:var(--lime);">
+                                                        Tidak terbatas
+                                                    </label>
+                                                    @if(!$divUnlimited)
+                                                        <input type="number" wire:model.live="divSlots" min="1" class="input-field" style="width:80px;" placeholder="32" />
+                                                    @endif
+                                                </div>
+                                                {{-- Preview nama --}}
+                                                @if($divLevel)
+                                                <div class="col" style="gap:2px;align-self:flex-end;padding-bottom:6px;">
+                                                    <span class="mono dim" style="font-size:9px;">PREVIEW NAMA</span>
+                                                    <span class="mono" style="font-size:12px;font-weight:700;">
+                                                        {{ $ev->type === 'LIVE_SCORE' && $divDiscipline ? ucfirst(strtolower($divDiscipline)) . ' ' . $divLevel : $divLevel }}
+                                                    </span>
+                                                </div>
+                                                @endif
+                                                <div class="flex gap-s">
+                                                    <button wire:click="saveDivision" class="btn btn-sm btn-lime" @if(!$divLevel || ($ev->type === 'LIVE_SCORE' && !$divDiscipline)) disabled @endif>
+                                                        {{ $divId ? 'Update' : 'Simpan' }}
+                                                    </button>
+                                                    <button wire:click="cancelDivision" class="btn btn-sm btn-ghost">Batal</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    {{-- Division list --}}
+                                    @if($eventDivisions->count())
+                                        @foreach($eventDivisions as $div)
+                                            <div class="between" style="padding:10px 18px;border-bottom:1px solid var(--line);">
+                                                <div class="flex gap-s" style="align-items:center;">
+                                                    <span class="label" style="font-size:13px;">{{ $div->name }}</span>
+                                                    @if($div->discipline)
+                                                        <span class="mono" style="font-size:9px;padding:1px 5px;background:var(--bg-2);border:1px solid var(--line);">{{ $div->discipline }}</span>
+                                                    @endif
+                                                    @if($div->level)
+                                                        <span class="mono" style="font-size:9px;padding:1px 5px;background:var(--bg-2);border:1px solid var(--line);">{{ $div->level }}</span>
+                                                    @endif
+                                                    @if(!$div->is_active)
+                                                        <span class="mono dim" style="font-size:9px;">(inactive)</span>
+                                                    @endif
+                                                    <span class="mono dim" style="font-size:9px;">{{ $div->filled }}/{{ $div->slots ?? '∞' }} slot</span>
+                                                </div>
+                                                <div class="flex gap-s">
+                                                    <button wire:click="openEditDivision({{ $div->id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">Edit</button>
+                                                    <button wire:click="deleteDivision({{ $div->id }})" class="btn btn-sm btn-ghost" style="color:var(--red);font-size:11px;"
+                                                        wire:confirm="Hapus divisi '{{ $div->name }}'?">Hapus</button>
+                                                </div>
+                                            </div>
+                                            @error('divDelete_' . $div->id)
+                                                <p style="padding:4px 18px;color:var(--red);font-size:10px;">{{ $message }}</p>
+                                            @enderror
+                                        @endforeach
+                                    @else
+                                        <div class="center" style="padding:20px;">
+                                            <span class="mono dim" style="font-size:11px;">Belum ada divisi.
+                                                @if($ev->competition_levels && count($ev->competition_levels))
+                                                    Klik "Auto-generate" atau tambah manual.
+                                                @else
+                                                    Set competition levels di Edit Event dulu, lalu Auto-generate.
+                                                @endif
+                                            </span>
+                                        </div>
+                                    @endif
+                                </div>
+                            @endif
                         </div>
                     @endforeach
                 </div>
@@ -523,21 +647,20 @@
                                 </select>
                             </div>
                             @if($selectedEventId)
-                                @php $selEv = $events->firstWhere('id', $selectedEventId); $evLevels = $selEv?->competition_levels ?? []; @endphp
-                                @if(count($evLevels))
-                                <div class="col" style="gap:6px;min-width:140px;">
-                                    <span class="mono dim" style="font-size:10px;">LEVEL</span>
-                                    <select wire:model.live="bracketLevel" class="input-field" style="width:100%;">
-                                        <option value="">— pilih level —</option>
-                                        @foreach($evLevels as $lvl)
-                                            <option value="{{ $lvl }}">{{ $lvl }}</option>
+                                @if($bracketDivisions->count())
+                                <div class="col" style="gap:6px;min-width:180px;">
+                                    <span class="mono dim" style="font-size:10px;">DIVISI</span>
+                                    <select wire:model.live="bracketDivisionId" class="input-field" style="width:100%;">
+                                        <option value="0">— pilih divisi —</option>
+                                        @foreach($bracketDivisions as $div)
+                                            <option value="{{ $div->id }}">{{ $div->name }}</option>
                                         @endforeach
                                     </select>
                                 </div>
                                 @else
                                 <div class="col" style="gap:4px;align-self:flex-end;">
-                                    <span class="mono" style="font-size:10px;color:var(--red);">⚠ Event ini belum ada competition level.</span>
-                                    <span class="mono dim" style="font-size:9px;">Edit event → centang level yang dipakai, lalu kembali ke sini.</span>
+                                    <span class="mono" style="font-size:10px;color:var(--red);">⚠ Event ini belum punya divisi.</span>
+                                    <span class="mono dim" style="font-size:9px;">Buat divisi dulu di section Events → tombol Divisi.</span>
                                 </div>
                                 @endif
                             @endif
@@ -560,20 +683,21 @@
                         {{-- Row 2: mode-specific options + action --}}
                         @if($bracketMode === 'auto')
                             <div class="flex gap-m" style="align-items:flex-end;flex-wrap:wrap;">
-                                @if($selectedEventId)
+                                @if($selectedEventId && $bracketDivisionId)
                                     @php
                                         $approvedCount = \App\Models\Registration::where('event_id', $selectedEventId)
                                             ->where('status', 'APPROVED')
-                                            ->when($bracketLevel, fn($q) => $q->where('competition_category', $bracketLevel))
+                                            ->where('division_id', $bracketDivisionId)
                                             ->count();
+                                        $selDiv = $bracketDivisions->firstWhere('id', $bracketDivisionId);
                                     @endphp
                                     <span class="mono dim" style="font-size:10px;align-self:center;">
-                                        {{ $approvedCount }} peserta approved{{ $bracketLevel ? " (level: $bracketLevel)" : '' }}
+                                        {{ $approvedCount }} peserta approved di divisi "{{ $selDiv?->name }}"
                                         @if($approvedCount < 2)<span style="color:var(--red);"> · min. 2</span>@endif
                                     </span>
                                 @endif
                                 <button wire:click="generateBracket({{ $selectedEventId }})" class="btn btn-lime"
-                                    @if(!$selectedEventId || !$bracketLevel || (isset($approvedCount) && $approvedCount < 2)) disabled @endif>
+                                    @if(!$selectedEventId || !$bracketDivisionId || (isset($approvedCount) && $approvedCount < 2)) disabled @endif>
                                     Generate Otomatis
                                 </button>
                             </div>
@@ -598,7 +722,7 @@
                                     @endif
                                 </div>
                                 <button wire:click="generateManualBracket({{ $selectedEventId }})" class="btn btn-lime"
-                                    @if(!$selectedEventId || !$bracketLevel) disabled @endif>
+                                    @if(!$selectedEventId || !$bracketDivisionId) disabled @endif>
                                     Buat Struktur Kosong
                                 </button>
                             </div>
@@ -615,7 +739,9 @@
                                     <div class="col">
                                         <div class="flex gap-s" style="align-items:center;">
                                             <span class="label" style="font-size:16px;">{{ $bracket->event->title }}</span>
-                                            @if($bracket->competition_level)
+                                            @if($bracket->division)
+                                                <span class="mono" style="font-size:10px;padding:2px 8px;background:var(--lime);color:#0a0a0b;font-weight:700;">{{ strtoupper($bracket->division->name) }}</span>
+                                            @elseif($bracket->competition_level)
                                                 <span class="mono" style="font-size:10px;padding:2px 8px;background:var(--lime);color:#0a0a0b;font-weight:700;">{{ strtoupper($bracket->competition_level) }}</span>
                                             @endif
                                         </div>

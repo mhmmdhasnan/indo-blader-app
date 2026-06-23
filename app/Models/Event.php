@@ -10,7 +10,7 @@ class Event extends Model
 {
     protected $fillable = [
         'slug', 'title', 'edition', 'city', 'venue', 'date', 'date_label',
-        'status', 'categories', 'competition_levels', 'prize', 'slots', 'filled', 'featured', 'blurb',
+        'status', 'type', 'categories', 'competition_levels', 'prize', 'slots', 'filled', 'featured', 'blurb',
     ];
 
     protected $casts = [
@@ -40,9 +40,9 @@ class Event extends Model
         return $this->hasMany(Bracket::class);
     }
 
-    public function bracketFor(string $level): ?\App\Models\Bracket
+    public function divisions(): HasMany
     {
-        return $this->brackets()->where('competition_level', $level)->first();
+        return $this->hasMany(EventDivision::class);
     }
 
     public function rankingHistories(): HasMany

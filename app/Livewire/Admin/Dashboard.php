@@ -7,6 +7,7 @@ use App\Models\BracketMatch;
 use App\Models\BattleSubmission;
 use App\Models\Category;
 use App\Models\Event;
+use App\Models\EventDivision;
 use App\Models\EventJudgeAssignment;
 use App\Models\JudgeScore;
 use App\Models\QualificationMatch;
@@ -66,8 +67,8 @@ class Dashboard extends Component
     public int    $manualRiderBId      = 0;
 
     // Bracket management
-    public string $bracketType  = 'SINGLE_ELIMINATION';
-    public string $bracketLevel = '';
+    public string $bracketType       = 'SINGLE_ELIMINATION';
+    public int    $bracketDivisionId = 0;
 
     // Qualification editing
     public int    $editQualRoundId   = 0;
@@ -110,12 +111,22 @@ class Dashboard extends Component
     public string $evDateLabel  = '';
     public string $evSlug       = '';
     public string $evStatus     = 'SOON';
+    public string $evType       = 'KO';
     public array  $evCategories        = [];
     public array  $evCompetitionLevels = [];
     public int    $evPrize             = 5000000;
     public int    $evSlots      = 32;
     public string $evBlurb      = '';
     public bool   $evFeatured   = false;
+
+    // Division CRUD
+    public int    $divManageEventId = 0;
+    public bool   $divEditing       = false;
+    public int    $divId            = 0;
+    public string $divDiscipline    = '';
+    public string $divLevel         = '';
+    public ?int   $divSlots         = null;
+    public bool   $divUnlimited     = true;
 
     // Competition Level CRUD
     public bool   $clEditing     = false;
@@ -221,6 +232,7 @@ class Dashboard extends Component
         $this->evDateLabel  = '';
         $this->evSlug       = '';
         $this->evStatus     = 'SOON';
+        $this->evType       = 'KO';
         $this->evCategories        = [];
         $this->evCompetitionLevels = [];
         $this->evPrize             = 5000000;
@@ -242,6 +254,7 @@ class Dashboard extends Component
         $this->evDateLabel  = $ev->date_label;
         $this->evSlug       = $ev->slug;
         $this->evStatus     = $ev->status;
+        $this->evType       = $ev->type ?? 'KO';
         $this->evCategories        = $ev->categories ?? [];
         $this->evCompetitionLevels = $ev->competition_levels ?? [];
         $this->evPrize      = (int) $ev->prize;
@@ -281,7 +294,8 @@ class Dashboard extends Component
             'date'       => $this->evDate,
             'date_label' => $this->evDateLabel,
             'slug'       => $this->evSlug,
-            'status'     => $this->evStatus,
+            'status'             => $this->evStatus,
+            'type'               => $this->evType,
             'categories'         => $this->evCategories,
             'competition_levels' => $this->evCompetitionLevels,
             'prize'      => $this->evPrize,
@@ -555,6 +569,121 @@ class Dashboard extends Component
         $level->delete();
     }
 
+    // ─── Division CRUD ────────────────────────────────────────────────────────
+
+    public function manageDivisions(int $eventId): void
+    {
+        $this->divManageEventId = $this->divManageEventId === $eventId ? 0 : $eventId;
+        $this->divEditing       = false;
+        $this->divId            = 0;
+    }
+
+    public function openCreateDivision(int $eventId): void
+    {
+        $this->divManageEventId = $eventId;
+        $this->divId            = 0;
+        $this->divDiscipline    = '';
+        $this->divLevel         = '';
+        $this->divSlots         = null;
+        $this->divUnlimited     = true;
+        $this->divEditing       = true;
+    }
+
+    public function openEditDivision(int $id): void
+    {
+        $div                    = EventDivision::findOrFail($id);
+        $this->divManageEventId = $div->event_id;
+        $this->divId            = $div->id;
+        $this->divDiscipline    = $div->discipline ?? '';
+        $this->divLevel         = $div->level ?? '';
+        $this->divUnlimited     = $div->slots === null;
+        $this->divSlots         = $div->slots;
+        $this->divEditing       = true;
+    }
+
+    private function buildDivisionName(string $eventType, string $discipline, string $level): string
+    {
+        if ($eventType === 'KO') {
+            return $level;
+        }
+        $disc = ucfirst(strtolower($discipline));
+        return trim("$disc $level");
+    }
+
+    public function saveDivision(): void
+    {
+        $event = Event::findOrFail($this->divManageEventId);
+
+        $this->validate([
+            'divLevel' => 'required|string',
+            ...($event->type === 'LIVE_SCORE' ? ['divDiscipline' => 'required|string'] : []),
+        ], [], ['divLevel' => 'level', 'divDiscipline' => 'discipline']);
+
+        $name = $this->buildDivisionName($event->type, $this->divDiscipline, $this->divLevel);
+
+        $data = [
+            'event_id'   => $this->divManageEventId,
+            'name'       => $name,
+            'discipline' => $this->divDiscipline ?: null,
+            'level'      => $this->divLevel,
+            'slots'      => $this->divUnlimited ? null : max(1, (int) $this->divSlots),
+        ];
+
+        if ($this->divId) {
+            EventDivision::findOrFail($this->divId)->update($data);
+        } else {
+            EventDivision::create($data);
+        }
+
+        $this->divEditing = false;
+        $this->divId      = 0;
+    }
+
+    public function cancelDivision(): void
+    {
+        $this->divEditing = false;
+        $this->divId      = 0;
+    }
+
+    public function deleteDivision(int $id): void
+    {
+        $div = EventDivision::findOrFail($id);
+        if ($div->registrations()->exists()) {
+            $this->addError('divDelete_' . $id, "Divisi '{$div->name}' tidak bisa dihapus, sudah ada registrasi.");
+            return;
+        }
+        $this->divManageEventId = $div->event_id;
+        $div->delete();
+    }
+
+    public function autoGenerateDivisions(int $eventId): void
+    {
+        $event = Event::findOrFail($eventId);
+        $disciplines = $event->categories ?? [];
+        $levels      = $event->competition_levels ?? [];
+
+        if ($event->type === 'KO') {
+            foreach ($levels as $level) {
+                EventDivision::firstOrCreate(
+                    ['event_id' => $eventId, 'name' => $level],
+                    ['level' => $level, 'discipline' => null, 'slots' => null]
+                );
+            }
+        } else {
+            foreach ($disciplines as $disc) {
+                foreach ($levels as $level) {
+                    $name = ucfirst(strtolower($disc)) . ' ' . $level;
+                    EventDivision::firstOrCreate(
+                        ['event_id' => $eventId, 'name' => $name],
+                        ['discipline' => $disc, 'level' => $level, 'slots' => null]
+                    );
+                }
+            }
+        }
+
+        $this->divManageEventId = $eventId;
+    }
+
     // ─── Trick Management ─────────────────────────────────────────────────────
 
     public function createTrick(): void
@@ -685,33 +814,32 @@ class Dashboard extends Component
 
     public function generateBracket(int $eventId): void
     {
-        $event = Event::findOrFail($eventId);
-
-        if (!$this->bracketLevel) {
-            $this->addError('bracket', 'Pilih competition level terlebih dahulu.');
+        if (!$this->bracketDivisionId) {
+            $this->addError('bracket', 'Pilih divisi terlebih dahulu.');
             return;
         }
 
-        $existing = Bracket::where('event_id', $eventId)->where('competition_level', $this->bracketLevel)->first();
-        if ($existing) {
-            $this->addError('bracket', "Bracket untuk level {$this->bracketLevel} di event ini sudah ada.");
+        $division = EventDivision::findOrFail($this->bracketDivisionId);
+
+        if (Bracket::where('event_id', $eventId)->where('division_id', $this->bracketDivisionId)->exists()) {
+            $this->addError('bracket', "Bracket untuk divisi '{$division->name}' sudah ada.");
             return;
         }
 
         $registrations = Registration::where('event_id', $eventId)
             ->where('status', 'APPROVED')
-            ->where('competition_category', $this->bracketLevel)
+            ->where('division_id', $this->bracketDivisionId)
             ->get();
 
         if ($registrations->count() < 2) {
-            $this->addError('bracket', "Minimal 2 peserta level {$this->bracketLevel} yang sudah diapprove. Saat ini: " . $registrations->count() . ' peserta.');
+            $this->addError('bracket', "Minimal 2 peserta divisi '{$division->name}' yang sudah diapprove. Saat ini: " . $registrations->count() . ' peserta.');
             return;
         }
 
         $bracket = Bracket::create([
-            'event_id'          => $eventId,
-            'competition_level' => $this->bracketLevel,
-            'type'              => $this->bracketType,
+            'event_id'    => $eventId,
+            'division_id' => $this->bracketDivisionId,
+            'type'        => $this->bracketType,
         ]);
 
         $service = app(BracketService::class);
@@ -727,17 +855,19 @@ class Dashboard extends Component
     {
         if (!$eventId) return;
 
-        if (!$this->bracketLevel) {
-            $this->addError('bracket', 'Pilih competition level terlebih dahulu.');
+        if (!$this->bracketDivisionId) {
+            $this->addError('bracket', 'Pilih divisi terlebih dahulu.');
             return;
         }
 
-        if (Bracket::where('event_id', $eventId)->where('competition_level', $this->bracketLevel)->exists()) {
-            $this->addError('bracket', "Bracket untuk level {$this->bracketLevel} di event ini sudah ada.");
+        $division = EventDivision::findOrFail($this->bracketDivisionId);
+
+        if (Bracket::where('event_id', $eventId)->where('division_id', $this->bracketDivisionId)->exists()) {
+            $this->addError('bracket', "Bracket untuk divisi '{$division->name}' sudah ada.");
             return;
         }
 
-        $bracket  = Bracket::create(['event_id' => $eventId, 'competition_level' => $this->bracketLevel, 'type' => $this->bracketType]);
+        $bracket  = Bracket::create(['event_id' => $eventId, 'division_id' => $this->bracketDivisionId, 'type' => $this->bracketType]);
         $r1Count  = max(1, (int) $this->manualQfCount);
 
         if ($this->bracketType === 'DOUBLE_ELIMINATION') {
@@ -989,7 +1119,7 @@ class Dashboard extends Component
     public function render()
     {
         $eid    = $this->activeEventId ?: null;
-        $events = Event::orderBy('date')->get();
+        $events = Event::with('divisions')->orderBy('date')->get();
 
         $activeEvent    = $eid ? Event::find($eid) : null;
         $registrations  = Registration::with('event')
@@ -1001,7 +1131,16 @@ class Dashboard extends Component
 
         $competitionLevels = Category::orderBy('name')->get();
 
-        $data = compact('registrations', 'events', 'riders', 'revenue', 'activeEvent', 'competitionLevels');
+        $eventDivisions = $this->divManageEventId
+            ? EventDivision::where('event_id', $this->divManageEventId)->orderBy('name')->get()
+            : collect();
+
+        // Divisions for the selected event in bracket setup
+        $bracketDivisions = $this->selectedEventId
+            ? EventDivision::where('event_id', $this->selectedEventId)->where('is_active', true)->orderBy('name')->get()
+            : collect();
+
+        $data = compact('registrations', 'events', 'riders', 'revenue', 'activeEvent', 'competitionLevels', 'eventDivisions', 'bracketDivisions');
         $data['eventCriteria']       = collect();
         $data['judgeAssignment']     = null;
         $data['otherJudgeScores']    = collect();
@@ -1082,7 +1221,7 @@ class Dashboard extends Component
         }
 
         if ($this->view === 'brackets') {
-            $data['brackets'] = Bracket::with(['event', 'bracketMatches.riderA', 'bracketMatches.riderB', 'bracketMatches.winner', 'bracketMatches.trick'])
+            $data['brackets'] = Bracket::with(['event', 'division', 'bracketMatches.riderA', 'bracketMatches.riderB', 'bracketMatches.winner', 'bracketMatches.trick'])
                 ->when($eid, fn ($q) => $q->where('event_id', $eid))
                 ->latest()->get();
             $data['tricks'] = Trick::where('is_active', true)->orderBy('name')->get();

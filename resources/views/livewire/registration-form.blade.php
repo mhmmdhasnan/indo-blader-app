@@ -20,7 +20,8 @@
                 </div>
                 <div class="flex" style="flex-wrap:wrap;">
                     <div style="flex:1 1 280px;padding:24px;">
-                        @foreach([['RIDER',$name],['EVENT',$currentEvent?->title],['CATEGORY',$category],['CITY',$city],['PAYMENT','Transfer Bank'],['STATUS','PENDING APPROVAL']] as [$l,$v])
+                        @php $selectedDiv = $divisions->firstWhere('id', $divisionId); @endphp
+                        @foreach([['RIDER',$name],['EVENT',$currentEvent?->title],['DIVISION',$selectedDiv?->name ?? '-'],['CITY',$city],['PAYMENT','Transfer Bank'],['STATUS','PENDING APPROVAL']] as [$l,$v])
                             <div class="between" style="padding:11px 0;border-bottom:1px solid var(--line);">
                                 <span class="mono dim" style="font-size:10px;letter-spacing:0.12em;">{{ $l }}</span>
                                 <span class="label" style="font-size:14px;text-align:right;">{{ $v }}</span>
@@ -174,49 +175,38 @@
                         </select>
                     </label>
                     @if($currentEvent)
-                        <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['category']) ? 'var(--red)' : 'var(--ink-dim)' }};display:block;margin-bottom:10px;">
-                            CATEGORY *{{ isset($errors['category']) ? ' — '.$errors['category'] : '' }}
+                        <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['division']) ? 'var(--red)' : 'var(--ink-dim)' }};display:block;margin-bottom:12px;">
+                            DIVISION *{{ isset($errors['division']) ? ' — ' . $errors['division'] : '' }}
                         </span>
-                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px;">
-                            @foreach($currentEvent->categories as $cat)
-                                @php $labels = ['STREET'=>'Street','PARK'=>'Park','VERT'=>'Vert','FLAT'=>'Flatland']; @endphp
-                                <button wire:click="$set('category','{{ $cat }}')" class="panel col" style="
-                                    padding:18px;gap:8px;align-items:flex-start;cursor:pointer;
-                                    border-color:{{ $category === $cat ? 'var(--lime)' : 'var(--ink)' }};
-                                    box-shadow:{{ $category === $cat ? '4px 4px 0 var(--lime)' : 'var(--paper-shadow)' }};
-                                ">
-                                    <x-cat-badge :cat="$cat" />
-                                    <span class="display" style="font-size:24px;">{{ $labels[$cat] ?? $cat }}</span>
-                                </button>
-                            @endforeach
-                        </div>
-                    @endif
-                    @if($currentEvent && !empty($currentEvent->competition_levels))
-                    <div style="margin-top:22px;">
-                        <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['competitionCategory']) ? 'var(--red)' : 'var(--ink-dim)' }};display:block;margin-bottom:10px;">
-                            COMPETITION LEVEL *{{ isset($errors['competitionCategory']) ? ' — '.$errors['competitionCategory'] : '' }}
-                        </span>
-                        <div class="flex gap-s" style="flex-wrap:wrap;">
-                            @php
-                                $levelDesc = [
-                                    'Beginner' => 'Entry level',
-                                    'Open'     => 'All skills welcome',
-                                    'Pro'      => 'Elite & competitive',
-                                    'Master'   => 'Top-tier masters',
-                                ];
-                            @endphp
-                            @foreach($currentEvent->competition_levels as $opt)
-                                <button wire:click="$set('competitionCategory','{{ $opt }}')" class="panel col" style="
-                                    flex:1;min-width:110px;padding:14px 16px;gap:6px;align-items:flex-start;cursor:pointer;
-                                    border-color:{{ $competitionCategory === $opt ? 'var(--lime)' : 'var(--ink)' }};
-                                    box-shadow:{{ $competitionCategory === $opt ? '4px 4px 0 var(--lime)' : 'var(--paper-shadow)' }};
-                                ">
-                                    <span class="display" style="font-size:18px;">{{ $opt }}</span>
-                                    <span class="mono dim" style="font-size:9px;">{{ $levelDesc[$opt] ?? $opt }}</span>
-                                </button>
-                            @endforeach
-                        </div>
-                    </div>
+
+                        @if($divisions->count())
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;">
+                                @foreach($divisions as $div)
+                                    <button wire:click="$set('divisionId', {{ $div->id }})" class="panel col" style="
+                                        padding:18px;gap:6px;align-items:flex-start;cursor:pointer;text-align:left;
+                                        border-color:{{ $divisionId === $div->id ? 'var(--lime)' : 'var(--ink)' }};
+                                        box-shadow:{{ $divisionId === $div->id ? '4px 4px 0 var(--lime)' : 'var(--paper-shadow)' }};
+                                    ">
+                                        <span class="display" style="font-size:20px;line-height:1.1;">{{ $div->name }}</span>
+                                        <div class="flex gap-s" style="flex-wrap:wrap;margin-top:4px;">
+                                            @if($div->discipline)
+                                                <span class="mono" style="font-size:9px;padding:1px 5px;background:var(--bg-2);border:1px solid var(--line);">{{ $div->discipline }}</span>
+                                            @endif
+                                            @if($div->level)
+                                                <span class="mono" style="font-size:9px;padding:1px 5px;background:var(--bg-2);border:1px solid var(--line);">{{ $div->level }}</span>
+                                            @endif
+                                        </div>
+                                        <span class="mono dim" style="font-size:9px;margin-top:2px;">
+                                            {{ $div->slots === null ? $div->filled . ' terdaftar' : $div->filled . '/' . $div->slots . ' slot terisi' }}
+                                        </span>
+                                    </button>
+                                @endforeach
+                            </div>
+                        @else
+                            <div class="panel center col" style="padding:28px;gap:8px;text-align:center;">
+                                <span class="mono dim" style="font-size:12px;">Divisi untuk event ini belum tersedia.</span>
+                            </div>
+                        @endif
                     @endif
                 @endif
 

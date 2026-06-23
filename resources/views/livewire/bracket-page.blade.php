@@ -10,8 +10,8 @@
                 <h1 class="display" style="font-size:clamp(52px,8vw,96px);line-height:0.85;letter-spacing:-0.02em;">PLAYOFFS</h1>
                 @if($bracket)
                     <span class="mono dim" style="font-size:11px;margin-top:10px;display:block;">
-                        @if($bracket->competition_level)
-                            <span style="color:var(--lime);font-weight:700;">{{ strtoupper($bracket->competition_level) }}</span> ·
+                        @if($bracket->division)
+                            <span style="color:var(--lime);font-weight:700;">{{ strtoupper($bracket->division->name) }}</span> ·
                         @endif
                         {{ str_replace('_', ' ', $bracket->type) }}
                         @if($bracket->status === 'COMPLETED') · <span style="color:var(--lime);">COMPLETED</span> @endif
@@ -26,11 +26,11 @@
                         @endforeach
                     </select>
                 @endif
-                @if(count($levels) > 1)
-                    <div class="flex gap-s">
-                        @foreach($levels as $lvl)
-                            <button wire:click="$set('selectedLevel','{{ $lvl }}')" class="btn btn-sm {{ $selectedLevel === $lvl ? 'btn-lime' : 'btn-ghost' }}">
-                                {{ strtoupper($lvl) }}
+                @if($divisions->count() > 1)
+                    <div class="flex gap-s" style="flex-wrap:wrap;">
+                        @foreach($divisions as $div)
+                            <button wire:click="$set('selectedDivisionId', {{ $div->id }})" class="btn btn-sm {{ $selectedDivisionId === $div->id ? 'btn-lime' : 'btn-ghost' }}">
+                                {{ strtoupper($div->name) }}
                             </button>
                         @endforeach
                     </div>

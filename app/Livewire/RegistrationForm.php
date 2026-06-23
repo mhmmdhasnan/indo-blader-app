@@ -4,13 +4,13 @@ namespace App\Livewire;
 
 use App\Models\Category;
 use App\Models\Event;
+use App\Models\EventDivision;
 use App\Models\Registration;
 use App\Models\RiderCategory;
 use App\Services\NotificationService;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
-use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -32,10 +32,9 @@ class RegistrationForm extends Component
     public string $dob         = '';
     public string $city        = '';
 
-    // Step 1 — Category
-    public string $eventSlug          = 'nationals';
-    public string $category            = '';
-    public string $competitionCategory = '';
+    // Step 1 — Division
+    public string $eventSlug  = 'nationals';
+    public int    $divisionId = 0;
 
     // Step 2 — Emergency
     public string $ecName      = '';
@@ -43,7 +42,7 @@ class RegistrationForm extends Component
     public string $ecPhoneNum  = '';
     public string $ecRelation  = '';
 
-    // Step 3 — Payment (Transfer only)
+    // Step 3 — Payment
     public string $payMethod = 'Transfer';
     public $payFile          = null;
     public bool $agree       = false;
@@ -58,7 +57,7 @@ class RegistrationForm extends Component
             return;
         }
 
-        $this->eventSlug = Event::orderBy('date')->first()?->slug ?? 'nationals';
+        $this->eventSlug = Event::orderBy('date')->first()?->slug ?? '';
 
         $user = auth()->user();
         $this->name  = $user->name;
@@ -67,8 +66,7 @@ class RegistrationForm extends Component
 
     public function updatedEventSlug(): void
     {
-        $this->category            = '';
-        $this->competitionCategory = '';
+        $this->divisionId = 0;
     }
 
     public function next(): void
@@ -76,32 +74,33 @@ class RegistrationForm extends Component
         $this->errors = [];
 
         if ($this->step === 0) {
-            if (!trim($this->name))                               $this->errors['name']        = 'required';
-            if (!filter_var($this->email, FILTER_VALIDATE_EMAIL)) $this->errors['email']       = 'invalid email';
+            if (!trim($this->name))                               $this->errors['name']  = 'required';
+            if (!filter_var($this->email, FILTER_VALIDATE_EMAIL)) $this->errors['email'] = 'invalid email';
             if (!preg_match('/^[0-9]{6,}$/', trim($this->phoneNumber))) $this->errors['phone'] = 'min 6 digit';
-            if (!$this->dob)                                      $this->errors['dob']         = 'required';
-            if (!trim($this->city))                               $this->errors['city']        = 'required';
+            if (!$this->dob)                                      $this->errors['dob']   = 'required';
+            if (!trim($this->city))                               $this->errors['city']  = 'required';
         }
 
         if ($this->step === 1) {
-            if (!$this->category)             $this->errors['category']            = 'pick one';
-            $event = Event::where('slug', $this->eventSlug)->first();
-            $levels = $event?->competition_levels ?? [];
-            if (!$this->competitionCategory) {
-                $this->errors['competitionCategory'] = 'pick one';
-            } elseif (!empty($levels) && !in_array($this->competitionCategory, $levels)) {
-                $this->errors['competitionCategory'] = 'invalid level';
+            if (!$this->divisionId) {
+                $this->errors['division'] = 'pick one';
+            } else {
+                $event    = Event::where('slug', $this->eventSlug)->first();
+                $division = EventDivision::find($this->divisionId);
+                if (!$division || $division->event_id !== $event?->id) {
+                    $this->errors['division'] = 'invalid';
+                }
             }
         }
 
         if ($this->step === 2) {
-            if (!trim($this->ecName))                                    $this->errors['ecName']     = 'required';
-            if (!preg_match('/^[0-9]{6,}$/', trim($this->ecPhoneNum)))  $this->errors['ecPhone']    = 'min 6 digit';
-            if (!trim($this->ecRelation))                                $this->errors['ecRelation'] = 'required';
+            if (!trim($this->ecName))                                   $this->errors['ecName']     = 'required';
+            if (!preg_match('/^[0-9]{6,}$/', trim($this->ecPhoneNum))) $this->errors['ecPhone']    = 'min 6 digit';
+            if (!trim($this->ecRelation))                               $this->errors['ecRelation'] = 'required';
         }
 
         if ($this->step === 3) {
-            if (!$this->agree)   $this->errors['agree']   = 'must agree';
+            if (!$this->agree) $this->errors['agree'] = 'must agree';
         }
 
         if (!empty($this->errors)) return;
@@ -121,7 +120,8 @@ class RegistrationForm extends Component
 
     private function submit(): void
     {
-        $event = Event::where('slug', $this->eventSlug)->firstOrFail();
+        $event    = Event::where('slug', $this->eventSlug)->firstOrFail();
+        $division = EventDivision::findOrFail($this->divisionId);
 
         $proofPath = null;
         if ($this->payFile) {
@@ -140,8 +140,9 @@ class RegistrationForm extends Component
             'dob'                  => $this->dob,
             'city'                 => $this->city,
             'event_id'             => $event->id,
-            'category'             => $this->category,
-            'competition_category' => $this->competitionCategory,
+            'division_id'          => $division->id,
+            'category'             => $division->discipline,
+            'competition_category' => $division->level,
             'ec_name'              => $this->ecName,
             'ec_phone'             => $this->ecPhoneCode . $this->ecPhoneNum,
             'ec_relation'          => $this->ecRelation,
@@ -151,7 +152,8 @@ class RegistrationForm extends Component
             'status'               => 'PENDING',
         ]);
 
-        $cat = Category::where('name', $this->competitionCategory)->first();
+        // Link to global category if level matches
+        $cat = $division->level ? Category::where('name', $division->level)->first() : null;
         if ($cat) {
             RiderCategory::create([
                 'registration_id' => $reg->id,
@@ -168,10 +170,11 @@ class RegistrationForm extends Component
             $reg,
             'registration_received',
             'Registration Received',
-            "Your entry for {$event->title} has been received. Entry code: {$this->entryCode}. We'll notify you once your registration is reviewed."
+            "Your entry for {$event->title} ({$division->name}) has been received. Entry code: {$this->entryCode}. We'll notify you once your registration is reviewed."
         );
 
         $event->increment('filled');
+        $division->increment('filled');
 
         $this->done = true;
         $this->step = 4;
@@ -179,9 +182,12 @@ class RegistrationForm extends Component
 
     public function render()
     {
-        $events = Event::orderBy('date')->get();
-        $currentEvent = Event::where('slug', $this->eventSlug)->first();
+        $events       = Event::orderBy('date')->get();
+        $currentEvent = Event::where('slug', $this->eventSlug)->with('divisions')->first();
+        $divisions    = $currentEvent
+            ? $currentEvent->divisions()->where('is_active', true)->orderBy('name')->get()
+            : collect();
 
-        return view('livewire.registration-form', compact('events', 'currentEvent'));
+        return view('livewire.registration-form', compact('events', 'currentEvent', 'divisions'));
     }
 }
