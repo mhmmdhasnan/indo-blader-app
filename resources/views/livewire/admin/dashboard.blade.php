@@ -197,41 +197,89 @@
                         @endforeach
                     </div>
                     <div class="panel" style="overflow:hidden;overflow-x:auto;">
-                        <div style="display:grid;grid-template-columns:1.4fr 1.3fr 90px 110px 180px;padding:12px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);min-width:700px;">
-                            @foreach(['RIDER','EVENT','CAT','STATUS','ACTION'] as $h)
+                        <div style="display:grid;grid-template-columns:1.6fr 1.2fr 1fr 100px 1fr;padding:12px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);min-width:800px;">
+                            @foreach(['RIDER','EVENT','DIVISI','STATUS','ACTION'] as $h)
                                 <span class="mono dim" style="font-size:10px;letter-spacing:0.12em;">{{ $h }}</span>
                             @endforeach
                         </div>
                         @forelse($registrations as $reg)
-                            <div style="display:grid;grid-template-columns:1.4fr 1.3fr 90px 110px 180px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);min-width:700px;">
-                                <div class="flex" style="align-items:center;gap:11px;min-width:0;">
-                                    <x-avatar :initials="collect(explode(' ',$reg->name))->map(fn($w)=>$w[0])->take(2)->implode('')" :size="32" />
-                                    <div class="col"><span class="label" style="font-size:13px;">{{ $reg->name }}</span><span class="mono dim" style="font-size:9px;">{{ strtoupper($reg->city) }}</span></div>
-                                </div>
-                                <span class="dim" style="font-size:12px;">{{ $reg->event?->title }}</span>
-                                <x-cat-badge :cat="$reg->category" :sm="true" />
-                                <span class="badge badge-{{ $reg->status_variant }}">{{ $reg->status }}</span>
-                                <div class="flex gap-s" style="align-items:center;flex-wrap:wrap;">
-                                    @if($reg->status === 'PENDING')
-                                        @if($reg->payment_status !== 'VERIFIED')
-                                            <span class="mono dim" style="font-size:10px;color:var(--red);">⚠ payment belum verify</span>
+                            @php $isEditingReg = $regEditId === $reg->id; @endphp
+                            <div style="border-bottom:1px solid var(--line);min-width:800px;">
+                                {{-- Main row --}}
+                                <div style="display:grid;grid-template-columns:1.6fr 1.2fr 1fr 100px 1fr;align-items:center;padding:12px 18px;">
+                                    <div class="flex" style="align-items:center;gap:11px;min-width:0;">
+                                        <x-avatar :initials="collect(explode(' ',$reg->name))->map(fn($w)=>$w[0])->take(2)->implode('')" :size="32" />
+                                        <div class="col">
+                                            <span class="label" style="font-size:13px;">{{ $reg->name }}</span>
+                                            <span class="mono dim" style="font-size:9px;">{{ strtoupper($reg->city) }} · {{ $reg->email }}</span>
+                                        </div>
+                                    </div>
+                                    <span class="dim" style="font-size:12px;">{{ $reg->event?->title }}</span>
+                                    <span class="mono" style="font-size:11px;color:{{ $reg->division_id ? 'var(--lime)' : 'var(--red)' }};">
+                                        {{ $reg->division?->name ?? '— belum diset' }}
+                                    </span>
+                                    <span class="badge badge-{{ $reg->status_variant }}">{{ $reg->status }}</span>
+                                    <div class="flex gap-s" style="align-items:center;flex-wrap:wrap;">
+                                        @if($reg->status === 'PENDING')
+                                            @if($reg->payment_status !== 'VERIFIED')
+                                                <span class="mono dim" style="font-size:10px;color:var(--red);">⚠ payment</span>
+                                            @endif
+                                            <button wire:click="approveRegistration({{ $reg->id }})"
+                                                class="btn btn-sm btn-lime"
+                                                @if($reg->payment_status !== 'VERIFIED') disabled title="Verify payment dulu" @endif>
+                                                Approve
+                                            </button>
+                                            <button wire:click="rejectRegistration({{ $reg->id }})"
+                                                wire:confirm="Reject registrasi {{ $reg->name }}?"
+                                                class="btn btn-sm btn-ghost">Reject</button>
+                                        @else
+                                            <button wire:click="pendingRegistration({{ $reg->id }})" class="mono dim" style="font-size:11px;text-decoration:underline;">undo</button>
                                         @endif
-                                        <button wire:click="approveRegistration({{ $reg->id }})"
-                                            class="btn btn-sm btn-lime" style="padding:6px 12px;"
-                                            @if($reg->payment_status !== 'VERIFIED') disabled title="Verify payment dulu" @endif>
-                                            Approve
-                                        </button>
-                                        <button wire:click="rejectRegistration({{ $reg->id }})"
-                                            wire:confirm="Reject registrasi {{ $reg->name }}?"
-                                            class="btn btn-sm btn-ghost" style="padding:6px 12px;">Reject</button>
-                                    @else
-                                        <span class="badge badge-{{ $reg->status_variant }}" style="font-size:9px;">{{ $reg->status }}</span>
-                                        <button wire:click="pendingRegistration({{ $reg->id }})" class="mono dim" style="font-size:11px;text-decoration:underline;">undo</button>
-                                    @endif
-                                    @error('registration_' . $reg->id)
-                                        <span style="font-size:10px;color:var(--red);">{{ $message }}</span>
-                                    @enderror
+                                        <button wire:click="openEditRegistration({{ $reg->id }})" class="btn btn-sm btn-ghost" style="font-size:10px;">Edit</button>
+                                        <button wire:click="deleteRegistration({{ $reg->id }})"
+                                            wire:confirm="Hapus registrasi {{ $reg->name }}? Tidak bisa dibatalkan."
+                                            class="btn btn-sm btn-ghost" style="color:var(--red);font-size:10px;">Hapus</button>
+                                        @error('registration_' . $reg->id)
+                                            <span style="font-size:10px;color:var(--red);">{{ $message }}</span>
+                                        @enderror
+                                    </div>
                                 </div>
+                                {{-- Inline edit form --}}
+                                @if($isEditingReg)
+                                <div style="padding:14px 18px 16px;background:var(--bg-2);border-top:1px solid var(--line);">
+                                    <div class="flex gap-m" style="flex-wrap:wrap;align-items:flex-end;">
+                                        <div class="col" style="gap:4px;min-width:150px;flex:1;">
+                                            <span class="mono dim" style="font-size:10px;">NAMA</span>
+                                            <input wire:model="regEditName" class="input-field" style="font-size:12px;" />
+                                        </div>
+                                        <div class="col" style="gap:4px;min-width:150px;flex:1;">
+                                            <span class="mono dim" style="font-size:10px;">EMAIL</span>
+                                            <input wire:model="regEditEmail" type="email" class="input-field" style="font-size:12px;" />
+                                        </div>
+                                        <div class="col" style="gap:4px;min-width:120px;">
+                                            <span class="mono dim" style="font-size:10px;">TELEPON</span>
+                                            <input wire:model="regEditPhone" class="input-field" style="font-size:12px;" />
+                                        </div>
+                                        <div class="col" style="gap:4px;min-width:120px;">
+                                            <span class="mono dim" style="font-size:10px;">KOTA</span>
+                                            <input wire:model="regEditCity" class="input-field" style="font-size:12px;" />
+                                        </div>
+                                        <div class="col" style="gap:4px;min-width:160px;">
+                                            <span class="mono dim" style="font-size:10px;">DIVISI</span>
+                                            <select wire:model="regEditDivisionId" class="input-field" style="font-size:12px;">
+                                                <option value="0">— pilih divisi —</option>
+                                                @foreach($reg->event?->divisions ?? [] as $div)
+                                                    <option value="{{ $div->id }}">{{ $div->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="flex gap-s">
+                                            <button wire:click="saveRegistration" class="btn btn-sm btn-lime">Simpan</button>
+                                            <button wire:click="$set('regEditId', 0)" class="btn btn-sm btn-ghost">Batal</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                @endif
                             </div>
                         @empty
                             <div class="center" style="padding:40px;color:var(--ink-dim);">No registrations yet.</div>
@@ -291,17 +339,52 @@
                                     <span class="mono dim" style="font-size:10px;">— belum upload</span>
                                 @endif
                                 @if($reg->payment_status === 'PENDING')
-                                    <button wire:click="verifyPayment({{ $reg->id }})" class="btn btn-sm btn-lime" style="padding:6px 12px;">Verify</button>
+                                    <button wire:click="verifyPayment({{ $reg->id }})" class="btn btn-sm btn-lime">Verify</button>
                                     <button wire:click="rejectPayment({{ $reg->id }})"
-                                        wire:confirm="Tolak payment {{ $reg->name }}? Status akan kembali ke UNPAID."
-                                        class="btn btn-sm btn-ghost" style="padding:6px 12px;color:var(--red);">Reject</button>
+                                        wire:confirm="Tolak payment {{ $reg->name }}?"
+                                        class="btn btn-sm btn-ghost" style="color:var(--red);">Reject</button>
                                 @elseif($reg->payment_status === 'VERIFIED')
                                     <button wire:click="rejectPayment({{ $reg->id }})"
                                         wire:confirm="Batalkan verifikasi payment {{ $reg->name }}?"
-                                        class="mono dim" style="font-size:11px;text-decoration:underline;">undo verify</button>
+                                        class="mono dim" style="font-size:11px;text-decoration:underline;">undo</button>
                                 @endif
+                                <button wire:click="openEditPayment({{ $reg->id }})" class="btn btn-sm btn-ghost" style="font-size:10px;">Edit</button>
+                                <button wire:click="deletePayment({{ $reg->id }})"
+                                    wire:confirm="Reset data payment {{ $reg->name }}? Bukti transfer akan dihapus."
+                                    class="btn btn-sm btn-ghost" style="color:var(--red);font-size:10px;">Reset</button>
                             </div>
                         </div>
+                        {{-- Inline edit payment --}}
+                        @if($payEditId === $reg->id)
+                        <div style="padding:14px 18px 16px;background:var(--bg-2);border-top:1px solid var(--line);">
+                            <div class="flex gap-m" style="flex-wrap:wrap;align-items:flex-end;">
+                                <div class="col" style="gap:4px;">
+                                    <span class="mono dim" style="font-size:10px;">METODE</span>
+                                    <select wire:model="payEditMethod" class="input-field" style="font-size:12px;">
+                                        <option>Transfer</option>
+                                        <option>QRIS</option>
+                                        <option>Cash</option>
+                                    </select>
+                                </div>
+                                <div class="col" style="gap:4px;">
+                                    <span class="mono dim" style="font-size:10px;">STATUS</span>
+                                    <select wire:model="payEditStatus" class="input-field" style="font-size:12px;">
+                                        <option value="PENDING">PENDING</option>
+                                        <option value="VERIFIED">VERIFIED</option>
+                                        <option value="REJECTED">REJECTED</option>
+                                    </select>
+                                </div>
+                                <div class="col" style="gap:4px;">
+                                    <span class="mono dim" style="font-size:10px;">BUKTI TRANSFER (opsional)</span>
+                                    <input type="file" wire:model="payEditProof" accept="image/*" class="input-field" style="font-size:11px;" />
+                                </div>
+                                <div class="flex gap-s">
+                                    <button wire:click="savePayment" class="btn btn-sm btn-lime">Simpan</button>
+                                    <button wire:click="$set('payEditId', 0)" class="btn btn-sm btn-ghost">Batal</button>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
                     @empty
                         <div class="center" style="padding:40px;color:var(--ink-dim);">No payments yet.</div>
                     @endforelse
@@ -609,6 +692,8 @@
                 @include('livewire.partials.judging-panel', [
                     'events'           => $events,
                     'judgeEventId'     => $judgeEventId,
+                    'judgeDivisionId'  => $judgeDivisionId,
+                    'judgeDivisions'   => $judgeDivisions ?? collect(),
                     'scoringMode'      => $scoringMode,
                     'koMatchType'      => $koMatchType,
                     'koMatchId'        => $koMatchId,
@@ -633,19 +718,17 @@
             @if($view === 'brackets')
                 <div class="col" style="gap:20px;">
                     <div class="panel" style="padding:20px;">
-                        <span class="kicker" style="margin-bottom:14px;display:block;">SETUP BRACKET</span>
+                        <div class="between" style="margin-bottom:14px;">
+                            <span class="kicker">SETUP BRACKET</span>
+                            @if($activeEvent)
+                                <span class="mono" style="font-size:11px;color:var(--lime);">{{ strtoupper($activeEvent->title) }}</span>
+                            @else
+                                <span class="mono" style="font-size:11px;color:var(--red);">⚠ Tidak ada active event</span>
+                            @endif
+                        </div>
 
-                        {{-- Row 1: event + level + type + mode --}}
+                        {{-- Row 1: divisi + type + mode --}}
                         <div class="flex gap-m" style="flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;">
-                            <div class="col" style="gap:6px;flex:1;min-width:200px;">
-                                <span class="mono dim" style="font-size:10px;">EVENT</span>
-                                <select wire:model.live="selectedEventId" class="input-field" style="width:100%;">
-                                    <option value="0">— select event —</option>
-                                    @foreach($events as $ev)
-                                        <option value="{{ $ev->id }}">{{ $ev->title }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
                             @if($selectedEventId)
                                 @if($bracketDivisions->count())
                                 <div class="col" style="gap:6px;min-width:180px;">
@@ -659,10 +742,12 @@
                                 </div>
                                 @else
                                 <div class="col" style="gap:4px;align-self:flex-end;">
-                                    <span class="mono" style="font-size:10px;color:var(--red);">⚠ Event ini belum punya divisi.</span>
-                                    <span class="mono dim" style="font-size:9px;">Buat divisi dulu di section Events → tombol Divisi.</span>
+                                    <span class="mono" style="font-size:10px;color:var(--red);">⚠ Semua divisi sudah punya bracket.</span>
+                                    <span class="mono dim" style="font-size:9px;">Tambah divisi baru di Events, atau hapus bracket yang ada.</span>
                                 </div>
                                 @endif
+                            @else
+                                <span class="mono dim" style="font-size:11px;">Set active event terlebih dahulu.</span>
                             @endif
                             <div class="col" style="gap:6px;min-width:180px;">
                                 <span class="mono dim" style="font-size:10px;">TYPE</span>

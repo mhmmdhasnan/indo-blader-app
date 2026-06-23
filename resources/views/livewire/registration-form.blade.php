@@ -283,7 +283,7 @@
                     <div class="between" style="padding:16px 18px;border:2px solid var(--ink);border-radius:3px;margin-bottom:20px;background:var(--bg-2);">
                         <div class="col">
                             <span class="mono dim" style="font-size:10px;letter-spacing:0.14em;">ENTRY FEE · {{ strtoupper($currentEvent?->title ?? '') }}</span>
-                            <span class="label" style="font-size:14px;">{{ $category }} Division</span>
+                            <span class="label" style="font-size:14px;">{{ $divisions->firstWhere('id', $divisionId)?->name ?? 'Division' }}</span>
                         </div>
                         <span class="display tnum" style="font-size:30px;color:var(--lime);">Rp 350.000</span>
                     </div>

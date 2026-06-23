@@ -42,6 +42,7 @@ class Dashboard extends Component
     public array  $criteriaScoresB   = [];
     public bool   $scoreSubmitted    = false;
     public int    $judgeEventId     = 0;
+    public int    $judgeDivisionId  = 0;
     public string $scoringMode      = 'live';
     public string $koMatchType      = 'QUALIFICATION';
     public int    $koMatchId        = 0;
@@ -135,6 +136,21 @@ class Dashboard extends Component
     public string $clDescription = '';
     public bool   $clIsActive    = true;
 
+    // Registration edit
+    public int    $regEditId         = 0;
+    public string $regEditName       = '';
+    public string $regEditEmail      = '';
+    public string $regEditPhone      = '';
+    public string $regEditCity       = '';
+    public int    $regEditDivisionId = 0;
+
+    // Payment edit
+    public int    $payEditId     = 0;
+    public string $payEditMethod = 'Transfer';
+    public string $payEditStatus = 'PENDING';
+    #[\Livewire\Attributes\Validate(['payEditProof' => 'nullable|image|max:4096'])]
+    public $payEditProof = null;
+
     // User CRUD
     public bool   $userEditing  = false;
     public int    $userId       = 0;
@@ -170,8 +186,26 @@ class Dashboard extends Component
         $this->scoreSubmitted  = false;
         $this->koMatchId       = 0;
         $this->liveRiderId     = 0;
+        $this->judgeDivisionId = 0;
         $this->criteriaScores  = [];
         $this->criteriaScoresB = [];
+    }
+
+    public function updatedJudgeEventId(): void
+    {
+        $this->judgeDivisionId = 0;
+        $this->liveRiderId     = 0;
+        $this->koMatchId       = 0;
+        $this->scoreSubmitted  = false;
+        $this->criteriaScores  = [];
+    }
+
+    public function updatedJudgeDivisionId(): void
+    {
+        $this->liveRiderId    = 0;
+        $this->koMatchId      = 0;
+        $this->scoreSubmitted = false;
+        $this->criteriaScores = [];
     }
 
     // ─── Scoring ─────────────────────────────────────────────────────────────
@@ -418,6 +452,7 @@ class Dashboard extends Component
         }
 
         $reg->update(['status' => 'APPROVED']);
+
         NotificationService::send($reg, 'registration_approved', 'Registration Approved',
             "Your registration for {$reg->event->title} has been approved. Entry: {$reg->entry_code}.");
     }
@@ -430,6 +465,68 @@ class Dashboard extends Component
     public function pendingRegistration(int $id): void
     {
         Registration::findOrFail($id)->update(['status' => 'PENDING']);
+    }
+
+    public function openEditRegistration(int $id): void
+    {
+        $reg = Registration::findOrFail($id);
+        $this->regEditId         = $id;
+        $this->regEditName       = $reg->name;
+        $this->regEditEmail      = $reg->email;
+        $this->regEditPhone      = $reg->phone;
+        $this->regEditCity       = $reg->city;
+        $this->regEditDivisionId = $reg->division_id ?? 0;
+    }
+
+    public function saveRegistration(): void
+    {
+        $reg = Registration::findOrFail($this->regEditId);
+        $reg->update([
+            'name'        => $this->regEditName,
+            'email'       => $this->regEditEmail,
+            'phone'       => $this->regEditPhone,
+            'city'        => $this->regEditCity,
+            'division_id' => $this->regEditDivisionId ?: null,
+        ]);
+        $this->regEditId = 0;
+    }
+
+    public function deleteRegistration(int $id): void
+    {
+        Registration::findOrFail($id)->delete();
+    }
+
+    public function openEditPayment(int $id): void
+    {
+        $reg = Registration::findOrFail($id);
+        $this->payEditId     = $id;
+        $this->payEditMethod = $reg->payment_method ?? 'Transfer';
+        $this->payEditStatus = $reg->payment_status ?? 'PENDING';
+        $this->payEditProof  = null;
+    }
+
+    public function savePayment(): void
+    {
+        $reg = Registration::findOrFail($this->payEditId);
+        $data = [
+            'payment_method' => $this->payEditMethod,
+            'payment_status' => $this->payEditStatus,
+        ];
+        if ($this->payEditProof) {
+            $data['payment_proof'] = $this->payEditProof->store('proofs', 'public');
+        }
+        $reg->update($data);
+        $this->payEditId    = 0;
+        $this->payEditProof = null;
+    }
+
+    public function deletePayment(int $id): void
+    {
+        Registration::findOrFail($id)->update([
+            'payment_proof'  => null,
+            'payment_status' => 'PENDING',
+            'payment_method' => null,
+        ]);
     }
 
     public function verifyPayment(int $id): void
@@ -1119,10 +1216,10 @@ class Dashboard extends Component
         $events = Event::with('divisions')->orderBy('date')->get();
 
         $activeEvent    = $eid ? Event::find($eid) : null;
-        $registrations  = Registration::with('event')
+        $registrations  = Registration::with(['event', 'event.divisions', 'division'])
             ->when($eid, fn ($q) => $q->where('event_id', $eid))
             ->latest()->get();
-        $riders         = Rider::whereHas('user.registrations', fn ($q) => $q->when($eid, fn ($q) => $q->where('event_id', $eid)))
+        $riders         = Rider::whereHas('registrations', fn ($q) => $q->when($eid, fn ($q) => $q->where('event_id', $eid)))
             ->orderByDesc('points')->get();
         $revenue        = $registrations->count() * 350000;
 
@@ -1148,9 +1245,15 @@ class Dashboard extends Component
         $data['koOtherJudgeScoresB'] = collect();
 
         if ($this->view === 'judging') {
-            $mode     = strtoupper($this->scoringMode);
-            $criteria = $eid
-                ? Event::find($eid)?->criteriaFor($mode) ?? collect()
+            // selalu ikuti active event
+            if ($this->activeEventId && $this->judgeEventId !== $this->activeEventId) {
+                $this->judgeEventId    = $this->activeEventId;
+                $this->judgeDivisionId = 0;
+            }
+            $jeid = $this->judgeEventId ?: null;
+            $mode = strtoupper($this->scoringMode);
+            $criteria = $jeid
+                ? Event::find($jeid)?->criteriaFor($mode) ?? collect()
                 : collect();
 
             if (empty($this->criteriaScores)) {
@@ -1161,20 +1264,37 @@ class Dashboard extends Component
             }
 
             $data['eventCriteria']  = $criteria;
-            $data['judgeRiders']    = $eid
-                ? Rider::whereHas('user.registrations', fn ($q) => $q->where('event_id', $eid))->orderBy('name')->get()
-                : Rider::orderBy('name')->get();
+            $did = $this->judgeDivisionId ?: null;
+
+            $data['judgeDivisions'] = $jeid
+                ? EventDivision::where('event_id', $jeid)->where('is_active', true)->orderBy('name')->get()
+                : collect();
+
+            $eventHasDivisions = $jeid ? EventDivision::where('event_id', $jeid)->exists() : false;
+
+            $data['judgeRiders'] = $jeid
+                ? Registration::with('division')
+                    ->where('event_id', $jeid)
+                    ->where('status', 'APPROVED')
+                    ->when($did, fn ($q) => $q->where('division_id', $did))
+                    ->when(!$did && $eventHasDivisions, fn ($q) => $q->whereNotNull('division_id'))
+                    ->orderBy('name')->get()
+                : collect();
 
             $data['koApprovedSubmissions'] = collect();
 
-            if ($this->scoringMode === 'knockout' && $eid) {
+            if ($this->scoringMode === 'knockout' && $jeid) {
                 if ($this->koMatchType === 'QUALIFICATION') {
-                    $data['koMatches'] = QualificationMatch::whereHas('qualificationRound', fn ($q) => $q->where('event_id', $eid))
+                    $data['koMatches'] = QualificationMatch::whereHas('qualificationRound', fn ($q) => $q->where('event_id', $jeid))
                         ->with(['riderA', 'riderB', 'qualificationRound'])
                         ->where('status', 'PENDING')->get();
                 } else {
-                    $data['koMatches'] = BracketMatch::whereHas('bracket', fn ($q) => $q->where('event_id', $eid))
-                        ->with(['riderA', 'riderB', 'bracket'])
+                    $data['koMatches'] = BracketMatch::whereHas('bracket', fn ($q) => $q
+                            ->where('event_id', $jeid)
+                            ->when($did, fn ($q2) => $q2->where('division_id', $did))
+                            ->when(!$did && $eventHasDivisions, fn ($q2) => $q2->whereNotNull('division_id'))
+                        )
+                        ->with(['riderA', 'riderB', 'bracket.division'])
                         ->where('status', 'PENDING')->get();
                 }
             }

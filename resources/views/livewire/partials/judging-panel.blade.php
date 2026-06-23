@@ -1,19 +1,38 @@
 <div class="col" style="gap:16px;">
 
-    {{-- Context bar: Event + Mode --}}
+    {{-- Context bar: Event label + Division + Mode --}}
     <div class="panel" style="padding:16px;">
+        <div class="between" style="margin-bottom:12px;">
+            <span class="kicker">JUDGE PANEL</span>
+            @if($judgeEventId)
+                <span class="mono" style="font-size:11px;color:var(--lime);">{{ strtoupper($events->firstWhere('id', $judgeEventId)?->title ?? '') }}</span>
+            @else
+                <span class="mono" style="font-size:11px;color:var(--red);">⚠ Tidak ada active event</span>
+            @endif
+        </div>
         <div class="flex gap-m" style="flex-wrap:wrap;align-items:flex-end;">
-            <div class="col" style="gap:6px;flex:1;min-width:180px;">
-                <span class="mono dim" style="font-size:10px;">EVENT</span>
-                <select wire:model.live="judgeEventId" class="input-field" style="width:100%;">
-                    <option value="0">— pilih event —</option>
-                    @foreach($events as $ev)
-                        <option value="{{ $ev->id }}">{{ $ev->title }} ({{ $ev->date_label }})</option>
+
+            {{-- Division — muncul kalau event aktif punya divisi --}}
+            @if($judgeEventId && $judgeDivisions->count())
+            <div class="col" style="gap:6px;min-width:160px;">
+                <span class="mono dim" style="font-size:10px;">DIVISI</span>
+                <div class="flex gap-s" style="flex-wrap:wrap;">
+                    <button wire:click="$set('judgeDivisionId', 0)"
+                        class="btn btn-sm {{ $judgeDivisionId === 0 ? 'btn-lime' : 'btn-ghost' }}">
+                        Semua
+                    </button>
+                    @foreach($judgeDivisions as $div)
+                        <button wire:click="$set('judgeDivisionId', {{ $div->id }})"
+                            class="btn btn-sm {{ $judgeDivisionId === $div->id ? 'btn-lime' : 'btn-ghost' }}">
+                            {{ $div->name }}
+                        </button>
                     @endforeach
-                </select>
-                @error('judgeEventId') <p style="color:var(--red);font-size:11px;">{{ $message }}</p> @enderror
+                </div>
             </div>
-            <div class="col" style="gap:6px;min-width:200px;">
+            @endif
+
+            {{-- Scoring mode --}}
+            <div class="col" style="gap:6px;min-width:180px;">
                 <span class="mono dim" style="font-size:10px;">MODE SCORING</span>
                 @php
                     $assignedMode = $judgeAssignment?->scoring_mode ?? 'BOTH';
@@ -22,17 +41,25 @@
                 @endphp
                 <div class="flex gap-s">
                     @if($showLive)
-                        <button wire:click="$set('scoringMode','live')" class="btn btn-sm {{ $scoringMode === 'live' ? 'btn-lime' : 'btn-ghost' }}">★ Live Scoring</button>
+                        <button wire:click="$set('scoringMode','live')" class="btn btn-sm {{ $scoringMode === 'live' ? 'btn-lime' : 'btn-ghost' }}">★ Live</button>
                     @endif
                     @if($showKo)
                         <button wire:click="$set('scoringMode','knockout')" class="btn btn-sm {{ $scoringMode === 'knockout' ? 'btn-lime' : 'btn-ghost' }}">⚡ Knockout</button>
                     @endif
-                    @if($judgeAssignment)
-                        <span class="badge badge-out" style="font-size:10px;">{{ $judgeAssignment->scoring_mode }}</span>
-                    @endif
                 </div>
             </div>
+
         </div>
+
+        {{-- Active filter indicator --}}
+        @if($judgeEventId && $judgeDivisionId)
+            @php $activeDivName = $judgeDivisions->firstWhere('id', $judgeDivisionId)?->name; @endphp
+            <div class="flex gap-s" style="margin-top:10px;align-items:center;padding-top:10px;border-top:1px solid var(--line);">
+                <span class="mono dim" style="font-size:10px;">Filter aktif:</span>
+                <span class="mono" style="font-size:10px;padding:2px 10px;background:var(--lime);color:#0a0a0b;font-weight:700;border-radius:2px;">{{ strtoupper($activeDivName) }}</span>
+                <span class="mono dim" style="font-size:10px;">· hanya rider &amp; match divisi ini yang tampil</span>
+            </div>
+        @endif
     </div>
 
     @php
@@ -50,13 +77,24 @@
                 <span class="kicker" style="display:block;margin-bottom:14px;">CONTEXT SCORING</span>
                 <div class="col" style="gap:12px;margin-bottom:20px;">
                     <div>
-                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">RIDER</span>
+                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">
+                            RIDER
+                            @if($judgeDivisionId && isset($activeDivName))
+                                <span style="color:var(--lime);margin-left:6px;">· {{ strtoupper($activeDivName) }}</span>
+                            @endif
+                        </span>
+                        @if(!$judgeEventId)
+                            <p class="mono dim" style="font-size:11px;">Pilih event terlebih dahulu.</p>
+                        @elseif($judgeRiders->isEmpty())
+                            <p class="mono" style="font-size:11px;color:var(--red);">Tidak ada rider approved di divisi ini.</p>
+                        @else
                         <select wire:model.live="liveRiderId" class="input-field" style="width:100%;">
                             <option value="0">— pilih rider —</option>
                             @foreach($judgeRiders as $r)
-                                <option value="{{ $r->id }}">{{ $r->name }} {{ $r->nick ? "({$r->nick})" : '' }}</option>
+                                <option value="{{ $r->id }}">{{ $r->name }}{{ $r->division ? " · {$r->division->name}" : '' }}</option>
                             @endforeach
                         </select>
+                        @endif
                     </div>
                     <div>
                         <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">RUN NUMBER</span>
@@ -69,12 +107,17 @@
                 </div>
 
                 @if($liveRiderId && $judgeRiders->find($liveRiderId))
-                    @php $currentRider = $judgeRiders->find($liveRiderId); @endphp
+                    @php
+                        $currentRider = $judgeRiders->find($liveRiderId);
+                        $initials = collect(explode(' ', $currentRider->name))->map(fn($w) => strtoupper($w[0]))->take(2)->join('');
+                    @endphp
                     <div class="flex" style="align-items:center;gap:12px;margin-bottom:20px;padding:12px;background:var(--bg-2);border-radius:3px;">
-                        <x-avatar :initials="$currentRider->initials" :size="44" :ring="true" />
+                        <x-avatar :initials="$initials" :size="44" :ring="true" />
                         <div class="col">
                             <span class="display" style="font-size:22px;">{{ $currentRider->name }}</span>
-                            <span class="mono dim" style="font-size:11px;">RUN {{ $liveRunNumber }}</span>
+                            <span class="mono dim" style="font-size:11px;">
+                                {{ $currentRider->division?->name ?? '' }} · RUN {{ $liveRunNumber }}
+                            </span>
                         </div>
                     </div>
                 @endif
@@ -193,7 +236,7 @@
                                         </option>
                                     @else
                                         <option value="{{ $m->id }}">
-                                            {{ $m->round }} #{{ $m->match_number }} — {{ $m->riderA?->name ?? 'TBD' }} vs {{ $m->riderB?->name ?? 'TBD' }}
+                                            [{{ $m->bracket?->division?->name ?? '—' }}] {{ $m->round }} #{{ $m->match_number }} — {{ $m->riderA?->name ?? 'TBD' }} vs {{ $m->riderB?->name ?? 'TBD' }}
                                         </option>
                                     @endif
                                 @endforeach

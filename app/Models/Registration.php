@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\EventDivision;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,7 +12,7 @@ class Registration extends Model
 {
     protected $fillable = [
         'user_id', 'entry_code', 'name', 'email', 'phone', 'dob', 'city', 'stance',
-        'event_id', 'category', 'competition_category', 'experience',
+        'event_id', 'division_id', 'category', 'competition_category', 'experience',
         'ec_name', 'ec_phone', 'ec_relation',
         'payment_method', 'payment_proof', 'payment_status', 'status',
     ];
@@ -28,6 +29,11 @@ class Registration extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    public function division(): BelongsTo
+    {
+        return $this->belongsTo(EventDivision::class, 'division_id');
     }
 
     public function riderCategory(): HasOne

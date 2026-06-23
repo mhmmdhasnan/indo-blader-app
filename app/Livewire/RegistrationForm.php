@@ -141,7 +141,7 @@ class RegistrationForm extends Component
             'city'                 => $this->city,
             'event_id'             => $event->id,
             'division_id'          => $division->id,
-            'category'             => $division->discipline,
+            'category'             => $division->discipline ?? $division->name,
             'competition_category' => $division->level,
             'ec_name'              => $this->ecName,
             'ec_phone'             => $this->ecPhoneCode . $this->ecPhoneNum,
