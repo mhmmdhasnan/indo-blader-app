@@ -821,10 +821,7 @@ class Dashboard extends Component
 
         $division = EventDivision::findOrFail($this->bracketDivisionId);
 
-        if (Bracket::where('event_id', $eventId)->where('division_id', $this->bracketDivisionId)->exists()) {
-            $this->addError('bracket', "Bracket untuk divisi '{$division->name}' sudah ada.");
-            return;
-        }
+        Bracket::where('event_id', $eventId)->where('division_id', $this->bracketDivisionId)->each(fn ($b) => $b->delete());
 
         $registrations = Registration::where('event_id', $eventId)
             ->where('status', 'APPROVED')
@@ -849,6 +846,8 @@ class Dashboard extends Component
         } else {
             $service->generateSingleElimination($bracket, $registrations);
         }
+
+        $this->bracketDivisionId = 0;
     }
 
     public function generateManualBracket(int $eventId): void
@@ -862,10 +861,7 @@ class Dashboard extends Component
 
         $division = EventDivision::findOrFail($this->bracketDivisionId);
 
-        if (Bracket::where('event_id', $eventId)->where('division_id', $this->bracketDivisionId)->exists()) {
-            $this->addError('bracket', "Bracket untuk divisi '{$division->name}' sudah ada.");
-            return;
-        }
+        Bracket::where('event_id', $eventId)->where('division_id', $this->bracketDivisionId)->each(fn ($b) => $b->delete());
 
         $bracket  = Bracket::create(['event_id' => $eventId, 'division_id' => $this->bracketDivisionId, 'type' => $this->bracketType]);
         $r1Count  = max(1, (int) $this->manualQfCount);
@@ -926,6 +922,7 @@ class Dashboard extends Component
         }
 
         $bracket->update(['status' => 'IN_PROGRESS']);
+        $this->bracketDivisionId = 0;
     }
 
     public function assignBracketSlot(int $matchId, string $slot, int $regId): void
@@ -1137,7 +1134,10 @@ class Dashboard extends Component
 
         // Divisions for the selected event in bracket setup
         $bracketDivisions = $this->selectedEventId
-            ? EventDivision::where('event_id', $this->selectedEventId)->where('is_active', true)->orderBy('name')->get()
+            ? EventDivision::where('event_id', $this->selectedEventId)
+                ->where('is_active', true)
+                ->whereNotIn('id', Bracket::where('event_id', $this->selectedEventId)->pluck('division_id'))
+                ->orderBy('name')->get()
             : collect();
 
         $data = compact('registrations', 'events', 'riders', 'revenue', 'activeEvent', 'competitionLevels', 'eventDivisions', 'bracketDivisions');

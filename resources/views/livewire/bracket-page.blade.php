@@ -1,47 +1,62 @@
 <div style="min-height:100vh;background:var(--bg);overflow-x:auto;">
 
     {{-- ── HEADER ── --}}
-    <div class="halftone" style="border-bottom:2px solid var(--ink);padding:36px 48px 28px;">
-        <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+    <div class="halftone" style="border-bottom:2px solid var(--ink);padding:32px 48px 24px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
             <div>
-                <span class="mono" style="font-size:10px;letter-spacing:0.2em;color:var(--lime);display:block;margin-bottom:6px;">
-                    {{ $event ? strtoupper($event->title) : 'TOURNAMENT' }} @if($event) · {{ $event->date_label }} @endif
+                {{-- Event + date eyebrow --}}
+                <span class="mono" style="font-size:10px;letter-spacing:0.2em;color:var(--lime);display:block;margin-bottom:8px;">
+                    {{ $event ? strtoupper($event->title) : 'TOURNAMENT' }}@if($event) · {{ $event->date_label }}@endif
                 </span>
-                <h1 class="display" style="font-size:clamp(52px,8vw,96px);line-height:0.85;letter-spacing:-0.02em;">PLAYOFFS</h1>
+                {{-- Division name as main title --}}
+                @if($bracket?->division)
+                    <h1 class="display" style="font-size:clamp(40px,6vw,80px);line-height:0.9;letter-spacing:-0.02em;">
+                        {{ strtoupper($bracket->division->name) }}
+                    </h1>
+                @else
+                    <h1 class="display" style="font-size:clamp(40px,6vw,80px);line-height:0.9;letter-spacing:-0.02em;">BRACKET</h1>
+                @endif
+                {{-- Type + status --}}
                 @if($bracket)
-                    <span class="mono dim" style="font-size:11px;margin-top:10px;display:block;">
-                        @if($bracket->division)
-                            <span style="color:var(--lime);font-weight:700;">{{ strtoupper($bracket->division->name) }}</span> ·
-                        @endif
+                    <span class="mono dim" style="font-size:11px;margin-top:8px;display:block;">
                         {{ str_replace('_', ' ', $bracket->type) }}
-                        @if($bracket->status === 'COMPLETED') · <span style="color:var(--lime);">COMPLETED</span> @endif
+                        @if($bracket->status === 'COMPLETED') · <span style="color:var(--lime);">COMPLETED</span>@endif
                     </span>
                 @endif
             </div>
-            <div class="flex gap-s" style="align-items:center;flex-wrap:wrap;">
+            {{-- Utility controls top-right --}}
+            <div class="flex gap-s" style="align-items:center;flex-wrap:wrap;padding-top:4px;">
                 @if($events->count() > 1)
-                    <select wire:model.live="selectedSlug" class="mono" style="background:var(--bg);color:var(--ink);border:1.5px solid var(--lime);border-radius:6px;padding:6px 12px;font-size:12px;letter-spacing:0.05em;cursor:pointer;outline:none;">
+                    <select wire:model.live="selectedSlug" class="mono" style="background:var(--bg);color:var(--ink);border:1.5px solid var(--line);border-radius:6px;padding:6px 12px;font-size:12px;letter-spacing:0.05em;cursor:pointer;outline:none;">
                         @foreach($events as $ev)
                             <option value="{{ $ev->slug }}">{{ strtoupper($ev->title) }}</option>
                         @endforeach
                     </select>
                 @endif
-                @if($divisions->count() > 1)
-                    <div class="flex gap-s" style="flex-wrap:wrap;">
-                        @foreach($divisions as $div)
-                            <button wire:click="$set('selectedDivisionId', {{ $div->id }})" class="btn btn-sm {{ $selectedDivisionId === $div->id ? 'btn-lime' : 'btn-ghost' }}">
-                                {{ strtoupper($div->name) }}
-                            </button>
-                        @endforeach
-                    </div>
-                @endif
-                <a href="{{ route('live') }}" class="btn btn-ghost btn-sm"><span class="live-dot" style="margin-right:6px;"></span>Live Scoring</a>
+                <a href="{{ route('live') }}" class="btn btn-ghost btn-sm"><span class="live-dot" style="margin-right:6px;"></span>Live</a>
                 @if($event)
                     <a href="{{ route('events.show', $event->slug) }}" class="btn btn-ghost btn-sm">Event →</a>
                 @endif
             </div>
         </div>
     </div>
+
+    {{-- ── DIVISION TABS ── --}}
+    @if($divisions->count() > 1)
+    <div style="border-bottom:2px solid var(--ink);background:var(--bg-2);padding:0 48px;display:flex;gap:0;overflow-x:auto;">
+        @foreach($divisions as $div)
+            @php $active = $selectedDivisionId === $div->id; @endphp
+            <button wire:click="$set('selectedDivisionId', {{ $div->id }})"
+                class="mono"
+                style="padding:12px 20px;font-size:11px;font-weight:700;letter-spacing:0.12em;white-space:nowrap;cursor:pointer;border:none;background:transparent;
+                       border-bottom:3px solid {{ $active ? 'var(--lime)' : 'transparent' }};
+                       color:{{ $active ? 'var(--ink)' : 'var(--ink-dim)' }};
+                       margin-bottom:-2px;">
+                {{ strtoupper($div->name) }}
+            </button>
+        @endforeach
+    </div>
+    @endif
 
     @if($bracket && $matchesByRound->count())
     @php
@@ -128,31 +143,7 @@
                             <div style="display:flex;flex-direction:column;flex-shrink:0;width:200px;">
                                 <div class="mono" style="font-size:9px;letter-spacing:0.16em;color:var(--lime);padding-bottom:10px;text-align:center;">{{ $roundLabels[$round] ?? $round }}</div>
                                 @foreach($matches as $match)
-                                    @php
-                                        $nameA   = $match->riderA?->name ?? 'TBD';
-                                        $nameB   = $match->riderB?->name ?? 'TBD';
-                                        $winnerA = $match->winner_registration_id && $match->winner_registration_id === $match->rider_a_registration_id;
-                                        $winnerB = $match->winner_registration_id && $match->winner_registration_id === $match->rider_b_registration_id;
-                                        $matchNum = str_pad($match->match_number, 2, '0', STR_PAD_LEFT);
-                                    @endphp
-                                    <div style="height:{{ $slotH }}px;display:flex;flex-direction:column;justify-content:center;padding:0 4px;">
-                                        <div class="mono" style="font-size:8px;letter-spacing:0.14em;color:var(--ink-dim);margin-bottom:4px;">MATCH {{ $matchNum }}@if($match->trick) · {{ strtoupper($match->trick->name) }}@endif</div>
-                                        <div style="border:2px solid var(--line);overflow:hidden;border-radius:2px;background:var(--surface);">
-                                            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid var(--line);background:{{ $winnerA ? 'color-mix(in srgb,var(--lime) 14%,transparent)' : 'transparent' }};">
-                                                <span style="font-size:13px;font-weight:{{ $winnerA ? '700' : '400' }};color:{{ $winnerA ? 'var(--ink)' : 'var(--ink-dim)' }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;">{{ $nameA }}</span>
-                                                <span class="mono tnum" style="font-size:13px;font-weight:700;color:{{ $winnerA ? 'var(--lime)' : 'var(--ink-dim)' }};margin-left:8px;flex-shrink:0;">{{ $match->score_a ?? '—' }}</span>
-                                            </div>
-                                            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:{{ $winnerB ? 'color-mix(in srgb,var(--lime) 14%,transparent)' : 'transparent' }};">
-                                                <span style="font-size:13px;font-weight:{{ $winnerB ? '700' : '400' }};color:{{ $winnerB ? 'var(--ink)' : 'var(--ink-dim)' }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;">{{ $nameB }}</span>
-                                                <span class="mono tnum" style="font-size:13px;font-weight:700;color:{{ $winnerB ? 'var(--lime)' : 'var(--ink-dim)' }};margin-left:8px;flex-shrink:0;">{{ $match->score_b ?? '—' }}</span>
-                                            </div>
-                                        </div>
-                                        @if($match->submission_deadline)
-                                            <div class="mono" style="font-size:8px;letter-spacing:0.1em;color:{{ now()->gt($match->submission_deadline) ? 'var(--red)' : 'var(--ink-dim)' }};margin-top:4px;">
-                                                DEADLINE {{ $match->submission_deadline->format('d M H:i') }}{{ now()->gt($match->submission_deadline) ? ' · CLOSED' : '' }}
-                                            </div>
-                                        @endif
-                                    </div>
+                                    @include('livewire.partials.bracket-match', ['slotH' => $slotH, 'isFinal' => false])
                                 @endforeach
                             </div>
                         @endforeach
@@ -186,31 +177,7 @@
                             <div style="display:flex;flex-direction:column;flex-shrink:0;width:200px;">
                                 <div class="mono" style="font-size:9px;letter-spacing:0.16em;color:var(--ink-dim);padding-bottom:10px;text-align:center;">{{ $roundLabels[$round] ?? $round }}</div>
                                 @foreach($matches as $match)
-                                    @php
-                                        $nameA   = $match->riderA?->name ?? 'TBD';
-                                        $nameB   = $match->riderB?->name ?? 'TBD';
-                                        $winnerA = $match->winner_registration_id && $match->winner_registration_id === $match->rider_a_registration_id;
-                                        $winnerB = $match->winner_registration_id && $match->winner_registration_id === $match->rider_b_registration_id;
-                                        $matchNum = str_pad($match->match_number, 2, '0', STR_PAD_LEFT);
-                                    @endphp
-                                    <div style="height:{{ $slotH }}px;display:flex;flex-direction:column;justify-content:center;padding:0 4px;">
-                                        <div class="mono" style="font-size:8px;letter-spacing:0.14em;color:var(--ink-dim);margin-bottom:4px;">MATCH {{ $matchNum }}@if($match->trick) · {{ strtoupper($match->trick->name) }}@endif</div>
-                                        <div style="border:2px solid var(--line);overflow:hidden;border-radius:2px;background:var(--surface);">
-                                            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid var(--line);background:{{ $winnerA ? 'color-mix(in srgb,var(--lime) 14%,transparent)' : 'transparent' }};">
-                                                <span style="font-size:13px;font-weight:{{ $winnerA ? '700' : '400' }};color:{{ $winnerA ? 'var(--ink)' : 'var(--ink-dim)' }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;">{{ $nameA }}</span>
-                                                <span class="mono tnum" style="font-size:13px;font-weight:700;color:{{ $winnerA ? 'var(--lime)' : 'var(--ink-dim)' }};margin-left:8px;flex-shrink:0;">{{ $match->score_a ?? '—' }}</span>
-                                            </div>
-                                            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:{{ $winnerB ? 'color-mix(in srgb,var(--lime) 14%,transparent)' : 'transparent' }};">
-                                                <span style="font-size:13px;font-weight:{{ $winnerB ? '700' : '400' }};color:{{ $winnerB ? 'var(--ink)' : 'var(--ink-dim)' }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;">{{ $nameB }}</span>
-                                                <span class="mono tnum" style="font-size:13px;font-weight:700;color:{{ $winnerB ? 'var(--lime)' : 'var(--ink-dim)' }};margin-left:8px;flex-shrink:0;">{{ $match->score_b ?? '—' }}</span>
-                                            </div>
-                                        </div>
-                                        @if($match->submission_deadline)
-                                            <div class="mono" style="font-size:8px;letter-spacing:0.1em;color:{{ now()->gt($match->submission_deadline) ? 'var(--red)' : 'var(--ink-dim)' }};margin-top:4px;">
-                                                DEADLINE {{ $match->submission_deadline->format('d M H:i') }}{{ now()->gt($match->submission_deadline) ? ' · CLOSED' : '' }}
-                                            </div>
-                                        @endif
-                                    </div>
+                                    @include('livewire.partials.bracket-match', ['slotH' => $slotH, 'isFinal' => false])
                                 @endforeach
                             </div>
                         @endforeach
@@ -228,32 +195,7 @@
                     <div style="width:200px;padding-left:4px;">
                         <div class="mono" style="font-size:9px;letter-spacing:0.16em;color:var(--lime);padding-bottom:10px;text-align:center;">GRAND FINAL</div>
                         @if($gfMatch)
-                            @php
-                                $nameA   = $gfMatch->riderA?->name ?? 'TBD';
-                                $nameB   = $gfMatch->riderB?->name ?? 'TBD';
-                                $winnerA = $gfMatch->winner_registration_id && $gfMatch->winner_registration_id === $gfMatch->rider_a_registration_id;
-                                $winnerB = $gfMatch->winner_registration_id && $gfMatch->winner_registration_id === $gfMatch->rider_b_registration_id;
-                            @endphp
-                            <div style="border:3px solid var(--lime);overflow:hidden;border-radius:2px;background:var(--surface);">
-                                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line);background:{{ $winnerA ? 'color-mix(in srgb,var(--lime) 18%,transparent)' : 'transparent' }};">
-                                    <span style="font-size:14px;font-weight:{{ $winnerA ? '700' : '400' }};color:{{ $winnerA ? 'var(--ink)' : 'var(--ink-dim)' }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;">{{ $nameA }}</span>
-                                    <span class="mono tnum" style="font-size:14px;font-weight:700;color:{{ $winnerA ? 'var(--lime)' : 'var(--ink-dim)' }};margin-left:8px;flex-shrink:0;">{{ $gfMatch->score_a ?? '—' }}</span>
-                                </div>
-                                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:{{ $winnerB ? 'color-mix(in srgb,var(--lime) 18%,transparent)' : 'transparent' }};">
-                                    <span style="font-size:14px;font-weight:{{ $winnerB ? '700' : '400' }};color:{{ $winnerB ? 'var(--ink)' : 'var(--ink-dim)' }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;">{{ $nameB }}</span>
-                                    <span class="mono tnum" style="font-size:14px;font-weight:700;color:{{ $winnerB ? 'var(--lime)' : 'var(--ink-dim)' }};margin-left:8px;flex-shrink:0;">{{ $gfMatch->score_b ?? '—' }}</span>
-                                </div>
-                            </div>
-                            @if($gfMatch->submission_deadline)
-                                <div class="mono" style="font-size:8px;letter-spacing:0.1em;color:{{ now()->gt($gfMatch->submission_deadline) ? 'var(--red)' : 'var(--lime)' }};margin-top:6px;text-align:center;">
-                                    DEADLINE {{ $gfMatch->submission_deadline->format('d M H:i') }}{{ now()->gt($gfMatch->submission_deadline) ? ' · CLOSED' : '' }}
-                                </div>
-                            @endif
-                            @if($gfMatch->winner_registration_id)
-                                <div style="margin-top:10px;text-align:center;">
-                                    <span class="badge badge-lime" style="font-size:10px;">🏆 CHAMPION: {{ $gfMatch->winner?->name }}</span>
-                                </div>
-                            @endif
+                            @include('livewire.partials.bracket-match', ['match' => $gfMatch, 'slotH' => 120, 'isFinal' => true])
                         @endif
                     </div>
                 </div>
@@ -287,36 +229,7 @@
                 <div style="display:flex;flex-direction:column;flex-shrink:0;width:{{ $isFinal ? 220 : 200 }}px;">
                     <div class="mono" style="font-size:9px;letter-spacing:0.16em;color:{{ $isFinal ? 'var(--lime)' : 'var(--ink-dim)' }};padding-bottom:10px;text-align:center;">{{ $roundLabels[$round] ?? $round }}</div>
                     @foreach($matches as $match)
-                        @php
-                            $nameA   = $match->riderA?->name ?? 'TBD';
-                            $nameB   = $match->riderB?->name ?? 'TBD';
-                            $winnerA = $match->winner_registration_id && $match->winner_registration_id === $match->rider_a_registration_id;
-                            $winnerB = $match->winner_registration_id && $match->winner_registration_id === $match->rider_b_registration_id;
-                            $matchNum = str_pad($match->match_number, 2, '0', STR_PAD_LEFT);
-                        @endphp
-                        <div style="height:{{ $slotH }}px;display:flex;flex-direction:column;justify-content:center;padding:0 4px;">
-                            <div class="mono" style="font-size:8px;letter-spacing:0.14em;color:{{ $isFinal ? 'var(--lime)' : 'var(--ink-dim)' }};margin-bottom:4px;">MATCH {{ $matchNum }}@if($match->trick) · {{ strtoupper($match->trick->name) }}@endif</div>
-                            <div style="border:{{ $isFinal ? '3px solid var(--lime)' : '2px solid var(--line)' }};overflow:hidden;border-radius:2px;background:var(--surface);">
-                                <div style="display:flex;align-items:center;justify-content:space-between;padding:{{ $isFinal ? '11px 14px' : '9px 12px' }};border-bottom:1px solid var(--line);background:{{ $winnerA ? 'color-mix(in srgb,var(--lime) 14%,transparent)' : 'transparent' }};">
-                                    <span style="font-size:{{ $isFinal ? 14 : 13 }}px;font-weight:{{ $winnerA ? '700' : '400' }};color:{{ $winnerA ? 'var(--ink)' : 'var(--ink-dim)' }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:{{ $isFinal ? 150 : 130 }}px;">{{ $nameA }}</span>
-                                    <span class="mono tnum" style="font-size:{{ $isFinal ? 14 : 13 }}px;font-weight:700;color:{{ $winnerA ? 'var(--lime)' : 'var(--ink-dim)' }};margin-left:8px;flex-shrink:0;">{{ $match->score_a ?? '—' }}</span>
-                                </div>
-                                <div style="display:flex;align-items:center;justify-content:space-between;padding:{{ $isFinal ? '11px 14px' : '9px 12px' }};background:{{ $winnerB ? 'color-mix(in srgb,var(--lime) 14%,transparent)' : 'transparent' }};">
-                                    <span style="font-size:{{ $isFinal ? 14 : 13 }}px;font-weight:{{ $winnerB ? '700' : '400' }};color:{{ $winnerB ? 'var(--ink)' : 'var(--ink-dim)' }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:{{ $isFinal ? 150 : 130 }}px;">{{ $nameB }}</span>
-                                    <span class="mono tnum" style="font-size:{{ $isFinal ? 14 : 13 }}px;font-weight:700;color:{{ $winnerB ? 'var(--lime)' : 'var(--ink-dim)' }};margin-left:8px;flex-shrink:0;">{{ $match->score_b ?? '—' }}</span>
-                                </div>
-                            </div>
-                            @if($match->submission_deadline)
-                                <div class="mono" style="font-size:8px;letter-spacing:0.1em;color:{{ now()->gt($match->submission_deadline) ? 'var(--red)' : ($isFinal ? 'var(--lime)' : 'var(--ink-dim)') }};margin-top:4px;">
-                                    DEADLINE {{ $match->submission_deadline->format('d M H:i') }}{{ now()->gt($match->submission_deadline) ? ' · CLOSED' : '' }}
-                                </div>
-                            @endif
-                            @if($isFinal && $match->winner_registration_id)
-                                <div style="margin-top:8px;">
-                                    <span class="badge badge-lime" style="font-size:10px;">🏆 CHAMPION: {{ $match->winner?->name }}</span>
-                                </div>
-                            @endif
-                        </div>
+                        @include('livewire.partials.bracket-match', ['slotH' => $slotH, 'isFinal' => $isFinal])
                     @endforeach
                 </div>
             @endforeach

@@ -697,6 +697,7 @@
                                     </span>
                                 @endif
                                 <button wire:click="generateBracket({{ $selectedEventId }})" class="btn btn-lime"
+                                    wire:confirm="Bracket lama untuk divisi ini akan dihapus dan dibuat ulang. Lanjutkan?"
                                     @if(!$selectedEventId || !$bracketDivisionId || (isset($approvedCount) && $approvedCount < 2)) disabled @endif>
                                     Generate Otomatis
                                 </button>
@@ -734,139 +735,113 @@
 
                     @if(isset($brackets) && $brackets->count())
                         @foreach($brackets as $bracket)
-                            <div class="panel" style="padding:20px;">
-                                <div class="between" style="margin-bottom:16px;">
-                                    <div class="col">
-                                        <div class="flex gap-s" style="align-items:center;">
-                                            <span class="label" style="font-size:16px;">{{ $bracket->event->title }}</span>
-                                            @if($bracket->division)
-                                                <span class="mono" style="font-size:10px;padding:2px 8px;background:var(--lime);color:#0a0a0b;font-weight:700;">{{ strtoupper($bracket->division->name) }}</span>
-                                            @elseif($bracket->competition_level)
-                                                <span class="mono" style="font-size:10px;padding:2px 8px;background:var(--lime);color:#0a0a0b;font-weight:700;">{{ strtoupper($bracket->competition_level) }}</span>
-                                            @endif
-                                        </div>
-                                        <span class="mono dim" style="font-size:10px;">{{ $bracket->type }} · {{ $bracket->status }}</span>
+                        @php
+                            $bRegs = \App\Models\Registration::where('event_id', $bracket->event_id)
+                                ->where('status', 'APPROVED')
+                                ->when($bracket->division_id, fn($q) => $q->where('division_id', $bracket->division_id))
+                                ->get();
+                        @endphp
+                            <div class="panel" style="padding:16px 20px;">
+                                {{-- Bracket header --}}
+                                <div class="between" style="margin-bottom:14px;">
+                                    <div class="flex gap-s" style="align-items:center;flex-wrap:wrap;">
+                                        <span class="label" style="font-size:15px;">{{ $bracket->event->title }}</span>
+                                        @if($bracket->division)
+                                            <span class="mono" style="font-size:10px;padding:2px 8px;background:var(--lime);color:#0a0a0b;font-weight:700;">{{ strtoupper($bracket->division->name) }}</span>
+                                        @elseif($bracket->competition_level)
+                                            <span class="mono" style="font-size:10px;padding:2px 8px;background:var(--lime);color:#0a0a0b;font-weight:700;">{{ strtoupper($bracket->competition_level) }}</span>
+                                        @endif
+                                        <span class="mono dim" style="font-size:10px;">{{ str_replace('_',' ',$bracket->type) }}</span>
+                                        @if($bracket->status === 'COMPLETED')
+                                            <span class="badge badge-lime" style="font-size:10px;">COMPLETED</span>
+                                        @else
+                                            <span class="mono dim" style="font-size:10px;">{{ $bracket->status }}</span>
+                                        @endif
                                     </div>
                                     <div class="flex gap-s">
-                                        <a href="{{ route('bracket', $bracket->event->slug) }}" class="btn btn-sm btn-ghost">View Public →</a>
+                                        <a href="{{ route('bracket', $bracket->event->slug) }}" class="btn btn-sm btn-ghost">Lihat →</a>
                                         @if($bracket->status !== 'COMPLETED')
-                                            <button wire:click="completeBracket({{ $bracket->id }})" class="btn btn-sm btn-lime">Complete & Award Points</button>
-                                        @else
-                                            <span class="badge badge-lime">COMPLETED</span>
+                                            <button wire:click="completeBracket({{ $bracket->id }})" class="btn btn-sm btn-lime">Complete</button>
                                         @endif
                                         <button wire:click="deleteBracket({{ $bracket->id }})" class="btn btn-sm btn-ghost" style="color:var(--red);" wire:confirm="Hapus bracket ini dan semua match-nya?">Hapus</button>
                                     </div>
                                 </div>
+
+                                {{-- Match rows --}}
                                 @php $matchesByRound = $bracket->bracketMatches->groupBy('round'); @endphp
                                 @foreach($matchesByRound as $round => $matches)
-                                    <div style="margin-bottom:14px;">
-                                        <span class="mono dim" style="font-size:10px;letter-spacing:0.12em;display:block;margin-bottom:8px;">{{ $round }}</span>
+                                    <div style="margin-bottom:12px;">
+                                        <span class="mono" style="font-size:9px;letter-spacing:0.14em;color:var(--lime);display:block;margin-bottom:6px;">{{ $round }}</span>
                                         @foreach($matches as $match)
-                                            @php
-                                                $eventRegs = isset($eventRegistrations[$bracket->event_id])
-                                                    ? $eventRegistrations[$bracket->event_id]
-                                                    : \App\Models\Registration::where('event_id', $bracket->event_id)->where('status', 'APPROVED')->get();
-                                            @endphp
-                                            <div class="panel" style="padding:12px;margin-bottom:6px;" x-data="{
-                                                trickId: {{ $match->trick_id ?? 0 }},
+                                        <div style="border:1px solid var(--line);border-radius:4px;padding:8px 10px;margin-bottom:4px;overflow-x:auto;"
+                                             x-data="{
                                                 regA: {{ $match->rider_a_registration_id ?? 0 }},
                                                 regB: {{ $match->rider_b_registration_id ?? 0 }},
-                                                editA: {{ $match->rider_a_registration_id ? 'false' : 'true' }},
-                                                editB: {{ $match->rider_b_registration_id ? 'false' : 'true' }},
-                                                deadline: '{{ $match->submission_deadline ? $match->submission_deadline->format('Y-m-d\TH:i') : '' }}'
-                                            }">
-                                                <div class="col" style="gap:10px;">
-                                                    <div class="between" style="flex-wrap:wrap;gap:8px;">
+                                                trickId: {{ $match->trick_id ?? 0 }},
+                                                deadline: '{{ $match->submission_deadline ? $match->submission_deadline->format('Y-m-d\TH:i') : '' }}',
+                                                showDeadline: false
+                                             }">
+                                            <div style="display:flex;align-items:center;gap:8px;white-space:nowrap;min-width:max-content;">
 
-                                                        {{-- Riders display / slot assignment --}}
-                                                        <div class="flex gap-m" style="align-items:center;flex-wrap:wrap;">
-                                                            {{-- Slot A --}}
-                                                            <div class="flex gap-s" style="align-items:center;">
-                                                                <template x-if="!editA">
-                                                                    <div class="flex gap-s" style="align-items:center;">
-                                                                        <span class="label" style="font-size:13px;">{{ $match->riderA?->name ?? '— Rider A —' }}</span>
-                                                                        <button @click="editA = true" class="btn btn-sm btn-ghost" style="font-size:10px;padding:2px 6px;">Edit</button>
-                                                                    </div>
-                                                                </template>
-                                                                <template x-if="editA">
-                                                                    <div class="flex gap-s" style="align-items:center;">
-                                                                        <select x-model="regA" class="input-field" style="font-size:11px;padding:4px 8px;min-width:140px;">
-                                                                            <option value="0">— Rider A —</option>
-                                                                            @foreach($eventRegs as $reg)
-                                                                                <option value="{{ $reg->id }}">{{ $reg->name }}</option>
-                                                                            @endforeach
-                                                                        </select>
-                                                                        <button x-show="regA > 0" @click="$wire.assignBracketSlot({{ $match->id }}, 'a', regA); editA = false" class="btn btn-sm btn-ghost" style="font-size:11px;">Set</button>
-                                                                        @if($match->rider_a_registration_id)
-                                                                            <button @click="editA = false" class="btn btn-sm btn-ghost" style="font-size:10px;padding:2px 6px;">Cancel</button>
-                                                                        @endif
-                                                                    </div>
-                                                                </template>
-                                                            </div>
+                                            {{-- Match # --}}
+                                            <span class="mono dim" style="font-size:10px;width:32px;flex-shrink:0;">#{{ str_pad($match->match_number,2,'0',STR_PAD_LEFT) }}</span>
 
-                                                            <span class="mono dim" style="font-size:11px;">vs</span>
+                                            {{-- Slot A --}}
+                                            <select x-model="regA" @change="$wire.assignBracketSlot({{ $match->id }}, 'a', regA)" class="input-field" style="font-size:11px;padding:3px 6px;width:160px;flex-shrink:0;">
+                                                <option value="0">— Rider A —</option>
+                                                @foreach($bRegs as $reg)
+                                                    <option value="{{ $reg->id }}" {{ $match->rider_a_registration_id == $reg->id ? 'selected' : '' }}>{{ $reg->name }}</option>
+                                                @endforeach
+                                            </select>
 
-                                                            {{-- Slot B --}}
-                                                            <div class="flex gap-s" style="align-items:center;">
-                                                                <template x-if="!editB">
-                                                                    <div class="flex gap-s" style="align-items:center;">
-                                                                        <span class="label" style="font-size:13px;">{{ $match->riderB?->name ?? '— Rider B —' }}</span>
-                                                                        <button @click="editB = true" class="btn btn-sm btn-ghost" style="font-size:10px;padding:2px 6px;">Edit</button>
-                                                                    </div>
-                                                                </template>
-                                                                <template x-if="editB">
-                                                                    <div class="flex gap-s" style="align-items:center;">
-                                                                        <select x-model="regB" class="input-field" style="font-size:11px;padding:4px 8px;min-width:140px;">
-                                                                            <option value="0">— Rider B —</option>
-                                                                            @foreach($eventRegs as $reg)
-                                                                                <option value="{{ $reg->id }}">{{ $reg->name }}</option>
-                                                                            @endforeach
-                                                                        </select>
-                                                                        <button x-show="regB > 0" @click="$wire.assignBracketSlot({{ $match->id }}, 'b', regB); editB = false" class="btn btn-sm btn-ghost" style="font-size:11px;">Set</button>
-                                                                        @if($match->rider_b_registration_id)
-                                                                            <button @click="editB = false" class="btn btn-sm btn-ghost" style="font-size:10px;padding:2px 6px;">Cancel</button>
-                                                                        @endif
-                                                                    </div>
-                                                                </template>
-                                                            </div>
+                                            <span class="mono dim" style="font-size:10px;flex-shrink:0;">vs</span>
 
-                                                            @if($match->trick) <span class="badge badge-out" style="font-size:10px;">{{ $match->trick->name }}</span> @endif
-                                                            @if($match->winner_registration_id)
-                                                                <span class="badge badge-lime">Winner: {{ $match->winner?->name }}</span>
-                                                            @endif
-                                                        </div>
+                                            {{-- Slot B --}}
+                                            <select x-model="regB" @change="$wire.assignBracketSlot({{ $match->id }}, 'b', regB)" class="input-field" style="font-size:11px;padding:3px 6px;width:160px;flex-shrink:0;">
+                                                <option value="0">— Rider B —</option>
+                                                @foreach($bRegs as $reg)
+                                                    <option value="{{ $reg->id }}" {{ $match->rider_b_registration_id == $reg->id ? 'selected' : '' }}>{{ $reg->name }}</option>
+                                                @endforeach
+                                            </select>
 
-                                                        <div class="flex gap-s" style="flex-wrap:wrap;">
-                                                            {{-- Assign trick --}}
-                                                            @if(isset($tricks) && $tricks->count())
-                                                                <select x-model="trickId" class="input-field" style="font-size:11px;padding:4px 8px;">
-                                                                    <option value="0">Assign trick…</option>
-                                                                    @foreach($tricks as $t)
-                                                                        <option value="{{ $t->id }}">{{ $t->name }} ({{ $t->difficulty }})</option>
-                                                                    @endforeach
-                                                                </select>
-                                                                <button x-show="trickId > 0" @click="$wire.assignTrickToBracketMatch({{ $match->id }}, trickId)" class="btn btn-sm btn-ghost" style="font-size:11px;">Assign</button>
-                                                            @endif
-                                                            {{-- Advance winner --}}
-                                                            @if($match->status === 'PENDING' && $match->rider_a_registration_id && $match->rider_b_registration_id)
-                                                                <button wire:click="advanceBracketWinner({{ $match->id }}, {{ $match->rider_a_registration_id }})" class="btn btn-sm btn-ghost">{{ $match->riderA?->name }} Wins</button>
-                                                                <button wire:click="advanceBracketWinner({{ $match->id }}, {{ $match->rider_b_registration_id }})" class="btn btn-sm btn-ghost">{{ $match->riderB?->name }} Wins</button>
-                                                            @endif
-                                                            <button wire:click="deleteBracketMatch({{ $match->id }})" class="btn btn-sm btn-ghost" style="color:var(--red);font-size:11px;" wire:confirm="Hapus bracket match ini?">Hapus</button>
-                                                        </div>
-                                                    </div>
+                                            {{-- Winner badge or buttons --}}
+                                            @if($match->winner_registration_id)
+                                                <span class="badge badge-lime" style="font-size:10px;flex-shrink:0;">✓ {{ $match->winner?->name }}</span>
+                                            @elseif($match->rider_a_registration_id && $match->rider_b_registration_id)
+                                                <button wire:click="advanceBracketWinner({{ $match->id }}, {{ $match->rider_a_registration_id }})" class="btn btn-sm btn-ghost" style="font-size:10px;flex-shrink:0;">{{ $match->riderA?->name }} ✓</button>
+                                                <button wire:click="advanceBracketWinner({{ $match->id }}, {{ $match->rider_b_registration_id }})" class="btn btn-sm btn-ghost" style="font-size:10px;flex-shrink:0;">{{ $match->riderB?->name }} ✓</button>
+                                            @endif
 
-                                                    {{-- Deadline row --}}
-                                                    <div class="flex gap-s" style="align-items:center;">
-                                                        <span class="mono dim" style="font-size:10px;min-width:110px;">BATAS SUBMIT:</span>
-                                                        <input type="datetime-local" x-model="deadline" class="input-field" style="font-size:11px;padding:4px 8px;max-width:200px;" />
-                                                        <button @click="$wire.setMatchDeadline({{ $match->id }}, deadline)" class="btn btn-sm btn-ghost" style="font-size:11px;">Simpan</button>
-                                                        @if($match->submission_deadline)
-                                                            <span class="mono" style="font-size:10px;color:var(--lime);">{{ $match->submission_deadline->format('d M Y H:i') }}</span>
-                                                        @endif
-                                                    </div>
+                                            {{-- Trick --}}
+                                            @if(isset($tricks) && $tricks->count())
+                                                <select x-model="trickId" @change="trickId > 0 && $wire.assignTrickToBracketMatch({{ $match->id }}, trickId)" class="input-field" style="font-size:11px;padding:3px 6px;width:120px;flex-shrink:0;">
+                                                    <option value="0">Trick…</option>
+                                                    @foreach($tricks as $t)
+                                                        <option value="{{ $t->id }}" {{ $match->trick_id == $t->id ? 'selected' : '' }}>{{ $t->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                            @endif
+
+                                            {{-- Deadline toggle --}}
+                                            <button @click="showDeadline = !showDeadline" class="btn btn-sm btn-ghost" style="font-size:10px;flex-shrink:0;">
+                                                @if($match->submission_deadline)
+                                                    ⏰ {{ $match->submission_deadline->format('d M H:i') }}
+                                                @else
+                                                    ⏰ Deadline
+                                                @endif
+                                            </button>
+                                            <template x-if="showDeadline">
+                                                <div class="flex gap-s" style="align-items:center;flex-shrink:0;">
+                                                    <input type="datetime-local" x-model="deadline" class="input-field" style="font-size:11px;padding:3px 6px;" />
+                                                    <button @click="$wire.setMatchDeadline({{ $match->id }}, deadline); showDeadline=false" class="btn btn-sm btn-ghost" style="font-size:11px;">Simpan</button>
                                                 </div>
-                                            </div>
+                                            </template>
+
+                                            {{-- Delete match --}}
+                                            <button wire:click="deleteBracketMatch({{ $match->id }})" class="btn btn-sm btn-ghost" style="color:var(--red);font-size:11px;flex-shrink:0;" wire:confirm="Hapus match ini?">✕</button>
+
+                                            </div>{{-- end nowrap row --}}
+                                        </div>
                                         @endforeach
                                     </div>
                                 @endforeach
@@ -875,8 +850,8 @@
                     @else
                         <div class="panel center col" style="padding:40px;gap:12px;text-align:center;">
                             <span style="font-size:40px;">⊟</span>
-                            <p class="dim">No brackets generated yet. Select an event above to generate one.</p>
-                            <a href="{{ route('bracket') }}" class="btn btn-ghost btn-sm">View Public Bracket</a>
+                            <p class="dim">Belum ada bracket. Pilih event di atas lalu generate.</p>
+                            <a href="{{ route('bracket') }}" class="btn btn-ghost btn-sm">Lihat Bracket Publik</a>
                         </div>
                     @endif
                 </div>
