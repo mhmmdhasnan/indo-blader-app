@@ -191,25 +191,33 @@
                             @endforeach
                         </div>
                     @endif
+                    @if($currentEvent && !empty($currentEvent->competition_levels))
                     <div style="margin-top:22px;">
                         <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['competitionCategory']) ? 'var(--red)' : 'var(--ink-dim)' }};display:block;margin-bottom:10px;">
                             COMPETITION LEVEL *{{ isset($errors['competitionCategory']) ? ' — '.$errors['competitionCategory'] : '' }}
                         </span>
                         <div class="flex gap-s" style="flex-wrap:wrap;">
-                            @foreach(['Beginner','Open','Pro'] as $opt)
+                            @php
+                                $levelDesc = [
+                                    'Beginner' => 'Entry level',
+                                    'Open'     => 'All skills welcome',
+                                    'Pro'      => 'Elite & competitive',
+                                    'Master'   => 'Top-tier masters',
+                                ];
+                            @endphp
+                            @foreach($currentEvent->competition_levels as $opt)
                                 <button wire:click="$set('competitionCategory','{{ $opt }}')" class="panel col" style="
                                     flex:1;min-width:110px;padding:14px 16px;gap:6px;align-items:flex-start;cursor:pointer;
                                     border-color:{{ $competitionCategory === $opt ? 'var(--lime)' : 'var(--ink)' }};
                                     box-shadow:{{ $competitionCategory === $opt ? '4px 4px 0 var(--lime)' : 'var(--paper-shadow)' }};
                                 ">
                                     <span class="display" style="font-size:18px;">{{ $opt }}</span>
-                                    <span class="mono dim" style="font-size:9px;">
-                                        {{ $opt === 'Beginner' ? 'Entry level' : ($opt === 'Open' ? 'All skills welcome' : 'Elite & competitive') }}
-                                    </span>
+                                    <span class="mono dim" style="font-size:9px;">{{ $levelDesc[$opt] ?? $opt }}</span>
                                 </button>
                             @endforeach
                         </div>
                     </div>
+                    @endif
                 @endif
 
                 {{-- Step 2: Emergency --}}

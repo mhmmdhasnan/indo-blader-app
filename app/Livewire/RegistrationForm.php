@@ -65,6 +65,12 @@ class RegistrationForm extends Component
         $this->email = $user->email;
     }
 
+    public function updatedEventSlug(): void
+    {
+        $this->category            = '';
+        $this->competitionCategory = '';
+    }
+
     public function next(): void
     {
         $this->errors = [];
@@ -79,7 +85,13 @@ class RegistrationForm extends Component
 
         if ($this->step === 1) {
             if (!$this->category)             $this->errors['category']            = 'pick one';
-            if (!$this->competitionCategory)  $this->errors['competitionCategory'] = 'pick one';
+            $event = Event::where('slug', $this->eventSlug)->first();
+            $levels = $event?->competition_levels ?? [];
+            if (!$this->competitionCategory) {
+                $this->errors['competitionCategory'] = 'pick one';
+            } elseif (!empty($levels) && !in_array($this->competitionCategory, $levels)) {
+                $this->errors['competitionCategory'] = 'invalid level';
+            }
         }
 
         if ($this->step === 2) {

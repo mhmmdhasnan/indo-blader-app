@@ -11,7 +11,7 @@ class Bracket extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['event_id', 'type', 'status'];
+    protected $fillable = ['event_id', 'competition_level', 'type', 'status'];
 
     public function event(): BelongsTo
     {

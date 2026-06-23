@@ -10,6 +10,9 @@
                 <h1 class="display" style="font-size:clamp(52px,8vw,96px);line-height:0.85;letter-spacing:-0.02em;">PLAYOFFS</h1>
                 @if($bracket)
                     <span class="mono dim" style="font-size:11px;margin-top:10px;display:block;">
+                        @if($bracket->competition_level)
+                            <span style="color:var(--lime);font-weight:700;">{{ strtoupper($bracket->competition_level) }}</span> ·
+                        @endif
                         {{ str_replace('_', ' ', $bracket->type) }}
                         @if($bracket->status === 'COMPLETED') · <span style="color:var(--lime);">COMPLETED</span> @endif
                     </span>
@@ -22,6 +25,15 @@
                             <option value="{{ $ev->slug }}">{{ strtoupper($ev->title) }}</option>
                         @endforeach
                     </select>
+                @endif
+                @if(count($levels) > 1)
+                    <div class="flex gap-s">
+                        @foreach($levels as $lvl)
+                            <button wire:click="$set('selectedLevel','{{ $lvl }}')" class="btn btn-sm {{ $selectedLevel === $lvl ? 'btn-lime' : 'btn-ghost' }}">
+                                {{ strtoupper($lvl) }}
+                            </button>
+                        @endforeach
+                    </div>
                 @endif
                 <a href="{{ route('live') }}" class="btn btn-ghost btn-sm"><span class="live-dot" style="margin-right:6px;"></span>Live Scoring</a>
                 @if($event)

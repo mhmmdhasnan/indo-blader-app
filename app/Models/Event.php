@@ -10,11 +10,12 @@ class Event extends Model
 {
     protected $fillable = [
         'slug', 'title', 'edition', 'city', 'venue', 'date', 'date_label',
-        'status', 'categories', 'prize', 'slots', 'filled', 'featured', 'blurb',
+        'status', 'categories', 'competition_levels', 'prize', 'slots', 'filled', 'featured', 'blurb',
     ];
 
     protected $casts = [
-        'categories' => 'array',
+        'categories'         => 'array',
+        'competition_levels' => 'array',
         'date'       => 'date',
         'featured'   => 'boolean',
     ];
@@ -34,9 +35,14 @@ class Event extends Model
         return $this->hasMany(QualificationRound::class);
     }
 
-    public function bracket(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function brackets(): HasMany
     {
-        return $this->hasOne(Bracket::class);
+        return $this->hasMany(Bracket::class);
+    }
+
+    public function bracketFor(string $level): ?\App\Models\Bracket
+    {
+        return $this->brackets()->where('competition_level', $level)->first();
     }
 
     public function rankingHistories(): HasMany

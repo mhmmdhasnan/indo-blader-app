@@ -66,7 +66,8 @@ class Dashboard extends Component
     public int    $manualRiderBId      = 0;
 
     // Bracket management
-    public string $bracketType = 'SINGLE_ELIMINATION';
+    public string $bracketType  = 'SINGLE_ELIMINATION';
+    public string $bracketLevel = '';
 
     // Qualification editing
     public int    $editQualRoundId   = 0;
@@ -109,11 +110,19 @@ class Dashboard extends Component
     public string $evDateLabel  = '';
     public string $evSlug       = '';
     public string $evStatus     = 'SOON';
-    public array  $evCategories = [];
-    public int    $evPrize      = 5000000;
+    public array  $evCategories        = [];
+    public array  $evCompetitionLevels = [];
+    public int    $evPrize             = 5000000;
     public int    $evSlots      = 32;
     public string $evBlurb      = '';
     public bool   $evFeatured   = false;
+
+    // Competition Level CRUD
+    public bool   $clEditing     = false;
+    public int    $clId          = 0;
+    public string $clName        = '';
+    public string $clDescription = '';
+    public bool   $clIsActive    = true;
 
     // User CRUD
     public bool   $userEditing  = false;
@@ -212,12 +221,13 @@ class Dashboard extends Component
         $this->evDateLabel  = '';
         $this->evSlug       = '';
         $this->evStatus     = 'SOON';
-        $this->evCategories = [];
-        $this->evPrize      = 5000000;
-        $this->evSlots      = 32;
-        $this->evBlurb      = '';
-        $this->evFeatured   = false;
-        $this->evEditing    = true;
+        $this->evCategories        = [];
+        $this->evCompetitionLevels = [];
+        $this->evPrize             = 5000000;
+        $this->evSlots             = 32;
+        $this->evBlurb             = '';
+        $this->evFeatured          = false;
+        $this->evEditing           = true;
     }
 
     public function openEditEvent(int $id): void
@@ -232,7 +242,8 @@ class Dashboard extends Component
         $this->evDateLabel  = $ev->date_label;
         $this->evSlug       = $ev->slug;
         $this->evStatus     = $ev->status;
-        $this->evCategories = $ev->categories ?? [];
+        $this->evCategories        = $ev->categories ?? [];
+        $this->evCompetitionLevels = $ev->competition_levels ?? [];
         $this->evPrize      = (int) $ev->prize;
         $this->evSlots      = $ev->slots;
         $this->evBlurb      = $ev->blurb ?? '';
@@ -271,7 +282,8 @@ class Dashboard extends Component
             'date_label' => $this->evDateLabel,
             'slug'       => $this->evSlug,
             'status'     => $this->evStatus,
-            'categories' => $this->evCategories,
+            'categories'         => $this->evCategories,
+            'competition_levels' => $this->evCompetitionLevels,
             'prize'      => $this->evPrize,
             'slots'      => $this->evSlots,
             'blurb'      => $this->evBlurb,
@@ -473,6 +485,76 @@ class Dashboard extends Component
             "Your competition category has been changed to {$newCat->name}.");
     }
 
+    // ─── Competition Level CRUD ───────────────────────────────────────────────
+
+    public function openCreateLevel(): void
+    {
+        $this->clId          = 0;
+        $this->clName        = '';
+        $this->clDescription = '';
+        $this->clIsActive    = true;
+        $this->clEditing     = true;
+    }
+
+    public function openEditLevel(int $id): void
+    {
+        $level               = Category::findOrFail($id);
+        $this->clId          = $level->id;
+        $this->clName        = $level->name;
+        $this->clDescription = $level->description ?? '';
+        $this->clIsActive    = $level->is_active;
+        $this->clEditing     = true;
+    }
+
+    public function saveLevel(): void
+    {
+        $this->validate([
+            'clName' => 'required|string|max:64',
+        ], [], ['clName' => 'name']);
+
+        $data = [
+            'name'        => trim($this->clName),
+            'description' => trim($this->clDescription) ?: null,
+            'is_active'   => $this->clIsActive,
+        ];
+
+        if ($this->clId) {
+            Category::findOrFail($this->clId)->update($data);
+        } else {
+            if (Category::where('name', $data['name'])->exists()) {
+                $this->addError('clName', 'Level dengan nama ini sudah ada.');
+                return;
+            }
+            Category::create($data);
+        }
+
+        $this->clEditing = false;
+        $this->clId      = 0;
+        $this->clName    = '';
+    }
+
+    public function cancelLevel(): void
+    {
+        $this->clEditing = false;
+        $this->clId      = 0;
+    }
+
+    public function toggleLevelActive(int $id): void
+    {
+        $level = Category::findOrFail($id);
+        $level->update(['is_active' => !$level->is_active]);
+    }
+
+    public function deleteLevel(int $id): void
+    {
+        $level = Category::findOrFail($id);
+        if ($level->riderCategories()->exists()) {
+            $this->addError('clDelete', "Level '{$level->name}' tidak bisa dihapus karena sudah dipakai oleh rider.");
+            return;
+        }
+        $level->delete();
+    }
+
     // ─── Trick Management ─────────────────────────────────────────────────────
 
     public function createTrick(): void
@@ -605,24 +687,31 @@ class Dashboard extends Component
     {
         $event = Event::findOrFail($eventId);
 
-        $existing = Bracket::where('event_id', $eventId)->first();
+        if (!$this->bracketLevel) {
+            $this->addError('bracket', 'Pilih competition level terlebih dahulu.');
+            return;
+        }
+
+        $existing = Bracket::where('event_id', $eventId)->where('competition_level', $this->bracketLevel)->first();
         if ($existing) {
-            $this->addError('bracket', 'Bracket untuk event ini sudah ada.');
+            $this->addError('bracket', "Bracket untuk level {$this->bracketLevel} di event ini sudah ada.");
             return;
         }
 
         $registrations = Registration::where('event_id', $eventId)
             ->where('status', 'APPROVED')
+            ->where('competition_category', $this->bracketLevel)
             ->get();
 
         if ($registrations->count() < 2) {
-            $this->addError('bracket', 'Minimal 2 peserta yang sudah diapprove diperlukan untuk generate bracket. Saat ini: ' . $registrations->count() . ' peserta.');
+            $this->addError('bracket', "Minimal 2 peserta level {$this->bracketLevel} yang sudah diapprove. Saat ini: " . $registrations->count() . ' peserta.');
             return;
         }
 
         $bracket = Bracket::create([
-            'event_id' => $eventId,
-            'type'     => $this->bracketType,
+            'event_id'          => $eventId,
+            'competition_level' => $this->bracketLevel,
+            'type'              => $this->bracketType,
         ]);
 
         $service = app(BracketService::class);
@@ -638,12 +727,17 @@ class Dashboard extends Component
     {
         if (!$eventId) return;
 
-        if (Bracket::where('event_id', $eventId)->exists()) {
-            $this->addError('bracket', 'Bracket untuk event ini sudah ada.');
+        if (!$this->bracketLevel) {
+            $this->addError('bracket', 'Pilih competition level terlebih dahulu.');
             return;
         }
 
-        $bracket  = Bracket::create(['event_id' => $eventId, 'type' => $this->bracketType]);
+        if (Bracket::where('event_id', $eventId)->where('competition_level', $this->bracketLevel)->exists()) {
+            $this->addError('bracket', "Bracket untuk level {$this->bracketLevel} di event ini sudah ada.");
+            return;
+        }
+
+        $bracket  = Bracket::create(['event_id' => $eventId, 'competition_level' => $this->bracketLevel, 'type' => $this->bracketType]);
         $r1Count  = max(1, (int) $this->manualQfCount);
 
         if ($this->bracketType === 'DOUBLE_ELIMINATION') {
@@ -905,7 +999,9 @@ class Dashboard extends Component
             ->orderByDesc('points')->get();
         $revenue        = $registrations->count() * 350000;
 
-        $data = compact('registrations', 'events', 'riders', 'revenue', 'activeEvent');
+        $competitionLevels = Category::orderBy('name')->get();
+
+        $data = compact('registrations', 'events', 'riders', 'revenue', 'activeEvent', 'competitionLevels');
         $data['eventCriteria']       = collect();
         $data['judgeAssignment']     = null;
         $data['otherJudgeScores']    = collect();

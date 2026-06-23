@@ -405,7 +405,7 @@
                                         @error('evPrize') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
                                     </div>
                                     <div>
-                                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:8px;">CATEGORIES</span>
+                                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:8px;">CATEGORIES (DISCIPLINE)</span>
                                         <div class="flex gap-s" style="flex-wrap:wrap;">
                                             @foreach(['STREET','PARK','VERT','FLAT'] as $cat)
                                                 <label class="flex label" style="gap:6px;align-items:center;font-size:12px;cursor:pointer;">
@@ -414,6 +414,22 @@
                                                 </label>
                                             @endforeach
                                         </div>
+                                    </div>
+                                    <div>
+                                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:8px;">COMPETITION LEVELS</span>
+                                        @if($competitionLevels->where('is_active', true)->count())
+                                        <div class="flex gap-s" style="flex-wrap:wrap;margin-bottom:8px;">
+                                            @foreach($competitionLevels->where('is_active', true) as $lvl)
+                                                <label class="flex label" style="gap:6px;align-items:center;font-size:12px;cursor:pointer;">
+                                                    <input type="checkbox" wire:model="evCompetitionLevels" value="{{ $lvl->name }}" style="accent-color:var(--lime);">
+                                                    {{ $lvl->name }}
+                                                </label>
+                                            @endforeach
+                                        </div>
+                                        @else
+                                            <span class="mono" style="font-size:10px;color:var(--red);">Belum ada level aktif. Buat dulu di menu Categories.</span>
+                                        @endif
+                                        <span class="mono dim" style="font-size:9px;">Level yang dicentang akan muncul di form registrasi event ini.</span>
                                     </div>
                                     <div>
                                         <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">DESCRIPTION</span>
@@ -495,7 +511,7 @@
                     <div class="panel" style="padding:20px;">
                         <span class="kicker" style="margin-bottom:14px;display:block;">SETUP BRACKET</span>
 
-                        {{-- Row 1: event + type + mode --}}
+                        {{-- Row 1: event + level + type + mode --}}
                         <div class="flex gap-m" style="flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;">
                             <div class="col" style="gap:6px;flex:1;min-width:200px;">
                                 <span class="mono dim" style="font-size:10px;">EVENT</span>
@@ -506,6 +522,25 @@
                                     @endforeach
                                 </select>
                             </div>
+                            @if($selectedEventId)
+                                @php $selEv = $events->firstWhere('id', $selectedEventId); $evLevels = $selEv?->competition_levels ?? []; @endphp
+                                @if(count($evLevels))
+                                <div class="col" style="gap:6px;min-width:140px;">
+                                    <span class="mono dim" style="font-size:10px;">LEVEL</span>
+                                    <select wire:model.live="bracketLevel" class="input-field" style="width:100%;">
+                                        <option value="">— pilih level —</option>
+                                        @foreach($evLevels as $lvl)
+                                            <option value="{{ $lvl }}">{{ $lvl }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                @else
+                                <div class="col" style="gap:4px;align-self:flex-end;">
+                                    <span class="mono" style="font-size:10px;color:var(--red);">⚠ Event ini belum ada competition level.</span>
+                                    <span class="mono dim" style="font-size:9px;">Edit event → centang level yang dipakai, lalu kembali ke sini.</span>
+                                </div>
+                                @endif
+                            @endif
                             <div class="col" style="gap:6px;min-width:180px;">
                                 <span class="mono dim" style="font-size:10px;">TYPE</span>
                                 <select wire:model.live="bracketType" class="input-field" style="width:100%;">
@@ -526,14 +561,19 @@
                         @if($bracketMode === 'auto')
                             <div class="flex gap-m" style="align-items:flex-end;flex-wrap:wrap;">
                                 @if($selectedEventId)
-                                    @php $approvedCount = \App\Models\Registration::where('event_id', $selectedEventId)->where('status', 'APPROVED')->count(); @endphp
+                                    @php
+                                        $approvedCount = \App\Models\Registration::where('event_id', $selectedEventId)
+                                            ->where('status', 'APPROVED')
+                                            ->when($bracketLevel, fn($q) => $q->where('competition_category', $bracketLevel))
+                                            ->count();
+                                    @endphp
                                     <span class="mono dim" style="font-size:10px;align-self:center;">
-                                        {{ $approvedCount }} peserta approved
+                                        {{ $approvedCount }} peserta approved{{ $bracketLevel ? " (level: $bracketLevel)" : '' }}
                                         @if($approvedCount < 2)<span style="color:var(--red);"> · min. 2</span>@endif
                                     </span>
                                 @endif
                                 <button wire:click="generateBracket({{ $selectedEventId }})" class="btn btn-lime"
-                                    @if(!$selectedEventId || (isset($approvedCount) && $approvedCount < 2)) disabled @endif>
+                                    @if(!$selectedEventId || !$bracketLevel || (isset($approvedCount) && $approvedCount < 2)) disabled @endif>
                                     Generate Otomatis
                                 </button>
                             </div>
@@ -558,7 +598,7 @@
                                     @endif
                                 </div>
                                 <button wire:click="generateManualBracket({{ $selectedEventId }})" class="btn btn-lime"
-                                    @if(!$selectedEventId) disabled @endif>
+                                    @if(!$selectedEventId || !$bracketLevel) disabled @endif>
                                     Buat Struktur Kosong
                                 </button>
                             </div>
@@ -573,7 +613,12 @@
                             <div class="panel" style="padding:20px;">
                                 <div class="between" style="margin-bottom:16px;">
                                     <div class="col">
-                                        <span class="label" style="font-size:16px;">{{ $bracket->event->title }}</span>
+                                        <div class="flex gap-s" style="align-items:center;">
+                                            <span class="label" style="font-size:16px;">{{ $bracket->event->title }}</span>
+                                            @if($bracket->competition_level)
+                                                <span class="mono" style="font-size:10px;padding:2px 8px;background:var(--lime);color:#0a0a0b;font-weight:700;">{{ strtoupper($bracket->competition_level) }}</span>
+                                            @endif
+                                        </div>
                                         <span class="mono dim" style="font-size:10px;">{{ $bracket->type }} · {{ $bracket->status }}</span>
                                     </div>
                                     <div class="flex gap-s">
@@ -714,6 +759,75 @@
             {{-- ── CATEGORIES ── --}}
             @if($view === 'categories')
                 <div class="col" style="gap:16px;">
+
+                    {{-- Competition Levels CRUD --}}
+                    <div class="panel" style="overflow:hidden;">
+                        <div class="between" style="padding:14px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
+                            <span class="label">COMPETITION LEVELS</span>
+                            @if(!$clEditing)
+                                <button wire:click="openCreateLevel" class="btn btn-sm btn-lime">+ Tambah Level</button>
+                            @endif
+                        </div>
+
+                        @if($clEditing)
+                            <div style="padding:18px;border-bottom:2px solid var(--lime);background:color-mix(in srgb,var(--lime) 5%,transparent);">
+                                <div class="flex gap-m" style="flex-wrap:wrap;align-items:flex-end;">
+                                    <div class="col" style="gap:5px;flex:1;min-width:140px;">
+                                        <span class="mono dim" style="font-size:10px;">NAMA LEVEL *</span>
+                                        <input type="text" wire:model.live="clName" class="input-field" placeholder="e.g. Master, Expert..." style="width:100%;" />
+                                        @error('clName') <span style="color:var(--red);font-size:10px;">{{ $message }}</span> @enderror
+                                    </div>
+                                    <div class="col" style="gap:5px;flex:2;min-width:200px;">
+                                        <span class="mono dim" style="font-size:10px;">DESKRIPSI</span>
+                                        <input type="text" wire:model.live="clDescription" class="input-field" placeholder="Opsional..." style="width:100%;" />
+                                    </div>
+                                    <label class="flex label" style="gap:6px;align-items:center;font-size:12px;cursor:pointer;padding-bottom:4px;">
+                                        <input type="checkbox" wire:model.live="clIsActive" style="accent-color:var(--lime);">
+                                        Aktif
+                                    </label>
+                                    <div class="flex gap-s">
+                                        <button wire:click="saveLevel" class="btn btn-sm btn-lime" @if(!$clName) disabled @endif>
+                                            {{ $clId ? 'Update' : 'Simpan' }}
+                                        </button>
+                                        <button wire:click="cancelLevel" class="btn btn-sm btn-ghost">Batal</button>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        @error('clDelete') <p style="padding:10px 18px;color:var(--red);font-size:11px;">{{ $message }}</p> @enderror
+
+                        @if($competitionLevels->count())
+                            @foreach($competitionLevels as $lvl)
+                                <div class="between" style="padding:12px 18px;border-bottom:1px solid var(--line);">
+                                    <div class="col" style="gap:3px;">
+                                        <div class="flex gap-s" style="align-items:center;">
+                                            <span class="label" style="font-size:14px;">{{ $lvl->name }}</span>
+                                            @if(!$lvl->is_active)
+                                                <span class="mono" style="font-size:9px;padding:1px 6px;background:var(--bg-2);border:1px solid var(--line);">INACTIVE</span>
+                                            @endif
+                                        </div>
+                                        @if($lvl->description)
+                                            <span class="mono dim" style="font-size:10px;">{{ $lvl->description }}</span>
+                                        @endif
+                                    </div>
+                                    <div class="flex gap-s">
+                                        <button wire:click="openEditLevel({{ $lvl->id }})" class="btn btn-sm btn-ghost">Edit</button>
+                                        <button wire:click="toggleLevelActive({{ $lvl->id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">
+                                            {{ $lvl->is_active ? 'Nonaktifkan' : 'Aktifkan' }}
+                                        </button>
+                                        <button wire:click="deleteLevel({{ $lvl->id }})" class="btn btn-sm btn-ghost" style="color:var(--red);"
+                                            wire:confirm="Hapus level '{{ $lvl->name }}'?">Hapus</button>
+                                    </div>
+                                </div>
+                            @endforeach
+                        @else
+                            <div class="center col" style="padding:32px;gap:8px;text-align:center;">
+                                <p class="dim">Belum ada competition level. Klik "+ Tambah Level" untuk mulai.</p>
+                            </div>
+                        @endif
+                    </div>
+
                     @if(isset($pendingCategoryAssignments) && $pendingCategoryAssignments->count())
                         <div class="panel" style="overflow:hidden;overflow-x:auto;">
                             <div style="padding:12px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
