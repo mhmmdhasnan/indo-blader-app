@@ -2,8 +2,13 @@
     {{-- ── HERO ── --}}
     @if($featured)
     <section style="position:relative;border-bottom:2px solid var(--ink);overflow:hidden;">
-        <div class="ph no-label scanlines" style="position:absolute;inset:0;"></div>
-        <div style="position:absolute;inset:0;background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 30%,transparent) 0%,color-mix(in srgb,var(--bg) 55%,transparent) 55%,var(--bg) 100%);"></div>
+        @if($featured->banner)
+            <div style="position:absolute;inset:0;background:url('{{ Storage::url($featured->banner) }}') center/cover no-repeat;"></div>
+            <div style="position:absolute;inset:0;background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 50%,transparent) 0%,color-mix(in srgb,var(--bg) 65%,transparent) 55%,var(--bg) 100%);"></div>
+        @else
+            <div class="ph no-label scanlines" style="position:absolute;inset:0;"></div>
+            <div style="position:absolute;inset:0;background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 30%,transparent) 0%,color-mix(in srgb,var(--bg) 55%,transparent) 55%,var(--bg) 100%);"></div>
+        @endif
         <div style="position:absolute;inset:0;" class="halftone"></div>
 
         <div class="wrap" style="position:relative;padding-top:36px;padding-bottom:40px;min-height:min(78vh,660px);display:flex;flex-direction:column;">
@@ -22,9 +27,8 @@
 
             <div class="rise" style="animation-delay:60ms;">
                 <h1 class="display" style="font-size:clamp(54px,11.5vw,168px);letter-spacing:0.005em;margin:0 0 4px;">
-                    Indo Blader<br>
-                    <span style="-webkit-text-stroke:2px var(--ink);color:transparent;">Nationals</span>
-                    <span style="color:var(--lime);" class="text-glow-lime">'26</span>
+                    <span style="-webkit-text-stroke:2px var(--ink);color:transparent;">{{ $featured->title }}</span>
+                    <span style="color:var(--lime);display:block;" class="text-glow-lime">{{ $featured->edition }}</span>
                 </h1>
             </div>
 
@@ -46,28 +50,35 @@
                 <div class="between" style="align-items:flex-end;gap:24px;flex-wrap:wrap;border-top:2px solid var(--line-strong);padding-top:22px;">
                     <div class="col" style="align-items:flex-start;gap:10px;">
                         <span class="kicker">EVENT STARTS IN</span>
-                        <div class="flex" style="gap:18px;align-items:flex-start;" wire:poll.10s>
-                            @php
-                                $target = \Carbon\Carbon::parse($featured->date->format('Y-m-d') . ' 09:00:00');
-                                $diff = max(0, $target->diffInSeconds(now(), false));
-                                $d = floor(max(0, $target->diffInSeconds(now())) / 86400);
-                                $h = floor((max(0, $target->diffInSeconds(now())) % 86400) / 3600);
-                                $m = floor((max(0, $target->diffInSeconds(now())) % 3600) / 60);
-                                $s = max(0, $target->diffInSeconds(now())) % 60;
-                                if ($target->isPast()) { $d=$h=$m=$s=0; }
-                            @endphp
-                            @foreach([[$d,'DAYS'],[$h,'HRS'],[$m,'MIN'],[$s,'SEC']] as [$val,$lbl])
+                        <div class="flex" style="gap:18px;align-items:flex-start;" id="hero-countdown" data-target="{{ $featured->date->timestamp }}">
+                            @foreach([['cd-d','DAYS'],['cd-h','HRS'],['cd-m','MIN'],['cd-s','SEC']] as [$id,$lbl])
                                 <div class="col center countdown-item" style="min-width:76px;">
-                                    <span class="display tnum" style="font-size:clamp(36px,5vw,60px);line-height:1;">{{ str_pad($val,2,'0',STR_PAD_LEFT) }}</span>
+                                    <span id="{{ $id }}" class="display tnum" style="font-size:clamp(36px,5vw,60px);line-height:1;">00</span>
                                     <span class="mono" style="font-size:10px;letter-spacing:0.2em;color:var(--ink-dim);margin-top:4px;">{{ $lbl }}</span>
                                 </div>
                                 @if($lbl !== 'SEC')<span class="display dim countdown-sep" style="font-size:44px;">:</span>@endif
                             @endforeach
                         </div>
+                        <script>
+                            (function () {
+                                const target = parseInt(document.getElementById('hero-countdown').dataset.target) * 1000;
+                                const els = { d: document.getElementById('cd-d'), h: document.getElementById('cd-h'), m: document.getElementById('cd-m'), s: document.getElementById('cd-s') };
+                                function pad(n) { return String(n).padStart(2, '0'); }
+                                function tick() {
+                                    const remaining = Math.max(0, Math.floor((target - Date.now()) / 1000));
+                                    els.d.textContent = pad(Math.floor(remaining / 86400));
+                                    els.h.textContent = pad(Math.floor((remaining % 86400) / 3600));
+                                    els.m.textContent = pad(Math.floor((remaining % 3600) / 60));
+                                    els.s.textContent = pad(remaining % 60);
+                                    if (remaining > 0) requestAnimationFrame(tick);
+                                }
+                                tick();
+                            })();
+                        </script>
                     </div>
                     <div class="col hero-edition" style="align-items:flex-end;position:relative;">
-                        <span class="display" style="font-size:clamp(54px,8vw,104px);color:transparent;-webkit-text-stroke:2px var(--line-strong);line-height:0.78;">06</span>
-                        <span class="mono" style="font-size:10px;letter-spacing:0.24em;color:var(--ink-dim);">SIXTH EDITION</span>
+                        <span class="display" style="font-size:clamp(54px,8vw,104px);color:transparent;-webkit-text-stroke:2px var(--line-strong);line-height:0.78;">{{ $featured->edition }}</span>
+                        <span class="mono" style="font-size:10px;letter-spacing:0.24em;color:var(--ink-dim);">{{ strtoupper($featured->city) }}</span>
                         <div style="position:absolute;top:-14px;right:calc(100% + 16px);">
                             <span class="sticker" style="--rot:-8deg;font-size:13px;">EST. 2020</span>
                         </div>
@@ -139,7 +150,7 @@
                             </div>
                             <div class="between" style="margin-bottom:7px;">
                                 <span class="mono" style="font-size:10px;color:var(--ink-dim);letter-spacing:0.1em;">SLOTS</span>
-                                <span class="mono tnum" style="font-size:12px;font-weight:700;">{{ $ev->filled }}/{{ $ev->slots }}</span>
+                                <span class="mono tnum" style="font-size:12px;font-weight:700;">{{ $ev->filled }}{{ $ev->slots !== null ? '/'.$ev->slots : '' }}</span>
                             </div>
                             <div style="height:6px;background:var(--panel-2);border:1px solid var(--line);">
                                 <div style="height:100%;width:{{ $pct }}%;background:{{ $pct > 85 ? 'var(--red)' : 'var(--lime)' }};"></div>

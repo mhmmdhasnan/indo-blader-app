@@ -27,11 +27,13 @@ use App\Services\ScoringService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 #[Layout('layouts.admin')]
 #[Title('Admin — Indo Blader')]
 class Dashboard extends Component
 {
+    use WithFileUploads;
     public string $view = 'overview';
 
     // Global active event (synced to all sub-selectors)
@@ -114,11 +116,11 @@ class Dashboard extends Component
     public string $evStatus     = 'SOON';
     public string $evType       = 'KO';
     public array  $evCategories        = [];
-    public array  $evCompetitionLevels = [];
     public int    $evPrize             = 5000000;
-    public int    $evSlots      = 32;
     public string $evBlurb      = '';
     public bool   $evFeatured   = false;
+    public        $evBannerFile = null;
+    public string $evBannerPath = '';
 
     // Division CRUD
     public int    $divManageEventId = 0;
@@ -268,11 +270,11 @@ class Dashboard extends Component
         $this->evStatus     = 'SOON';
         $this->evType       = 'KO';
         $this->evCategories        = [];
-        $this->evCompetitionLevels = [];
         $this->evPrize             = 5000000;
-        $this->evSlots             = 32;
         $this->evBlurb             = '';
         $this->evFeatured          = false;
+        $this->evBannerFile        = null;
+        $this->evBannerPath        = '';
         $this->evEditing           = true;
     }
 
@@ -284,41 +286,46 @@ class Dashboard extends Component
         $this->evEdition    = $ev->edition;
         $this->evCity       = $ev->city;
         $this->evVenue      = $ev->venue;
-        $this->evDate       = $ev->date->format('Y-m-d');
+        $this->evDate       = $ev->date->format('Y-m-d\TH:i');
         $this->evDateLabel  = $ev->date_label;
         $this->evSlug       = $ev->slug;
         $this->evStatus     = $ev->status;
         $this->evType       = $ev->type ?? 'KO';
         $this->evCategories        = $ev->categories ?? [];
-        $this->evCompetitionLevels = $ev->competition_levels ?? [];
         $this->evPrize      = (int) $ev->prize;
-        $this->evSlots      = $ev->slots;
         $this->evBlurb      = $ev->blurb ?? '';
         $this->evFeatured   = (bool) $ev->featured;
+        $this->evBannerFile = null;
+        $this->evBannerPath = $ev->banner ?? '';
         $this->evEditing    = true;
     }
 
     public function saveEvent(): void
     {
         $this->validate([
-            'evTitle'  => 'required|string|max:120',
-            'evCity'   => 'required|string|max:80',
-            'evVenue'  => 'required|string|max:120',
-            'evDate'   => 'required|date',
-            'evSlug'   => 'required|alpha_dash|max:80',
-            'evStatus' => 'required|in:SOON,OPEN,CLOSING,FULL,LIVE,CLOSED',
-            'evPrize'  => 'required|integer|min:0',
-            'evSlots'  => 'required|integer|min:1',
+            'evTitle'      => 'required|string|max:120',
+            'evCity'       => 'required|string|max:80',
+            'evVenue'      => 'required|string|max:120',
+            'evDate'       => 'required|date',
+            'evSlug'       => 'required|alpha_dash|max:80',
+            'evStatus'     => 'required|in:SOON,OPEN,CLOSING,FULL,LIVE,CLOSED',
+            'evPrize'      => 'required|integer|min:0',
+            'evBannerFile' => 'nullable|image|max:5120',
         ], [], [
-            'evTitle'  => 'title',
-            'evCity'   => 'city',
-            'evVenue'  => 'venue',
-            'evDate'   => 'date',
-            'evSlug'   => 'slug',
-            'evStatus' => 'status',
-            'evPrize'  => 'prize',
-            'evSlots'  => 'slots',
+            'evTitle'      => 'title',
+            'evCity'       => 'city',
+            'evVenue'      => 'venue',
+            'evDate'       => 'date',
+            'evSlug'       => 'slug',
+            'evStatus'     => 'status',
+            'evPrize'      => 'prize',
+            'evBannerFile' => 'banner',
         ]);
+
+        $bannerPath = $this->evBannerPath;
+        if ($this->evBannerFile) {
+            $bannerPath = $this->evBannerFile->store('banners', 'public');
+        }
 
         $data = [
             'title'      => $this->evTitle,
@@ -328,25 +335,24 @@ class Dashboard extends Component
             'date'       => $this->evDate,
             'date_label' => $this->evDateLabel,
             'slug'       => $this->evSlug,
-            'status'             => $this->evStatus,
-            'type'               => $this->evType,
-            'categories'         => $this->evCategories,
-            'competition_levels' => $this->evCompetitionLevels,
+            'status'     => $this->evStatus,
+            'type'       => $this->evType,
+            'categories' => $this->evCategories,
             'prize'      => $this->evPrize,
-            'slots'      => $this->evSlots,
             'blurb'      => $this->evBlurb,
             'featured'   => $this->evFeatured,
+            'banner'     => $bannerPath ?: null,
         ];
 
         if ($this->evId) {
             Event::findOrFail($this->evId)->update($data);
         } else {
-            $data['filled'] = 0;
             Event::create($data);
         }
 
-        $this->evEditing = false;
-        $this->evId      = 0;
+        $this->evBannerFile = null;
+        $this->evEditing    = false;
+        $this->evId         = 0;
     }
 
     public function deleteEvent(int $id): void
@@ -356,8 +362,10 @@ class Dashboard extends Component
 
     public function cancelEvent(): void
     {
-        $this->evEditing = false;
-        $this->evId      = 0;
+        $this->evEditing    = false;
+        $this->evId         = 0;
+        $this->evBannerFile = null;
+        $this->evBannerPath = '';
     }
 
     // ─── User CRUD ────────────────────────────────────────────────────────────
@@ -751,34 +759,6 @@ class Dashboard extends Component
         }
         $this->divManageEventId = $div->event_id;
         $div->delete();
-    }
-
-    public function autoGenerateDivisions(int $eventId): void
-    {
-        $event = Event::findOrFail($eventId);
-        $disciplines = $event->categories ?? [];
-        $levels      = $event->competition_levels ?? [];
-
-        if ($event->type === 'KO') {
-            foreach ($levels as $level) {
-                EventDivision::firstOrCreate(
-                    ['event_id' => $eventId, 'name' => $level],
-                    ['level' => $level, 'discipline' => null, 'slots' => null]
-                );
-            }
-        } else {
-            foreach ($disciplines as $disc) {
-                foreach ($levels as $level) {
-                    $name = ucfirst(strtolower($disc)) . ' ' . $level;
-                    EventDivision::firstOrCreate(
-                        ['event_id' => $eventId, 'name' => $name],
-                        ['discipline' => $disc, 'level' => $level, 'slots' => null]
-                    );
-                }
-            }
-        }
-
-        $this->divManageEventId = $eventId;
     }
 
     // ─── Trick Management ─────────────────────────────────────────────────────

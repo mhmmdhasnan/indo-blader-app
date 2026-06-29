@@ -17,7 +17,7 @@ class EventsList extends Component
 
     public function render()
     {
-        $query = Event::orderBy('date');
+        $query = Event::with('divisions')->orderBy('date');
 
         if ($this->category !== 'ALL') {
             $query->whereJsonContains('categories', $this->category);

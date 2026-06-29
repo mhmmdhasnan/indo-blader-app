@@ -15,8 +15,8 @@ class Home extends Component
 {
     public function render()
     {
-        $featured   = Event::where('slug', 'nationals')->first();
-        $events     = Event::orderBy('date')->take(3)->get();
+        $featured   = Event::with('divisions')->where('featured', true)->orderByDesc('date')->first();
+        $events     = Event::with('divisions')->orderBy('date')->take(3)->get();
         $topRiders  = Rider::orderByDesc('points')->take(6)->get();
         $featRiders = Rider::orderByDesc('points')->take(4)->get();
         $sponsors   = Sponsor::pluck('name');

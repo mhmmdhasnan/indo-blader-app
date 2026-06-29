@@ -56,7 +56,7 @@
                             <div style="width:100%;">
                                 <div class="between" style="margin-bottom:6px;">
                                     <span class="mono" style="font-size:10px;color:var(--ink-dim);">SLOTS</span>
-                                    <span class="mono tnum" style="font-size:11px;font-weight:700;">{{ $ev->filled }}/{{ $ev->slots }}</span>
+                                    <span class="mono tnum" style="font-size:11px;font-weight:700;">{{ $ev->filled }}{{ $ev->slots !== null ? '/'.$ev->slots : '' }}</span>
                                 </div>
                                 <div style="height:5px;background:var(--panel-2);border:1px solid var(--line);">
                                     <div style="height:100%;width:{{ $pct }}%;background:{{ $pct > 85 ? 'var(--red)' : 'var(--lime)' }};"></div>

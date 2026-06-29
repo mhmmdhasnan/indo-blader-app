@@ -30,7 +30,7 @@
                 <div style="height:6px;width:160px;background:var(--panel-2);border:1px solid var(--line);">
                     <div style="height:100%;width:{{ $event->fill_pct }}%;background:{{ $event->fill_pct > 85 ? 'var(--red)' : 'var(--lime)' }};"></div>
                 </div>
-                <span class="mono tnum" style="font-size:13px;font-weight:700;">{{ $event->filled }}/{{ $event->slots }} spots filled</span>
+                <span class="mono tnum" style="font-size:13px;font-weight:700;">{{ $event->filled }}{{ $event->slots !== null ? '/'.$event->slots : '' }} spots filled</span>
             </div>
             <div class="flex gap-s">
                 @auth
@@ -64,7 +64,7 @@
                 <div>
                     <p style="font-size:17px;line-height:1.6;margin-bottom:30px;">{{ $event->blurb }}</p>
                     <div class="panel" style="overflow:hidden;">
-                        @foreach([['DATE',$event->date_label],['VENUE',$event->venue],['CITY',$event->city],['PRIZE',$event->prize_long],['SLOTS',"{$event->slots} competitors"],['FORMAT','Single Elimination']] as [$lbl,$val])
+                        @foreach([['DATE',$event->date_label],['VENUE',$event->venue],['CITY',$event->city],['PRIZE',$event->prize_long],['SLOTS',($event->slots !== null ? $event->slots.' competitors' : 'Unlimited')],['FORMAT','Single Elimination']] as [$lbl,$val])
                             <div class="between" style="padding:14px 18px;border-bottom:1px solid var(--line);">
                                 <span class="mono dim" style="font-size:11px;letter-spacing:0.12em;">{{ $lbl }}</span>
                                 <span class="label" style="font-size:14px;">{{ $val }}</span>

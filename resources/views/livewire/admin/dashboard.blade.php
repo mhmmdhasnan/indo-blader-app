@@ -3,7 +3,7 @@
     <aside class="admin-side" style="border-right:2px solid var(--ink);background:var(--bg-2);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;">
         <div style="padding:20px 18px;border-bottom:2px solid var(--ink);">
             <div style="display:flex;align-items:center;gap:10px;">
-                <img src="{{ asset('images/logo.png') }}" alt="Indo Blader" style="width:36px;height:36px;flex-shrink:0;">
+                <img src="{{ asset('images/logo-dark.png') }}" alt="Indo Blader" style="width:36px;height:36px;flex-shrink:0;">
                 <div class="col" style="line-height:0.9;">
                     <span class="display" style="font-size:16px;">Indo Blader</span>
                     <span class="mono" style="font-size:9px;letter-spacing:0.2em;color:var(--ink-dim);">AGGRESSIVE INLINE · ID</span>
@@ -154,8 +154,8 @@
                                     <div class="col" style="flex:1;align-items:center;gap:8px;height:100%;justify-content:flex-end;">
                                         <span class="mono tnum" style="font-size:12px;font-weight:700;">{{ $ev->filled }}</span>
                                         <div style="width:100%;max-width:54px;height:100%;display:flex;align-items:flex-end;position:relative;background:var(--panel-2);border:1px solid var(--line);">
-                                            <div style="width:100%;height:{{ round($ev->filled / max($events->max('slots'),1) * 100) }}%;background:{{ $i === 0 ? 'var(--lime)' : 'var(--ink)' }};transition:height .8s;"></div>
-                                            <div style="position:absolute;bottom:{{ round($ev->slots / max($events->max('slots'),1) * 100) }}%;left:-2px;right:-2px;height:2px;background:var(--red);"></div>
+                                            @php $maxFilled = $events->max(fn($e) => $e->filled) ?: 1; @endphp
+                                            <div style="width:100%;height:{{ round($ev->filled / $maxFilled * 100) }}%;background:{{ $i === 0 ? 'var(--lime)' : 'var(--ink)' }};transition:height .8s;"></div>
                                         </div>
                                         <span class="mono dim" style="font-size:9px;letter-spacing:0.06em;text-align:center;">{{ strtoupper(explode(' ',$ev->title)[0]) }}</span>
                                     </div>
@@ -456,8 +456,8 @@
                                     </div>
                                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                                         <div>
-                                            <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">DATE *</span>
-                                            <input wire:model="evDate" type="date" class="input-field" style="width:100%;">
+                                            <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">DATE & TIME *</span>
+                                            <input wire:model="evDate" type="datetime-local" class="input-field" style="width:100%;">
                                             @error('evDate') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
                                         </div>
                                         <div>
@@ -483,11 +483,6 @@
                                                 <option value="LIVE_SCORE">Live Score (Offline)</option>
                                             </select>
                                         </div>
-                                        <div>
-                                            <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">SLOTS *</span>
-                                            <input wire:model="evSlots" type="number" min="1" class="input-field" style="width:100%;">
-                                            @error('evSlots') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
-                                        </div>
                                     </div>
                                     <div>
                                         <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">PRIZE (IDR) *</span>
@@ -508,28 +503,27 @@
                                     </div>
                                     @endif
                                     <div>
-                                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:8px;">COMPETITION LEVELS</span>
-                                        @if($competitionLevels->where('is_active', true)->count())
-                                        <div class="flex gap-s" style="flex-wrap:wrap;margin-bottom:8px;">
-                                            @foreach($competitionLevels->where('is_active', true) as $lvl)
-                                                <label class="flex label" style="gap:6px;align-items:center;font-size:12px;cursor:pointer;">
-                                                    <input type="checkbox" wire:model="evCompetitionLevels" value="{{ $lvl->name }}" style="accent-color:var(--lime);">
-                                                    {{ $lvl->name }}
-                                                </label>
-                                            @endforeach
-                                        </div>
-                                        @else
-                                            <span class="mono" style="font-size:10px;color:var(--red);">Belum ada level aktif. Buat dulu di menu Categories.</span>
-                                        @endif
-                                        <span class="mono dim" style="font-size:9px;">Level yang dicentang akan muncul di form registrasi event ini.</span>
-                                    </div>
-                                    <div>
                                         <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">DESCRIPTION</span>
                                         <textarea wire:model="evBlurb" rows="3" class="input-field" style="width:100%;resize:vertical;" placeholder="Event description..."></textarea>
                                     </div>
+                                    <div>
+                                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">BANNER IMAGE</span>
+                                        @if($evBannerPath)
+                                            <div style="margin-bottom:8px;position:relative;max-width:300px;">
+                                                <img src="{{ Storage::url($evBannerPath) }}" style="width:100%;height:100px;object-fit:cover;border:1px solid var(--line);">
+                                                <span class="mono dim" style="font-size:9px;">Banner saat ini. Upload baru untuk ganti.</span>
+                                            </div>
+                                        @endif
+                                        <input type="file" wire:model="evBannerFile" accept="image/*" class="input-field" style="width:100%;font-size:11px;">
+                                        @error('evBannerFile') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
+                                        @if($evBannerFile)
+                                            <img src="{{ $evBannerFile->temporaryUrl() }}" style="margin-top:6px;width:100%;max-width:300px;height:100px;object-fit:cover;border:1px solid var(--lime);">
+                                        @endif
+                                        <span class="mono dim" style="font-size:9px;display:block;margin-top:4px;">Maks. 5MB. Format: JPG, PNG, WebP.</span>
+                                    </div>
                                     <label class="flex label" style="gap:8px;align-items:center;font-size:12px;cursor:pointer;">
                                         <input type="checkbox" wire:model="evFeatured" style="accent-color:var(--lime);">
-                                        Featured event (tampil di homepage)
+                                        Tampilkan di hero homepage
                                     </label>
                                 </div>
                             </div>
@@ -558,7 +552,7 @@
                                     </div>
                                     <h3 class="display" style="font-size:22px;margin-top:4px;">{{ $ev->title }}</h3>
                                     <span class="mono dim" style="font-size:11px;">{{ $ev->date_label }} · {{ $ev->venue }}, {{ $ev->city }}</span>
-                                    <span class="mono dim" style="font-size:10px;">{{ $ev->prize_formatted }} prize · {{ $ev->filled }}/{{ $ev->slots }} filled</span>
+                                    <span class="mono dim" style="font-size:10px;">{{ $ev->prize_formatted }} prize · {{ $ev->filled }}{{ $ev->slots !== null ? '/'.$ev->slots : '' }} filled</span>
                                 </div>
                                 <div class="flex gap-s" style="align-items:center;flex-wrap:wrap;">
                                     <a href="{{ route('events.show', $ev->slug) }}" class="btn btn-sm btn-ghost">View →</a>
@@ -578,11 +572,6 @@
                                     <div class="between" style="padding:12px 18px;border-bottom:1px solid var(--line);">
                                         <span class="mono" style="font-size:10px;font-weight:700;letter-spacing:0.1em;">DIVISI EVENT INI</span>
                                         <div class="flex gap-s">
-                                            @if($ev->competition_levels && count($ev->competition_levels))
-                                                <button wire:click="autoGenerateDivisions({{ $ev->id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">
-                                                    ⚡ Auto-generate
-                                                </button>
-                                            @endif
                                             <button wire:click="openCreateDivision({{ $ev->id }})" class="btn btn-sm btn-lime" style="font-size:11px;">+ Tambah Divisi</button>
                                         </div>
                                     </div>
@@ -671,13 +660,7 @@
                                         @endforeach
                                     @else
                                         <div class="center" style="padding:20px;">
-                                            <span class="mono dim" style="font-size:11px;">Belum ada divisi.
-                                                @if($ev->competition_levels && count($ev->competition_levels))
-                                                    Klik "Auto-generate" atau tambah manual.
-                                                @else
-                                                    Set competition levels di Edit Event dulu, lalu Auto-generate.
-                                                @endif
-                                            </span>
+                                            <span class="mono dim" style="font-size:11px;">Belum ada divisi. Klik "+ Tambah Divisi" untuk menambah.</span>
                                         </div>
                                     @endif
                                 </div>

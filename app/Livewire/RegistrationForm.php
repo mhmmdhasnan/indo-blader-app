@@ -173,7 +173,6 @@ class RegistrationForm extends Component
             "Your entry for {$event->title} ({$division->name}) has been received. Entry code: {$this->entryCode}. We'll notify you once your registration is reviewed."
         );
 
-        $event->increment('filled');
         $division->increment('filled');
 
         $this->done = true;

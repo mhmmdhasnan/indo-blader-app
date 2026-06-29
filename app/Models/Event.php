@@ -10,13 +10,12 @@ class Event extends Model
 {
     protected $fillable = [
         'slug', 'title', 'edition', 'city', 'venue', 'date', 'date_label',
-        'status', 'type', 'categories', 'competition_levels', 'prize', 'slots', 'filled', 'featured', 'blurb',
+        'status', 'type', 'categories', 'prize', 'featured', 'blurb', 'banner',
     ];
 
     protected $casts = [
-        'categories'         => 'array',
-        'competition_levels' => 'array',
-        'date'       => 'date',
+        'categories' => 'array',
+        'date'       => 'datetime',
         'featured'   => 'boolean',
     ];
 
@@ -71,9 +70,28 @@ class Event extends Model
             ->get();
     }
 
+    public function getFilledAttribute(): int
+    {
+        if ($this->relationLoaded('divisions')) {
+            return (int) $this->divisions->sum('filled');
+        }
+        return (int) $this->divisions()->sum('filled');
+    }
+
+    public function getSlotsAttribute(): ?int
+    {
+        if ($this->relationLoaded('divisions')) {
+            if ($this->divisions->contains(fn ($d) => $d->slots === null)) return null;
+            return (int) $this->divisions->sum('slots');
+        }
+        if ($this->divisions()->whereNull('slots')->exists()) return null;
+        return (int) $this->divisions()->sum('slots');
+    }
+
     public function getFillPctAttribute(): int
     {
-        return $this->slots > 0 ? (int) round($this->filled / $this->slots * 100) : 0;
+        $slots = $this->slots;
+        return $slots > 0 ? (int) round($this->filled / $slots * 100) : 0;
     }
 
     public function getPrizeFormattedAttribute(): string
