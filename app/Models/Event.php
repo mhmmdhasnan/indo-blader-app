@@ -11,12 +11,14 @@ class Event extends Model
     protected $fillable = [
         'slug', 'title', 'edition', 'city', 'venue', 'date', 'date_label',
         'status', 'type', 'categories', 'prize', 'featured', 'blurb', 'banner',
+        'run_duration', 'live_rider_id', 'live_run_number', 'live_phase', 'live_started_at',
     ];
 
     protected $casts = [
-        'categories' => 'array',
-        'date'       => 'datetime',
-        'featured'   => 'boolean',
+        'categories'     => 'array',
+        'date'           => 'datetime',
+        'featured'       => 'boolean',
+        'live_started_at'=> 'datetime',
     ];
 
     public function registrations(): HasMany

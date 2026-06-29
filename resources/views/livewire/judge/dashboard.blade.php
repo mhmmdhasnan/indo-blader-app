@@ -142,6 +142,9 @@
                     'otherJudgeScores'       => $otherJudgeScores ?? collect(),
                     'koOtherJudgeScoresA'    => $koOtherJudgeScoresA ?? collect(),
                     'koOtherJudgeScoresB'    => $koOtherJudgeScoresB ?? collect(),
+                    'activeEvent'            => $activeEvent,
+                    'liveJudgeScores'        => $liveJudgeScores ?? collect(),
+                    'assignedJudges'         => $assignedJudges ?? collect(),
                 ])
             @endif
 

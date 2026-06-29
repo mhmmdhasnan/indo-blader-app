@@ -465,6 +465,13 @@
                                             <input wire:model="evDateLabel" type="text" class="input-field" style="width:100%;" placeholder="AUG 22–24, 2027">
                                         </div>
                                     </div>
+                                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                                        <div>
+                                            <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">DURASI RUN (DETIK)</span>
+                                            <input wire:model="evRunDuration" type="number" min="30" max="300" class="input-field" style="width:100%;" placeholder="60">
+                                            @error('evRunDuration') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="col" style="gap:12px;">
                                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -1473,109 +1480,97 @@
 
                     {{-- Assign Criteria ke Event --}}
                     <div class="panel" style="padding:20px;">
-                        <span class="kicker" style="display:block;margin-bottom:14px;">ASSIGN KRITERIA KE EVENT</span>
-                        <div class="flex gap-s" style="flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;">
-                            <div class="col" style="gap:4px;">
-                                <span class="mono dim" style="font-size:10px;">EVENT</span>
-                                <select wire:model.live="scEventId" class="input-field" style="min-width:200px;">
-                                    <option value="0">— pilih event —</option>
-                                    @foreach($events as $ev)
-                                        <option value="{{ $ev->id }}">{{ $ev->title }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col" style="gap:4px;">
-                                <span class="mono dim" style="font-size:10px;">KRITERIA</span>
-                                <select wire:model.live="scCriterionId" class="input-field" style="min-width:160px;">
-                                    <option value="0">— pilih kriteria —</option>
-                                    @foreach($allCriteria ?? [] as $ac)
-                                        <option value="{{ $ac->id }}">{{ $ac->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col" style="gap:4px;">
-                                <span class="mono dim" style="font-size:10px;">BERLAKU UNTUK</span>
-                                <select wire:model.live="scAppliesTo" class="input-field" style="min-width:130px;">
-                                    <option value="BOTH">Live + Knockout</option>
-                                    <option value="LIVE">Live Only</option>
-                                    <option value="KNOCKOUT">Knockout Only</option>
-                                </select>
-                            </div>
-                            <div class="col" style="gap:4px;">
-                                <span class="mono dim" style="font-size:10px;">ORDER</span>
-                                <input type="number" wire:model.live="scOrder" min="0" class="input-field" style="width:70px;" />
-                            </div>
-                            <button wire:click="assignCriterionToEvent" class="btn btn-sm btn-lime" @if(!$scEventId || !$scCriterionId) disabled @endif>Assign</button>
+                        <div class="between" style="margin-bottom:14px;">
+                            <span class="kicker">KRITERIA EVENT</span>
+                            @if($activeEvent)<span class="mono dim" style="font-size:10px;">{{ $activeEvent->title }}</span>@endif
                         </div>
-
-                        @if(isset($eventScoringList))
-                            @foreach($eventScoringList as $ev)
-                                @if($ev->scoringCriteria->count())
-                                    <div style="margin-bottom:12px;">
-                                        <span class="label" style="font-size:12px;display:block;margin-bottom:6px;">{{ $ev->title }}</span>
-                                        <div class="flex gap-s" style="flex-wrap:wrap;">
-                                            @foreach($ev->scoringCriteria as $sc)
-                                                <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--bg-2);border-radius:3px;border:1px solid var(--line);">
-                                                    <span class="label" style="font-size:11px;">{{ $sc->name }}</span>
-                                                    <span class="mono dim" style="font-size:9px;">{{ $sc->pivot->applies_to }}</span>
-                                                    <button wire:click="removeCriterionFromEvent({{ $ev->id }}, {{ $sc->id }})" class="mono dim" style="font-size:10px;border:none;background:none;cursor:pointer;color:var(--red);">×</button>
-                                                </div>
-                                            @endforeach
+                        @if(!$activeEventId)
+                            <p class="mono dim" style="font-size:12px;">Pilih event aktif di atas terlebih dahulu.</p>
+                        @else
+                            <div class="flex gap-s" style="flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;">
+                                <div class="col" style="gap:4px;">
+                                    <span class="mono dim" style="font-size:10px;">KRITERIA</span>
+                                    <select wire:model.live="scCriterionId" class="input-field" style="min-width:160px;">
+                                        <option value="0">— pilih kriteria —</option>
+                                        @foreach($allCriteria ?? [] as $ac)
+                                            <option value="{{ $ac->id }}">{{ $ac->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col" style="gap:4px;">
+                                    <span class="mono dim" style="font-size:10px;">BERLAKU UNTUK</span>
+                                    <select wire:model.live="scAppliesTo" class="input-field" style="min-width:130px;">
+                                        <option value="BOTH">Live + Knockout</option>
+                                        <option value="LIVE">Live Only</option>
+                                        <option value="KNOCKOUT">Knockout Only</option>
+                                    </select>
+                                </div>
+                                <div class="col" style="gap:4px;">
+                                    <span class="mono dim" style="font-size:10px;">ORDER</span>
+                                    <input type="number" wire:model.live="scOrder" min="0" class="input-field" style="width:70px;" />
+                                </div>
+                                <button wire:click="assignCriterionToEvent" class="btn btn-sm btn-lime" @if(!$scCriterionId) disabled @endif>+ Assign</button>
+                            </div>
+                            @if($activeEventCriteria && $activeEventCriteria->scoringCriteria->count())
+                                <div class="flex gap-s" style="flex-wrap:wrap;">
+                                    @foreach($activeEventCriteria->scoringCriteria as $sc)
+                                        <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--bg-2);border-radius:3px;border:1px solid var(--line);">
+                                            <span class="label" style="font-size:11px;">{{ $sc->name }}</span>
+                                            <span class="mono dim" style="font-size:9px;">{{ $sc->pivot->applies_to }}</span>
+                                            <button wire:click="removeCriterionFromEvent({{ $activeEventId }}, {{ $sc->id }})" class="mono dim" style="font-size:10px;border:none;background:none;cursor:pointer;color:var(--red);">×</button>
                                         </div>
-                                    </div>
-                                @endif
-                            @endforeach
+                                    @endforeach
+                                </div>
+                            @else
+                                <p class="mono dim" style="font-size:12px;">Belum ada kriteria untuk event ini.</p>
+                            @endif
                         @endif
                     </div>
 
                     {{-- Assign Judge ke Event --}}
                     <div class="panel" style="padding:20px;">
-                        <span class="kicker" style="display:block;margin-bottom:14px;">ASSIGN JUDGE KE EVENT</span>
-                        <div class="flex gap-s" style="flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;">
-                            <div class="col" style="gap:4px;">
-                                <span class="mono dim" style="font-size:10px;">EVENT</span>
-                                <select wire:model.live="jaEventId" class="input-field" style="min-width:200px;">
-                                    <option value="0">— pilih event —</option>
-                                    @foreach($events as $ev)
-                                        <option value="{{ $ev->id }}">{{ $ev->title }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col" style="gap:4px;">
-                                <span class="mono dim" style="font-size:10px;">JUDGE</span>
-                                <select wire:model.live="jaJudgeUserId" class="input-field" style="min-width:180px;">
-                                    <option value="0">— pilih judge —</option>
-                                    @foreach($judgeUsers ?? [] as $ju)
-                                        <option value="{{ $ju->id }}">{{ $ju->name }} ({{ $ju->role }})</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col" style="gap:4px;">
-                                <span class="mono dim" style="font-size:10px;">TUGAS</span>
-                                <select wire:model.live="jaScoringMode" class="input-field" style="min-width:150px;">
-                                    <option value="BOTH">Live + Knockout</option>
-                                    <option value="LIVE">Live Only</option>
-                                    <option value="KNOCKOUT">Knockout Only</option>
-                                </select>
-                            </div>
-                            <button wire:click="assignJudgeToEvent" class="btn btn-sm btn-lime" @if(!$jaEventId || !$jaJudgeUserId) disabled @endif>Assign</button>
+                        <div class="between" style="margin-bottom:14px;">
+                            <span class="kicker">JUDGE EVENT</span>
+                            @if($activeEvent)<span class="mono dim" style="font-size:10px;">{{ $activeEvent->title }}</span>@endif
                         </div>
-
-                        @if(isset($judgeAssignments) && $judgeAssignments->count())
-                            <div style="overflow:hidden;border-radius:3px;border:1px solid var(--line);">
-                                @foreach($judgeAssignments as $ja)
-                                    <div class="between" style="padding:10px 14px;border-bottom:1px solid var(--line);">
-                                        <div class="flex gap-m" style="align-items:center;">
-                                            <span class="label" style="font-size:12px;">{{ $ja->user->name }}</span>
-                                            <span class="mono dim" style="font-size:10px;">{{ $ja->event->title }}</span>
-                                            <span class="badge badge-out" style="font-size:9px;">{{ $ja->scoring_mode }}</span>
-                                        </div>
-                                        <button wire:click="removeJudgeFromEvent({{ $ja->id }})" class="btn btn-sm btn-ghost" style="color:var(--red);font-size:11px;" wire:confirm="Hapus assignment judge ini?">Hapus</button>
-                                    </div>
-                                @endforeach
-                            </div>
+                        @if(!$activeEventId)
+                            <p class="mono dim" style="font-size:12px;">Pilih event aktif di atas terlebih dahulu.</p>
                         @else
-                            <p class="mono dim" style="font-size:12px;">Belum ada assignment judge.</p>
+                            <div class="flex gap-s" style="flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;">
+                                <div class="col" style="gap:4px;">
+                                    <span class="mono dim" style="font-size:10px;">JUDGE</span>
+                                    <select wire:model.live="jaJudgeUserId" class="input-field" style="min-width:180px;">
+                                        <option value="0">— pilih judge —</option>
+                                        @foreach($judgeUsers ?? [] as $ju)
+                                            <option value="{{ $ju->id }}">{{ $ju->name }} ({{ $ju->role }})</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col" style="gap:4px;">
+                                    <span class="mono dim" style="font-size:10px;">TUGAS</span>
+                                    <select wire:model.live="jaScoringMode" class="input-field" style="min-width:150px;">
+                                        <option value="BOTH">Live + Knockout</option>
+                                        <option value="LIVE">Live Only</option>
+                                        <option value="KNOCKOUT">Knockout Only</option>
+                                    </select>
+                                </div>
+                                <button wire:click="assignJudgeToEvent" class="btn btn-sm btn-lime" @if(!$jaJudgeUserId) disabled @endif>+ Assign</button>
+                            </div>
+                            @if($judgeAssignments->count())
+                                <div style="overflow:hidden;border-radius:3px;border:1px solid var(--line);">
+                                    @foreach($judgeAssignments as $ja)
+                                        <div class="between" style="padding:10px 14px;border-bottom:1px solid var(--line);">
+                                            <div class="flex gap-m" style="align-items:center;">
+                                                <span class="label" style="font-size:12px;">{{ $ja->user->name }}</span>
+                                                <span class="badge badge-out" style="font-size:9px;">{{ $ja->scoring_mode }}</span>
+                                            </div>
+                                            <button wire:click="removeJudgeFromEvent({{ $ja->id }})" class="btn btn-sm btn-ghost" style="color:var(--red);font-size:11px;" wire:confirm="Hapus assignment judge ini?">Hapus</button>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <p class="mono dim" style="font-size:12px;">Belum ada judge untuk event ini.</p>
+                            @endif
                         @endif
                     </div>
 

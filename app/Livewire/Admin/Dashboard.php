@@ -93,13 +93,11 @@ class Dashboard extends Component
     public int    $editCriterionId  = 0;
 
     // Event scoring criteria assignment
-    public int    $scEventId        = 0;
     public int    $scCriterionId    = 0;
     public string $scAppliesTo      = 'BOTH';
     public int    $scOrder          = 0;
 
     // Event judge assignment
-    public int    $jaEventId        = 0;
     public int    $jaJudgeUserId    = 0;
     public string $jaScoringMode    = 'BOTH';
 
@@ -121,6 +119,7 @@ class Dashboard extends Component
     public bool   $evFeatured   = false;
     public        $evBannerFile = null;
     public string $evBannerPath = '';
+    public int    $evRunDuration = 60;
 
     // Division CRUD
     public int    $divManageEventId = 0;
@@ -174,8 +173,6 @@ class Dashboard extends Component
             $this->activeEventId   = $active->id;
             $this->judgeEventId    = $active->id;
             $this->selectedEventId = $active->id;
-            $this->jaEventId       = $active->id;
-            $this->scEventId       = $active->id;
         }
     }
 
@@ -183,8 +180,6 @@ class Dashboard extends Component
     {
         $this->judgeEventId    = $this->activeEventId;
         $this->selectedEventId = $this->activeEventId;
-        $this->jaEventId       = $this->activeEventId;
-        $this->scEventId       = $this->activeEventId;
         $this->scoreSubmitted  = false;
         $this->koMatchId       = 0;
         $this->liveRiderId     = 0;
@@ -275,6 +270,7 @@ class Dashboard extends Component
         $this->evFeatured          = false;
         $this->evBannerFile        = null;
         $this->evBannerPath        = '';
+        $this->evRunDuration       = 60;
         $this->evEditing           = true;
     }
 
@@ -295,9 +291,10 @@ class Dashboard extends Component
         $this->evPrize      = (int) $ev->prize;
         $this->evBlurb      = $ev->blurb ?? '';
         $this->evFeatured   = (bool) $ev->featured;
-        $this->evBannerFile = null;
-        $this->evBannerPath = $ev->banner ?? '';
-        $this->evEditing    = true;
+        $this->evBannerFile  = null;
+        $this->evBannerPath  = $ev->banner ?? '';
+        $this->evRunDuration = $ev->run_duration ?? 60;
+        $this->evEditing     = true;
     }
 
     public function saveEvent(): void
@@ -311,6 +308,7 @@ class Dashboard extends Component
             'evStatus'     => 'required|in:SOON,OPEN,CLOSING,FULL,LIVE,CLOSED',
             'evPrize'      => 'required|integer|min:0',
             'evBannerFile' => 'nullable|image|max:5120',
+            'evRunDuration'=> 'required|integer|min:30|max:300',
         ], [], [
             'evTitle'      => 'title',
             'evCity'       => 'city',
@@ -340,8 +338,9 @@ class Dashboard extends Component
             'categories' => $this->evCategories,
             'prize'      => $this->evPrize,
             'blurb'      => $this->evBlurb,
-            'featured'   => $this->evFeatured,
-            'banner'     => $bannerPath ?: null,
+            'featured'     => $this->evFeatured,
+            'banner'       => $bannerPath ?: null,
+            'run_duration' => $this->evRunDuration,
         ];
 
         if ($this->evId) {
@@ -1154,10 +1153,9 @@ class Dashboard extends Component
 
     public function assignCriterionToEvent(): void
     {
-        if (!$this->scEventId || !$this->scCriterionId) return;
+        if (!$this->activeEventId || !$this->scCriterionId) return;
 
-        $event = Event::findOrFail($this->scEventId);
-        $event->scoringCriteria()->syncWithoutDetaching([
+        Event::findOrFail($this->activeEventId)->scoringCriteria()->syncWithoutDetaching([
             $this->scCriterionId => [
                 'applies_to'    => $this->scAppliesTo,
                 'display_order' => $this->scOrder,
@@ -1176,10 +1174,10 @@ class Dashboard extends Component
 
     public function assignJudgeToEvent(): void
     {
-        if (!$this->jaEventId || !$this->jaJudgeUserId) return;
+        if (!$this->activeEventId || !$this->jaJudgeUserId) return;
 
         EventJudgeAssignment::updateOrCreate(
-            ['event_id' => $this->jaEventId, 'user_id' => $this->jaJudgeUserId],
+            ['event_id' => $this->activeEventId, 'user_id' => $this->jaJudgeUserId],
             ['scoring_mode' => $this->jaScoringMode]
         );
         $this->jaJudgeUserId = 0;
@@ -1331,8 +1329,12 @@ class Dashboard extends Component
             $data['scoringCriteria']  = ScoringCriterion::orderBy('display_order')->get();
             $data['allCriteria']      = ScoringCriterion::where('is_active', true)->orderBy('display_order')->get();
             $data['judgeUsers']       = User::whereIn('role', ['judge', 'head_judge'])->orderBy('name')->get();
-            $data['eventScoringList'] = Event::with(['scoringCriteria'])->orderBy('date')->get();
-            $data['judgeAssignments'] = EventJudgeAssignment::with(['event', 'user'])->latest()->get();
+            $data['activeEventCriteria'] = $eid
+                ? Event::with('scoringCriteria')->find($eid)
+                : null;
+            $data['judgeAssignments'] = $eid
+                ? EventJudgeAssignment::with('user')->where('event_id', $eid)->latest()->get()
+                : collect();
         }
 
         if ($this->view === 'users') {

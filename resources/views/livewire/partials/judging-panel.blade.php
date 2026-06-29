@@ -1,5 +1,80 @@
 <div class="col" style="gap:16px;">
 
+    {{-- ── HEAD JUDGE LIVE CONTROL ── --}}
+    @if(auth()->user()->isHeadJudge() && $scoringMode === 'live')
+    <div class="panel" style="border:2px solid var(--lime);padding:18px;">
+        <div class="between" style="margin-bottom:14px;">
+            <span class="kicker" style="color:var(--lime);">⚡ LIVE CONTROL</span>
+            @if($activeEvent?->live_phase)
+                <span class="badge badge-red"><span class="live-dot" style="margin-right:5px;"></span>{{ $activeEvent->live_phase }}</span>
+            @else
+                <span class="badge badge-out">STANDBY</span>
+            @endif
+        </div>
+
+        @if(!$activeEvent?->live_phase)
+            <p class="mono dim" style="font-size:11px;margin-bottom:12px;">
+                Pilih rider &amp; run di bawah, lalu klik START RUN untuk mulai sesi live.
+            </p>
+            <button wire:click="startRun"
+                class="btn btn-lime btn-lg"
+                @if(!$liveRiderId) disabled @endif
+                style="width:100%;justify-content:center;font-size:14px;letter-spacing:0.12em;">
+                ▶ START RUN
+            </button>
+            @if(!$liveRiderId)
+                <p class="mono dim" style="font-size:10px;margin-top:8px;text-align:center;">Pilih rider terlebih dahulu</p>
+            @endif
+
+        @elseif($activeEvent->live_phase === 'RUNNING')
+            @php
+                $liveR        = $activeEvent->live_rider_id ? \App\Models\Rider::find($activeEvent->live_rider_id) : null;
+                $submittedIds = ($liveJudgeScores ?? collect())->where('status', 'DONE')->pluck('judge_user_id')->toArray();
+                $accTotal     = ($liveJudgeScores ?? collect())->where('status', 'DONE')->avg('total') ?? 0;
+                $totalJudges  = ($assignedJudges ?? collect())->count();
+                $doneCount    = count($submittedIds);
+            @endphp
+            <div class="flex" style="align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:var(--bg-2);border-radius:3px;">
+                <span class="live-dot"></span>
+                <span class="label" style="font-size:13px;">{{ $liveR?->name ?? 'Rider' }}</span>
+                <span class="mono dim" style="font-size:10px;">RUN {{ $activeEvent->live_run_number }}</span>
+                <span class="mono" style="font-size:10px;margin-left:auto;color:var(--lime);">{{ $activeEvent->run_duration }}s</span>
+            </div>
+
+            @if($totalJudges)
+            <div style="margin-bottom:12px;padding:10px;border:1px solid var(--line);border-radius:3px;">
+                <div class="between" style="margin-bottom:8px;">
+                    <span class="mono dim" style="font-size:10px;">JUDGE ({{ $doneCount }}/{{ $totalJudges }} SUBMIT)</span>
+                    @if($accTotal > 0)
+                        <span class="display tnum" style="font-size:20px;color:var(--lime);">{{ number_format($accTotal, 1) }}</span>
+                    @endif
+                </div>
+                @foreach($assignedJudges as $aj)
+                    @php $submitted = in_array($aj->user_id, $submittedIds); @endphp
+                    <div class="between" style="padding:4px 0;border-bottom:1px solid var(--line);">
+                        <span class="mono" style="font-size:11px;">{{ $aj->user?->name ?? '—' }}</span>
+                        <span class="badge {{ $submitted ? 'badge-lime' : 'badge-out' }}" style="font-size:9px;">{{ $submitted ? '✓ DONE' : 'PENDING' }}</span>
+                    </div>
+                @endforeach
+            </div>
+            @endif
+
+            <div class="flex gap-s">
+                <button wire:click="revealScore" class="btn btn-lime" style="flex:1;justify-content:center;">✓ REVEAL SCORE</button>
+                <button wire:click="endSession" class="btn btn-ghost btn-sm">✗ BATAL</button>
+            </div>
+
+        @elseif($activeEvent->live_phase === 'REVEALING')
+            <p class="mono" style="font-size:11px;margin-bottom:12px;color:var(--lime);">
+                Skor sedang ditampilkan di layar publik.
+            </p>
+            <button wire:click="endSession" class="btn btn-ghost" style="width:100%;justify-content:center;">
+                ← KEMBALI KE LEADERBOARD
+            </button>
+        @endif
+    </div>
+    @endif
+
     {{-- Context bar: Event label + Division + Mode --}}
     <div class="panel" style="padding:16px;">
         <div class="between" style="margin-bottom:12px;">

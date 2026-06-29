@@ -234,6 +234,45 @@ class Dashboard extends Component
         $this->initCriteria();
     }
 
+    // ─── Live Session Control (Head Judge only) ───────────────────────────────
+
+    public function startRun(): void
+    {
+        if (!auth()->user()->isHeadJudge()) return;
+        if (!$this->judgeEventId || !$this->liveRiderId) {
+            $this->addError('liveRiderId', 'Pilih event dan rider terlebih dahulu.');
+            return;
+        }
+        $riderId = $this->resolveRiderIdFromRegistration($this->liveRiderId);
+        if (!$riderId) {
+            $this->addError('liveRiderId', 'Rider tidak ditemukan.');
+            return;
+        }
+        Event::findOrFail($this->judgeEventId)->update([
+            'live_rider_id'   => $riderId,
+            'live_run_number' => $this->liveRunNumber,
+            'live_phase'      => 'RUNNING',
+            'live_started_at' => now(),
+        ]);
+    }
+
+    public function revealScore(): void
+    {
+        if (!auth()->user()->isHeadJudge()) return;
+        Event::findOrFail($this->judgeEventId)->update(['live_phase' => 'REVEALING']);
+    }
+
+    public function endSession(): void
+    {
+        if (!auth()->user()->isHeadJudge()) return;
+        Event::findOrFail($this->judgeEventId)->update([
+            'live_rider_id'   => null,
+            'live_run_number' => null,
+            'live_phase'      => null,
+            'live_started_at' => null,
+        ]);
+    }
+
     // ─── Reset winner ─────────────────────────────────────────────────────────
 
     public function resetQualMatchWinner(int $matchId): void
@@ -547,6 +586,24 @@ class Dashboard extends Component
                     ->get();
             } else {
                 $data['otherJudgeScores'] = collect();
+            }
+
+            // HEAD JUDGE: live session — status per judge
+            $data['liveJudgeScores'] = collect();
+            $data['assignedJudges']  = collect();
+            if (auth()->user()->isHeadJudge() && $this->judgeEventId) {
+                $liveEvent = $data['activeEvent'];
+                if ($liveEvent?->live_rider_id) {
+                    $data['liveJudgeScores'] = JudgeScore::where('event_id', $this->judgeEventId)
+                        ->where('rider_id', $liveEvent->live_rider_id)
+                        ->where('run_number', $liveEvent->live_run_number)
+                        ->where('scoring_mode', 'LIVE')
+                        ->with(['judge', 'scoreDetails'])
+                        ->get();
+                }
+                $data['assignedJudges'] = EventJudgeAssignment::where('event_id', $this->judgeEventId)
+                    ->with('user')
+                    ->get();
             }
 
             // Other judges' KO scores for current match (bracket only)

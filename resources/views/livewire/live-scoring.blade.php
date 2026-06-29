@@ -1,4 +1,15 @@
-<div wire:poll.5s>
+<div wire:poll.3s>
+    {{-- Hidden data bridge: Livewire updates these attrs; Alpine reads them via MutationObserver --}}
+    <div id="live-data"
+         data-phase="{{ $displayPhase ?? '' }}"
+         data-started="{{ $liveStartedAt ?? 0 }}"
+         data-duration="{{ $runDuration }}"
+         data-score="{{ $revealScore ? number_format($revealScore, 1) : '' }}"
+         data-rider="{{ $liveRider?->name ?? '' }}"
+         data-initials="{{ $liveRider ? collect(explode(' ', $liveRider->name))->map(fn($w) => strtoupper($w[0]))->take(2)->join('') : '' }}"
+         style="display:none;">
+    </div>
+
     {{-- Header --}}
     <div style="border-bottom:2px solid var(--ink);background:var(--bg-2);">
         <div class="wrap between" style="padding:20px 0;flex-wrap:wrap;gap:12px;">
@@ -16,7 +27,6 @@
                 </h1>
             </div>
             <div class="col" style="gap:8px;align-items:flex-end;">
-                {{-- Event selector --}}
                 <select wire:model.live="selectedEventId"
                     class="mono"
                     style="padding:8px 12px;border:2px solid var(--ink);background:var(--bg);color:var(--ink);font-size:12px;letter-spacing:0.08em;border-radius:3px;cursor:pointer;">
@@ -26,15 +36,75 @@
                     @endforeach
                 </select>
                 <div class="mono dim" style="font-size:11px;letter-spacing:0.12em;text-align:right;">
-                    AUTO-REFRESH 5s<br>
+                    AUTO-REFRESH 3s<br>
                     <span style="color:var(--lime);">● SYSTEM LIVE</span>
                 </div>
             </div>
         </div>
     </div>
 
+    {{-- ── LIVE PHASE OVERLAY ── --}}
+    <div x-data="livePhaseOverlay()" x-init="boot()" x-show="phase !== 'IDLE'" x-cloak
+         style="border-bottom:2px solid var(--ink);background:var(--bg);">
+        <div class="wrap" style="padding:30px 0;">
+
+            {{-- RUNNING phase: countdown --}}
+            <div x-show="phase === 'RUNNING'" style="display:none;">
+                <div class="panel" style="padding:32px 40px;text-align:center;border:2px solid var(--red);position:relative;overflow:hidden;">
+                    <div class="scanlines" style="position:absolute;inset:0;pointer-events:none;"></div>
+                    <div style="position:relative;z-index:2;">
+                        <div class="flex gap-s" style="justify-content:center;margin-bottom:20px;">
+                            <span class="badge badge-red"><span class="live-dot" style="margin-right:5px;"></span>NOW ON COURSE</span>
+                        </div>
+                        <div class="display" style="font-size:clamp(36px,8vw,64px);margin-bottom:6px;" x-text="riderName"></div>
+                        <p class="mono dim" style="font-size:12px;margin-bottom:28px;letter-spacing:0.1em;">STREET FINAL</p>
+                        <div class="halftone center" style="padding:28px;max-width:260px;margin:0 auto;border:2px solid var(--red);border-radius:3px;">
+                            <div>
+                                <p class="kicker" style="margin-bottom:8px;">RUN TIMER</p>
+                                <span class="display tnum text-glow-lime"
+                                      style="font-size:clamp(72px,16vw,120px);color:var(--lime);line-height:1;"
+                                      x-text="remainingFormatted"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- JUDGING phase: scanning animation --}}
+            <div x-show="phase === 'JUDGING'" style="display:none;">
+                <div class="panel judge-scan" style="padding:40px;text-align:center;position:relative;overflow:hidden;">
+                    <span class="kicker" style="display:block;margin-bottom:16px;">JUDGES SCORING</span>
+                    <div class="display" style="font-size:clamp(28px,6vw,48px);margin-bottom:24px;" x-text="riderName"></div>
+                    <div style="display:flex;justify-content:center;gap:20px;margin-bottom:20px;">
+                        <div class="live-dot" style="width:16px;height:16px;animation-delay:0s;"></div>
+                        <div class="live-dot" style="width:16px;height:16px;animation-delay:0.4s;"></div>
+                        <div class="live-dot" style="width:16px;height:16px;animation-delay:0.8s;"></div>
+                    </div>
+                    <p class="mono dim" style="font-size:11px;letter-spacing:0.1em;">MENUNGGU SEMUA JURI SELESAI MENILAI</p>
+                </div>
+            </div>
+
+            {{-- REVEALING phase: score reveal --}}
+            <div x-show="phase === 'REVEALING'" style="display:none;">
+                <div class="panel" style="padding:40px;text-align:center;border:2px solid var(--lime);position:relative;overflow:hidden;">
+                    <div class="halftone" style="position:absolute;inset:0;pointer-events:none;opacity:0.5;"></div>
+                    <div style="position:relative;z-index:2;">
+                        <span class="kicker" style="display:block;margin-bottom:12px;color:var(--lime);">FINAL SCORE</span>
+                        <div class="display" style="font-size:clamp(24px,5vw,40px);margin-bottom:20px;" x-text="riderName"></div>
+                        <div class="score-reveal-anim" style="margin:8px 0 16px;">
+                            <span class="display tnum text-glow-lime"
+                                  style="font-size:clamp(80px,18vw,140px);color:var(--lime);line-height:1;"
+                                  x-text="score || '—'"></span>
+                        </div>
+                        <p class="mono dim" style="font-size:13px;letter-spacing:0.1em;">/ 100 POINTS</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
     @if(!$event)
-        {{-- No event selected --}}
         <div class="wrap section center col" style="padding:80px 0;gap:16px;">
             <span class="display" style="font-size:48px;color:var(--ink-faint);">—</span>
             <span class="kicker">PILIH EVENT</span>
@@ -43,13 +113,12 @@
             </p>
         </div>
     @elseif($scores->isEmpty())
-        {{-- Event selected but no scores yet --}}
         <div class="wrap section center col" style="padding:80px 0;gap:16px;">
             <span class="display" style="font-size:48px;color:var(--ink-faint);">—</span>
             <span class="kicker">BELUM ADA SCORE</span>
             <p class="mono dim" style="font-size:13px;text-align:center;max-width:360px;">
                 Belum ada skor masuk untuk <strong>{{ $event->title }}</strong>.<br>
-                Halaman ini akan update otomatis setiap 5 detik.
+                Halaman ini akan update otomatis setiap 3 detik.
             </p>
         </div>
     @else
@@ -70,7 +139,7 @@
                                 @endforeach
                             </div>
                             @foreach($scores as $i => $row)
-                                @php $isOnCourse = $row['status'] === 'ON COURSE'; @endphp
+                                @php $isOnCourse = $displayPhase && $event?->live_rider_id && ($row['rider']->id === $event->live_rider_id); @endphp
                                 <div class="score-row" style="
                                     border-bottom:{{ !$loop->last ? '1px solid var(--line)' : 'none' }};
                                     background:{{ $isOnCourse ? 'color-mix(in srgb,var(--red) 8%,transparent)' : 'transparent' }};
@@ -100,7 +169,7 @@
                     @if($judgeScores->isNotEmpty())
                         <div class="panel" style="overflow:hidden;">
                             <div style="padding:16px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
-                                <span class="kicker">JUDGE CARDS — {{ $current?->name ?? 'CURRENT RIDER' }}</span>
+                                <span class="kicker">JUDGE CARDS — {{ $liveRider?->name ?? 'CURRENT RIDER' }}</span>
                             </div>
                             <div style="overflow-x:auto;">
                                 <table class="tbl">
@@ -142,23 +211,23 @@
                     @endif
                 </div>
 
-                {{-- Right: Current rider --}}
+                {{-- Right: Current rider panel --}}
                 <div class="col" style="gap:16px;">
-                    @if($current)
+                    @if($liveRider)
                         <div class="panel" style="overflow:hidden;">
                             <div style="padding:14px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
                                 <span class="kicker"><span class="live-dot" style="margin-right:6px;"></span>NOW ON COURSE</span>
                             </div>
                             <div style="padding:20px 18px;">
                                 <div class="flex" style="align-items:center;gap:14px;margin-bottom:18px;">
-                                    <x-avatar :initials="$current->initials" :size="60" :ring="true" />
+                                    <x-avatar :initials="$liveRider->initials" :size="60" :ring="true" />
                                     <div class="col">
-                                        <span class="display" style="font-size:26px;">{{ $current->name }}</span>
+                                        <span class="display" style="font-size:26px;">{{ $liveRider->name }}</span>
                                         <span class="mono dim" style="font-size:11px;">STREET FINAL</span>
                                     </div>
                                 </div>
                                 @php
-                                    $currentScore = $scores->firstWhere(fn($r) => $r['rider']->id === $current->id);
+                                    $currentScore = $scores->firstWhere(fn($r) => $r['rider']->id === $liveRider->id);
                                     $displayScore = $currentScore ? ($currentScore['best'] > 0 ? number_format($currentScore['best'], 1) : null) : null;
                                 @endphp
                                 <div class="panel halftone center col" style="padding:24px;gap:6px;text-align:center;border:none;background:color-mix(in srgb,var(--lime) 8%,transparent);">
@@ -208,3 +277,68 @@
         </div>
     @endif
 </div>
+
+<script>
+function livePhaseOverlay() {
+    return {
+        phase: 'IDLE',
+        remaining: 0,
+        riderName: '',
+        initials: '',
+        score: '',
+        _timer: null,
+        _observer: null,
+
+        boot() {
+            this.readData();
+            const el = document.getElementById('live-data');
+            if (el) {
+                this._observer = new MutationObserver(() => this.readData());
+                this._observer.observe(el, { attributes: true });
+            }
+        },
+
+        readData() {
+            const el = document.getElementById('live-data');
+            if (!el) return;
+            const serverPhase = el.dataset.phase || '';
+            const startedAt   = parseInt(el.dataset.started) || 0;
+            const duration    = parseInt(el.dataset.duration) || 60;
+            this.riderName = el.dataset.rider || '';
+            this.initials  = el.dataset.initials || '';
+            this.score     = el.dataset.score || '';
+
+            if (serverPhase === 'REVEALING') {
+                this.phase = 'REVEALING';
+                clearTimeout(this._timer);
+            } else if (serverPhase === 'RUNNING') {
+                this._startCountdown(startedAt, duration);
+            } else {
+                this.phase = 'IDLE';
+                clearTimeout(this._timer);
+            }
+        },
+
+        _startCountdown(startedAt, duration) {
+            clearTimeout(this._timer);
+            const tick = () => {
+                const elapsed = Math.floor(Date.now() / 1000) - startedAt;
+                this.remaining = Math.max(0, duration - elapsed);
+                if (this.remaining > 0) {
+                    this.phase = 'RUNNING';
+                    this._timer = setTimeout(tick, 1000);
+                } else {
+                    this.phase = 'JUDGING';
+                }
+            };
+            tick();
+        },
+
+        get remainingFormatted() {
+            const m = Math.floor(this.remaining / 60);
+            const s = this.remaining % 60;
+            return (m > 0 ? String(m).padStart(2, '0') + ':' : '') + String(s).padStart(2, '0');
+        }
+    };
+}
+</script>
