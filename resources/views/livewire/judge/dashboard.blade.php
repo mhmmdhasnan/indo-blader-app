@@ -123,6 +123,8 @@
                 @include('livewire.partials.judging-panel', [
                     'events'                 => $events,
                     'judgeEventId'           => $judgeEventId,
+                    'judgeDivisionId'        => $judgeDivisionId,
+                    'judgeDivisions'         => $judgeDivisions ?? collect(),
                     'scoringMode'            => $scoringMode,
                     'koMatchType'            => $koMatchType,
                     'koMatchId'              => $koMatchId,

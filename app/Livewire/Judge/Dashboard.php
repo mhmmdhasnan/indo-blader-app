@@ -43,6 +43,7 @@ class Dashboard extends Component
     public int    $koMatchId       = 0;
     public int    $liveRiderId     = 0;
     public int    $liveRunNumber   = 1;
+    public int    $judgeDivisionId = 0;
 
     // Category review
     public int    $moveToCategoryId = 0;
@@ -136,11 +137,17 @@ class Dashboard extends Component
             return;
         }
 
+        $riderId = $this->resolveRiderIdFromRegistration($this->liveRiderId);
+        if (!$riderId) {
+            $this->addError('liveRiderId', 'Rider tidak ditemukan untuk peserta ini.');
+            return;
+        }
+
         $score = JudgeScore::firstOrCreate(
             [
                 'judge_user_id' => auth()->id(),
                 'event_id'      => $this->judgeEventId,
-                'rider_id'      => $this->liveRiderId,
+                'rider_id'      => $riderId,
                 'run_number'    => $this->liveRunNumber,
                 'scoring_mode'  => 'LIVE',
             ],
@@ -150,6 +157,37 @@ class Dashboard extends Component
         app(ScoringService::class)->submitScore($score, $this->criteriaScores);
 
         $this->scoreSubmitted = true;
+    }
+
+    private function resolveRiderIdFromRegistration(int $registrationId): ?int
+    {
+        $reg = Registration::find($registrationId);
+        if (!$reg) return null;
+
+        // Try to find existing Rider by user_id
+        if ($reg->user_id) {
+            $rider = Rider::where('user_id', $reg->user_id)->first();
+            if ($rider) return $rider->id;
+        }
+
+        // Try by name
+        $rider = Rider::where('name', $reg->name)->first();
+        if ($rider) return $rider->id;
+
+        // Auto-create Rider record for this registrant
+        $age = $reg->dob ? (int) $reg->dob->diffInYears(now()) : 0;
+        $rider = Rider::create([
+            'user_id'  => $reg->user_id,
+            'name'     => $reg->name,
+            'nick'     => $reg->name,
+            'city'     => $reg->city ?? '-',
+            'age'      => $age,
+            'category' => in_array($reg->category, ['STREET','PARK','VERT','FLAT']) ? $reg->category : 'STREET',
+            'stance'   => in_array($reg->stance, ['Regular','Goofy']) ? $reg->stance : 'Regular',
+            'slug'     => \Illuminate\Support\Str::slug($reg->name . '-' . $reg->id),
+        ]);
+
+        return $rider->id;
     }
 
     public function submitKnockoutScore(): void
@@ -484,9 +522,20 @@ class Dashboard extends Component
                     ->first()
                 : null;
 
+            $data['judgeDivisions'] = $this->judgeEventId
+                ? \App\Models\EventDivision::where('event_id', $this->judgeEventId)->where('is_active', true)->orderBy('name')->get()
+                : collect();
+
+            // Use Registration records directly so all approved participants appear,
+            // regardless of whether they have a Rider profile yet.
             $data['judgeRiders'] = $this->judgeEventId
-                ? Rider::whereHas('registrations', fn ($q) => $q->where('event_id', $this->judgeEventId))->orderBy('name')->get()
-                : Rider::orderBy('name')->get();
+                ? Registration::where('event_id', $this->judgeEventId)
+                    ->where('status', 'APPROVED')
+                    ->when($this->judgeDivisionId, fn ($q) => $q->where('division_id', $this->judgeDivisionId))
+                    ->with('division')
+                    ->orderBy('name')
+                    ->get()
+                : collect();
 
             // Other judges' live scores for current rider/run
             if ($this->scoringMode === 'live' && $this->judgeEventId && $this->liveRiderId) {

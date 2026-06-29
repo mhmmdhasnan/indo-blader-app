@@ -8,6 +8,7 @@ $navLinks = [
     ['label' => 'Results',  'route' => 'bracket'],
     ['label' => 'About',    'route' => 'about'],
 ];
+$hasLiveEvent = \App\Models\Event::where('status', 'LIVE')->exists();
 $current = Route::currentRouteName();
 @endphp
 
@@ -38,9 +39,9 @@ $current = Route::currentRouteName();
 
         <div class="flex" style="gap:10px;align-items:center;">
             {{-- Live button --}}
-            <!-- <a href="{{ route('live') }}" class="flex label" style="align-items:center;gap:7px;font-size:12px;color:var(--red);padding:8px 12px;border:2px solid var(--red);border-radius:3px;">
-                <span class="live-dot"></span>LIVE
-            </a> -->
+            <a href="{{ route('live') }}" class="flex label" style="align-items:center;gap:7px;font-size:12px;color:{{ $hasLiveEvent ? 'var(--red)' : 'var(--ink-dim)' }};padding:8px 12px;border:2px solid {{ $hasLiveEvent ? 'var(--red)' : 'var(--line)' }};border-radius:3px;">
+                @if($hasLiveEvent)<span class="live-dot"></span>@endif LIVE
+            </a>
 
             {{-- Theme toggle --}}
             <button @click="dark = !dark" class="center" style="width:44px;height:44px;border:2px solid var(--ink);border-radius:3px;" aria-label="Toggle theme">

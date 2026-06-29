@@ -86,7 +86,7 @@
                         @if(!$judgeEventId)
                             <p class="mono dim" style="font-size:11px;">Pilih event terlebih dahulu.</p>
                         @elseif($judgeRiders->isEmpty())
-                            <p class="mono" style="font-size:11px;color:var(--red);">Tidak ada rider approved di divisi ini.</p>
+                            <p class="mono" style="font-size:11px;color:var(--red);">Belum ada peserta approved untuk event{{ $judgeDivisionId ? ' / divisi' : '' }} ini.</p>
                         @else
                         <select wire:model.live="liveRiderId" class="input-field" style="width:100%;">
                             <option value="0">— pilih rider —</option>
