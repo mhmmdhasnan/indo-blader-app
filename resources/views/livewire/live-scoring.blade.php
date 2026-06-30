@@ -7,6 +7,7 @@
          data-score="{{ $revealScore ? number_format($revealScore, 1) : '' }}"
          data-rider="{{ $liveRider?->name ?? '' }}"
          data-initials="{{ $liveRider ? collect(explode(' ', $liveRider->name))->map(fn($w) => strtoupper($w[0]))->take(2)->join('') : '' }}"
+         data-avatar="{{ $liveRider?->avatar ? asset('storage/' . $liveRider->avatar) : '' }}"
          style="display:none;">
     </div>
 
@@ -48,6 +49,27 @@
          style="border-bottom:2px solid var(--ink);background:var(--bg);">
         <div class="wrap" style="padding:30px 0;">
 
+            {{-- NEXT UP phase --}}
+            <div x-show="phase === 'NEXT'" style="display:none;">
+                <div class="panel" style="padding:32px 40px;text-align:center;border:2px solid var(--ink);position:relative;overflow:hidden;">
+                    <div style="position:relative;z-index:2;">
+                        <div class="flex gap-s" style="justify-content:center;margin-bottom:20px;">
+                            <span class="badge badge-out" style="font-size:11px;letter-spacing:0.12em;">→ NEXT UP</span>
+                        </div>
+                        <div style="margin:0 auto 16px;width:96px;height:96px;border-radius:50%;border:3px solid var(--ink);overflow:hidden;background:var(--bg-2);display:flex;align-items:center;justify-content:center;">
+                            <template x-if="avatarSrc">
+                                <img :src="avatarSrc" style="width:100%;height:100%;object-fit:cover;display:block;">
+                            </template>
+                            <template x-if="!avatarSrc">
+                                <span style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--ink);" x-text="initials"></span>
+                            </template>
+                        </div>
+                        <div class="display" style="font-size:clamp(36px,8vw,64px);margin-bottom:6px;" x-text="riderName"></div>
+                        <p class="mono dim" style="font-size:12px;letter-spacing:0.1em;">STREET FINAL</p>
+                    </div>
+                </div>
+            </div>
+
             {{-- RUNNING phase: countdown --}}
             <div x-show="phase === 'RUNNING'" style="display:none;">
                 <div class="panel" style="padding:32px 40px;text-align:center;border:2px solid var(--red);position:relative;overflow:hidden;">
@@ -55,6 +77,15 @@
                     <div style="position:relative;z-index:2;">
                         <div class="flex gap-s" style="justify-content:center;margin-bottom:20px;">
                             <span class="badge badge-red"><span class="live-dot" style="margin-right:5px;"></span>NOW ON COURSE</span>
+                        </div>
+                        {{-- Rider profile photo --}}
+                        <div style="margin:0 auto 16px;width:96px;height:96px;border-radius:50%;border:3px solid var(--red);overflow:hidden;background:var(--bg-2);display:flex;align-items:center;justify-content:center;">
+                            <template x-if="avatarSrc">
+                                <img :src="avatarSrc" style="width:100%;height:100%;object-fit:cover;display:block;">
+                            </template>
+                            <template x-if="!avatarSrc">
+                                <span style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--ink);" x-text="initials"></span>
+                            </template>
                         </div>
                         <div class="display" style="font-size:clamp(36px,8vw,64px);margin-bottom:6px;" x-text="riderName"></div>
                         <p class="mono dim" style="font-size:12px;margin-bottom:28px;letter-spacing:0.1em;">STREET FINAL</p>
@@ -123,10 +154,8 @@
         </div>
     @else
         <div class="wrap section" style="padding-top:30px;">
-            <div style="display:grid;grid-template-columns:1fr 340px;gap:24px;" class="prof-grid">
-
-                {{-- Left: Leaderboard --}}
-                <div class="col" style="gap:20px;">
+            <div class="col" style="gap:20px;">
+                    @if(!$displayPhase)
                     <div class="panel" style="overflow:hidden;">
                         <div style="padding:16px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
                             <span class="kicker">LIVE LEADERBOARD</span>
@@ -139,7 +168,7 @@
                                 @endforeach
                             </div>
                             @foreach($scores as $i => $row)
-                                @php $isOnCourse = $displayPhase && $event?->live_rider_id && ($row['rider']->id === $event->live_rider_id); @endphp
+                                @php $isOnCourse = $displayPhase === 'RUNNING' && $event?->live_rider_id && ($row['rider']->id === $event->live_rider_id); @endphp
                                 <div class="score-row" style="
                                     border-bottom:{{ !$loop->last ? '1px solid var(--line)' : 'none' }};
                                     background:{{ $isOnCourse ? 'color-mix(in srgb,var(--red) 8%,transparent)' : 'transparent' }};
@@ -155,18 +184,19 @@
                                             </span>
                                         </div>
                                     </div>
-                                    <span class="mono tnum score-hide" style="font-size:14px;text-align:right;color:var(--ink-dim);">{{ $row['run1'] ? number_format($row['run1']->total, 1) : '—' }}</span>
+                                    <span class="mono tnum score-hide" style="font-size:14px;text-align:right;color:var(--ink-dim);">{{ (!$isOnCourse && $row['run1'] !== null) ? number_format($row['run1'], 1) : '—' }}</span>
                                     <span class="mono tnum" style="font-size:14px;text-align:right;color:{{ $isOnCourse ? 'var(--red)' : 'var(--ink-dim)' }};">
-                                        {{ $isOnCourse ? '...' : ($row['run2'] ? number_format($row['run2']->total, 1) : '—') }}
+                                        {{ $isOnCourse ? '...' : ($row['run2'] !== null ? number_format($row['run2'], 1) : '—') }}
                                     </span>
-                                    <span class="display tnum" style="font-size:22px;text-align:right;color:{{ $i === 0 ? 'var(--lime)' : 'var(--ink)' }};">{{ $row['best'] > 0 ? number_format($row['best'], 1) : '—' }}</span>
+                                    <span class="display tnum" style="font-size:22px;text-align:right;color:{{ $i === 0 ? 'var(--lime)' : 'var(--ink)' }};">{{ (!$isOnCourse && $row['best'] > 0) ? number_format($row['best'], 1) : '—' }}</span>
                                 </div>
                             @endforeach
                         </div>
                     </div>
+                    @endif {{-- !$displayPhase --}}
 
-                    {{-- Judge Scores --}}
-                    @if($judgeScores->isNotEmpty())
+                    {{-- Judge Scores — hanya tampil setelah REVEAL --}}
+                    @if($judgeScores->isNotEmpty() && $displayPhase === 'REVEALING')
                         <div class="panel" style="overflow:hidden;">
                             <div style="padding:16px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
                                 <span class="kicker">JUDGE CARDS — {{ $liveRider?->name ?? 'CURRENT RIDER' }}</span>
@@ -209,70 +239,6 @@
                             </div>
                         </div>
                     @endif
-                </div>
-
-                {{-- Right: Current rider panel --}}
-                <div class="col" style="gap:16px;">
-                    @if($liveRider)
-                        <div class="panel" style="overflow:hidden;">
-                            <div style="padding:14px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
-                                <span class="kicker"><span class="live-dot" style="margin-right:6px;"></span>NOW ON COURSE</span>
-                            </div>
-                            <div style="padding:20px 18px;">
-                                <div class="flex" style="align-items:center;gap:14px;margin-bottom:18px;">
-                                    <x-avatar :initials="$liveRider->initials" :size="60" :ring="true" />
-                                    <div class="col">
-                                        <span class="display" style="font-size:26px;">{{ $liveRider->name }}</span>
-                                        <span class="mono dim" style="font-size:11px;">STREET FINAL</span>
-                                    </div>
-                                </div>
-                                @php
-                                    $currentScore = $scores->firstWhere(fn($r) => $r['rider']->id === $liveRider->id);
-                                    $displayScore = $currentScore ? ($currentScore['best'] > 0 ? number_format($currentScore['best'], 1) : null) : null;
-                                @endphp
-                                <div class="panel halftone center col" style="padding:24px;gap:6px;text-align:center;border:none;background:color-mix(in srgb,var(--lime) 8%,transparent);">
-                                    <span class="kicker">BUILDING SCORE</span>
-                                    <span class="display tnum text-glow-lime" style="font-size:72px;color:var(--lime);line-height:0.9;">{{ $displayScore ?? '—' }}</span>
-                                    <span class="mono dim" style="font-size:11px;">/ 100 POINTS</span>
-                                </div>
-                            </div>
-                        </div>
-                    @else
-                        <div class="panel center col" style="padding:40px 24px;gap:12px;text-align:center;">
-                            <span class="mono dim" style="font-size:11px;letter-spacing:0.1em;">NO RIDER ON COURSE</span>
-                            <span class="mono dim" style="font-size:11px;">Menunggu rider berikutnya...</span>
-                        </div>
-                    @endif
-
-                    {{-- Event info --}}
-                    <div class="panel" style="overflow:hidden;">
-                        <div style="padding:14px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
-                            <span class="kicker">EVENT INFO</span>
-                        </div>
-                        <div style="padding:16px 18px;" class="col" style="gap:10px;">
-                            <div class="flex between" style="padding:6px 0;border-bottom:1px solid var(--line);">
-                                <span class="mono dim" style="font-size:11px;">EVENT</span>
-                                <span class="label" style="font-size:12px;text-align:right;">{{ $event->title }}</span>
-                            </div>
-                            @if($event->city)
-                            <div class="flex between" style="padding:6px 0;border-bottom:1px solid var(--line);">
-                                <span class="mono dim" style="font-size:11px;">KOTA</span>
-                                <span class="mono" style="font-size:12px;">{{ $event->city }}</span>
-                            </div>
-                            @endif
-                            @if($event->venue)
-                            <div class="flex between" style="padding:6px 0;border-bottom:1px solid var(--line);">
-                                <span class="mono dim" style="font-size:11px;">VENUE</span>
-                                <span class="mono" style="font-size:12px;text-align:right;">{{ $event->venue }}</span>
-                            </div>
-                            @endif
-                            <div class="flex between" style="padding:6px 0;">
-                                <span class="mono dim" style="font-size:11px;">RIDERS</span>
-                                <span class="mono" style="font-size:12px;">{{ $scores->count() }}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     @endif
@@ -286,6 +252,7 @@ function livePhaseOverlay() {
         riderName: '',
         initials: '',
         score: '',
+        avatarSrc: '',
         _timer: null,
         _observer: null,
 
@@ -307,12 +274,16 @@ function livePhaseOverlay() {
             this.riderName = el.dataset.rider || '';
             this.initials  = el.dataset.initials || '';
             this.score     = el.dataset.score || '';
+            this.avatarSrc = el.dataset.avatar || '';
 
             if (serverPhase === 'REVEALING') {
                 this.phase = 'REVEALING';
                 clearTimeout(this._timer);
             } else if (serverPhase === 'RUNNING') {
                 this._startCountdown(startedAt, duration);
+            } else if (serverPhase === 'NEXT') {
+                this.phase = 'NEXT';
+                clearTimeout(this._timer);
             } else {
                 this.phase = 'IDLE';
                 clearTimeout(this._timer);

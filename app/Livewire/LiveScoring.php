@@ -42,14 +42,20 @@ class LiveScoring extends Component
             $scores = JudgeScore::with('rider')
                 ->where('event_id', $event->id)
                 ->where('scoring_mode', 'LIVE')
+                ->where('status', 'DONE')
                 ->get()
                 ->groupBy('rider_id')
                 ->map(function ($riderScores) {
-                    $rider = $riderScores->first()->rider;
-                    $run1  = $riderScores->where('run_number', 1)->sortByDesc('total')->first();
-                    $run2  = $riderScores->where('run_number', 2)->sortByDesc('total')->first();
-                    $best  = max($run1?->total ?? 0, $run2?->total ?? 0);
-                    return compact('rider', 'run1', 'run2', 'best');
+                    $rider    = $riderScores->first()->rider;
+                    $run1avg  = $riderScores->where('run_number', 1)->avg('total');
+                    $run2avg  = $riderScores->where('run_number', 2)->avg('total');
+                    $best     = max($run1avg ?? 0, $run2avg ?? 0);
+                    return [
+                        'rider' => $rider,
+                        'run1'  => $run1avg !== null ? round($run1avg, 1) : null,
+                        'run2'  => $run2avg !== null ? round($run2avg, 1) : null,
+                        'best'  => round($best, 1),
+                    ];
                 })
                 ->filter(fn ($row) => $row['rider'] !== null)
                 ->sortByDesc('best')

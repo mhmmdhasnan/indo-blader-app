@@ -40,7 +40,7 @@ $current = Route::currentRouteName();
         <div class="flex" style="gap:10px;align-items:center;">
             {{-- Live button --}}
             <a href="{{ route('live') }}" class="flex label" style="align-items:center;gap:7px;font-size:12px;color:{{ $hasLiveEvent ? 'var(--red)' : 'var(--ink-dim)' }};padding:8px 12px;border:2px solid {{ $hasLiveEvent ? 'var(--red)' : 'var(--line)' }};border-radius:3px;">
-                @if($hasLiveEvent)<span class="live-dot"></span>@endif LIVE
+                <span class="live-dot" style="{{ !$hasLiveEvent ? 'animation:none;opacity:0.35;background:var(--ink-dim);' : '' }}"></span> LIVE
             </a>
 
             {{-- Theme toggle --}}

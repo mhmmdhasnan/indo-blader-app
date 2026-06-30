@@ -234,7 +234,54 @@ class Dashboard extends Component
         $this->initCriteria();
     }
 
+    // ─── Live Session Sync (non-head judges) ─────────────────────────────────
+
+    public function syncLiveState(): void
+    {
+        if (auth()->user()->isHeadJudge()) return;
+
+        $event = $this->judgeEventId ? Event::find($this->judgeEventId) : null;
+        if (!$event || $event->live_phase !== 'RUNNING') {
+            return;
+        }
+
+        $liveRider = $event->live_rider_id ? Rider::find($event->live_rider_id) : null;
+        if (!$liveRider) return;
+
+        $reg = Registration::where('event_id', $this->judgeEventId)
+            ->where('status', 'APPROVED')
+            ->where(function ($q) use ($liveRider) {
+                if ($liveRider->user_id) {
+                    $q->where('user_id', $liveRider->user_id)
+                      ->orWhere('name', $liveRider->name);
+                } else {
+                    $q->where('name', $liveRider->name);
+                }
+            })
+            ->first();
+
+        if ($reg && $this->liveRiderId !== $reg->id) {
+            $this->liveRiderId   = $reg->id;
+            $this->liveRunNumber = $event->live_run_number ?? 1;
+            $this->scoreSubmitted = false;
+        }
+    }
+
     // ─── Live Session Control (Head Judge only) ───────────────────────────────
+
+    public function showNextRider(): void
+    {
+        if (!auth()->user()->isHeadJudge()) return;
+        if (!$this->judgeEventId || !$this->liveRiderId) return;
+
+        $riderId = $this->resolveRiderIdFromRegistration($this->liveRiderId);
+        if (!$riderId) return;
+
+        Event::findOrFail($this->judgeEventId)->update([
+            'live_rider_id' => $riderId,
+            'live_phase'    => 'NEXT',
+        ]);
+    }
 
     public function startRun(): void
     {
