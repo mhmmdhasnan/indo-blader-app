@@ -8,6 +8,8 @@
          data-rider="{{ $liveRider?->name ?? '' }}"
          data-initials="{{ $liveRider ? collect(explode(' ', $liveRider->name))->map(fn($w) => strtoupper($w[0]))->take(2)->join('') : '' }}"
          data-avatar="{{ $liveRider?->avatar ? asset('storage/' . $liveRider->avatar) : '' }}"
+         data-event="{{ $event?->title ?? '' }}"
+         data-run="{{ $event?->live_run_number ?? '' }}"
          style="display:none;">
     </div>
 
@@ -51,93 +53,94 @@
 
     {{-- ── LIVE PHASE OVERLAY ── --}}
     <div x-data="livePhaseOverlay()" x-init="boot()" x-show="phase !== 'IDLE'" x-cloak
-         style="border-bottom:2px solid var(--ink);background:var(--bg);">
-        <div class="wrap" style="padding:30px 0;">
+         style="border-bottom:2px solid var(--ink);background:var(--bg);padding:0 32px;">
 
-            {{-- NEXT UP phase --}}
-            <div x-show="phase === 'NEXT'" style="display:none;">
-                <div class="panel" style="padding:32px 40px;text-align:center;border:2px solid var(--ink);position:relative;overflow:hidden;">
-                    <div style="position:relative;z-index:2;">
-                        <div class="flex gap-s" style="justify-content:center;margin-bottom:20px;">
-                            <span class="badge badge-out" style="font-size:11px;letter-spacing:0.12em;">→ NEXT UP</span>
-                        </div>
-                        <div style="margin:0 auto 16px;width:96px;height:96px;border-radius:50%;border:3px solid var(--ink);overflow:hidden;background:var(--bg-2);display:flex;align-items:center;justify-content:center;">
-                            <template x-if="avatarSrc">
-                                <img :src="avatarSrc" style="width:100%;height:100%;object-fit:cover;display:block;">
-                            </template>
-                            <template x-if="!avatarSrc">
-                                <span style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--ink);" x-text="initials"></span>
-                            </template>
-                        </div>
-                        <div class="display" style="font-size:clamp(36px,8vw,64px);margin-bottom:6px;" x-text="riderName"></div>
-                        <p class="mono dim" style="font-size:12px;letter-spacing:0.1em;">STREET FINAL</p>
+            {{-- ── ESPORTS CARD ── --}}
+            <div style="display:grid;grid-template-columns:3fr 3fr 6fr;height:calc(100vh - 130px);overflow:hidden;border-left:2px solid var(--ink);border-right:2px solid var(--ink);">
+
+                {{-- COL 1: foto --}}
+                <div style="display:flex;overflow:hidden;position:relative;border-right:1px solid var(--line);">
+                    {{-- Phase color strip --}}
+                    <div style="width:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background 0.4s;"
+                         :style="{
+                             background: phase === 'RUNNING'   ? 'var(--red)'  :
+                                         phase === 'REVEALING' ? 'var(--lime)' : 'var(--ink)'
+                         }">
+                        <span style="writing-mode:vertical-lr;transform:rotate(180deg);font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:0.2em;white-space:nowrap;transition:color 0.4s;"
+                              :style="{ color: phase === 'REVEALING' ? '#000' : 'var(--bg)' }"
+                              x-text="{ NEXT:'NEXT UP', RUNNING:'ON COURSE', JUDGING:'JUDGING', REVEALING:'SCORE' }[phase] || ''">
+                        </span>
                     </div>
-                </div>
-            </div>
-
-            {{-- RUNNING phase: countdown --}}
-            <div x-show="phase === 'RUNNING'" style="display:none;">
-                <div class="panel" style="padding:32px 40px;text-align:center;border:2px solid var(--red);position:relative;overflow:hidden;">
-                    <div class="scanlines" style="position:absolute;inset:0;pointer-events:none;"></div>
-                    <div style="position:relative;z-index:2;">
-                        <div class="flex gap-s" style="justify-content:center;margin-bottom:20px;">
-                            <span class="badge badge-red"><span class="live-dot" style="margin-right:5px;"></span>NOW ON COURSE</span>
-                        </div>
-                        {{-- Rider profile photo --}}
-                        <div style="margin:0 auto 16px;width:96px;height:96px;border-radius:50%;border:3px solid var(--red);overflow:hidden;background:var(--bg-2);display:flex;align-items:center;justify-content:center;">
-                            <template x-if="avatarSrc">
-                                <img :src="avatarSrc" style="width:100%;height:100%;object-fit:cover;display:block;">
-                            </template>
-                            <template x-if="!avatarSrc">
-                                <span style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--ink);" x-text="initials"></span>
-                            </template>
-                        </div>
-                        <div class="display" style="font-size:clamp(36px,8vw,64px);margin-bottom:6px;" x-text="riderName"></div>
-                        <p class="mono dim" style="font-size:12px;margin-bottom:28px;letter-spacing:0.1em;">STREET FINAL</p>
-                        <div class="halftone center" style="padding:28px;max-width:260px;margin:0 auto;border:2px solid var(--red);border-radius:3px;">
-                            <div>
-                                <p class="kicker" style="margin-bottom:8px;">RUN TIMER</p>
-                                <span class="display tnum text-glow-lime"
-                                      style="font-size:clamp(72px,16vw,120px);color:var(--lime);line-height:1;"
-                                      x-text="remainingFormatted"></span>
+                    {{-- Photo --}}
+                    <div style="flex:1;overflow:hidden;background:var(--bg-2);position:relative;">
+                        <template x-if="avatarSrc">
+                            <img :src="avatarSrc" style="width:100%;height:100%;object-fit:cover;object-position:top center;display:block;position:absolute;inset:0;">
+                        </template>
+                        <template x-if="!avatarSrc">
+                            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:absolute;inset:0;">
+                                <span style="font-family:'Bebas Neue',sans-serif;font-size:clamp(64px,8vw,100px);color:var(--ink);opacity:0.15;" x-text="initials"></span>
                             </div>
+                        </template>
+                        <div x-show="phase === 'RUNNING'" class="scanlines" style="position:absolute;inset:0;pointer-events:none;display:none;"></div>
+                    </div>
+                </div>
+
+                {{-- COL 2: profile --}}
+                <div style="padding:40px 36px;display:flex;flex-direction:column;justify-content:center;gap:24px;border-right:1px solid var(--line);background:var(--bg);">
+                    <div>
+                        <span x-show="phase === 'NEXT'"      class="badge badge-out"                                            style="display:none;">→ NEXT UP</span>
+                        <span x-show="phase === 'RUNNING'"   class="badge badge-red"                                            style="display:none;"><span class="live-dot" style="margin-right:5px;"></span>NOW ON COURSE</span>
+                        <span x-show="phase === 'JUDGING'"   class="badge badge-out"                                            style="display:none;">... JUDGING</span>
+                        <span x-show="phase === 'REVEALING'" class="badge badge-out" style="border-color:var(--lime);color:var(--lime);display:none;">✦ FINAL SCORE</span>
+                    </div>
+                    <div class="display" style="font-size:clamp(32px,3vw,52px);line-height:1;" x-text="riderName"></div>
+                    <div style="display:flex;flex-direction:column;gap:3px;">
+                        <div class="mono dim" style="font-size:10px;letter-spacing:0.12em;" x-text="eventTitle"></div>
+                        <div class="mono" style="font-size:10px;letter-spacing:0.12em;color:var(--lime);">INDO BLADER</div>
+                        <div class="mono dim" style="font-size:10px;letter-spacing:0.14em;"
+                             x-text="runNumber ? 'STREET FINAL · RUN ' + runNumber : 'STREET FINAL'"></div>
+                    </div>
+                </div>
+
+                {{-- COL 3: timer / score --}}
+                <div style="padding:40px 48px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);position:relative;overflow:hidden;">
+                    <div x-show="phase === 'REVEALING'" class="halftone" style="position:absolute;inset:0;pointer-events:none;opacity:0.4;display:none;"></div>
+
+                    {{-- NEXT --}}
+                    <div x-show="phase === 'NEXT'" style="display:none;text-align:center;">
+                        <p class="mono dim" style="font-size:12px;letter-spacing:0.14em;">STREET FINAL</p>
+                    </div>
+
+                    {{-- RUNNING --}}
+                    <div x-show="phase === 'RUNNING'" style="display:none;text-align:center;">
+                        <p class="kicker" style="margin-bottom:8px;font-size:11px;">RUN TIMER</p>
+                        <span class="display tnum text-glow-lime"
+                              style="font-size:clamp(80px,11vw,180px);color:var(--lime);line-height:1;"
+                              x-text="remainingFormatted"></span>
+                    </div>
+
+                    {{-- JUDGING --}}
+                    <div x-show="phase === 'JUDGING'" style="display:none;text-align:center;">
+                        <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
+                            <div class="live-dot" style="width:12px;height:12px;animation-delay:0s;flex-shrink:0;"></div>
+                            <div class="live-dot" style="width:12px;height:12px;animation-delay:0.4s;flex-shrink:0;"></div>
+                            <div class="live-dot" style="width:12px;height:12px;animation-delay:0.8s;flex-shrink:0;"></div>
                         </div>
+                        <p class="mono dim" style="font-size:12px;letter-spacing:0.08em;margin-top:16px;">MENUNGGU SEMUA JURI SELESAI MENILAI</p>
                     </div>
-                </div>
-            </div>
 
-            {{-- JUDGING phase: scanning animation --}}
-            <div x-show="phase === 'JUDGING'" style="display:none;">
-                <div class="panel judge-scan" style="padding:40px;text-align:center;position:relative;overflow:hidden;">
-                    <span class="kicker" style="display:block;margin-bottom:16px;">JUDGES SCORING</span>
-                    <div class="display" style="font-size:clamp(28px,6vw,48px);margin-bottom:24px;" x-text="riderName"></div>
-                    <div style="display:flex;justify-content:center;gap:20px;margin-bottom:20px;">
-                        <div class="live-dot" style="width:16px;height:16px;animation-delay:0s;"></div>
-                        <div class="live-dot" style="width:16px;height:16px;animation-delay:0.4s;"></div>
-                        <div class="live-dot" style="width:16px;height:16px;animation-delay:0.8s;"></div>
-                    </div>
-                    <p class="mono dim" style="font-size:11px;letter-spacing:0.1em;">MENUNGGU SEMUA JURI SELESAI MENILAI</p>
-                </div>
-            </div>
-
-            {{-- REVEALING phase: score reveal --}}
-            <div x-show="phase === 'REVEALING'" style="display:none;">
-                <div class="panel" style="padding:40px;text-align:center;border:2px solid var(--lime);position:relative;overflow:hidden;">
-                    <div class="halftone" style="position:absolute;inset:0;pointer-events:none;opacity:0.5;"></div>
-                    <div style="position:relative;z-index:2;">
-                        <span class="kicker" style="display:block;margin-bottom:12px;color:var(--lime);">FINAL SCORE</span>
-                        <div class="display" style="font-size:clamp(24px,5vw,40px);margin-bottom:20px;" x-text="riderName"></div>
-                        <div class="score-reveal-anim" style="margin:8px 0 16px;">
+                    {{-- REVEALING --}}
+                    <div x-show="phase === 'REVEALING'" style="display:none;text-align:center;position:relative;z-index:1;">
+                        <div class="score-reveal-anim" style="display:flex;align-items:baseline;justify-content:center;gap:10px;">
                             <span class="display tnum text-glow-lime"
-                                  style="font-size:clamp(80px,18vw,140px);color:var(--lime);line-height:1;"
+                                  style="font-size:clamp(80px,11vw,180px);color:var(--lime);line-height:1;"
                                   x-text="score || '—'"></span>
+                            <span class="mono dim" style="font-size:16px;letter-spacing:0.1em;">/ 100</span>
                         </div>
-                        <p class="mono dim" style="font-size:13px;letter-spacing:0.1em;">/ 100 POINTS</p>
                     </div>
                 </div>
-            </div>
 
-        </div>
+            </div>
     </div>
 
     @if(!$event)
@@ -281,6 +284,8 @@ function livePhaseOverlay() {
         initials: '',
         score: '',
         avatarSrc: '',
+        eventTitle: '',
+        runNumber: '',
         _timer: null,
         _observer: null,
 
@@ -299,10 +304,12 @@ function livePhaseOverlay() {
             const serverPhase = el.dataset.phase || '';
             const startedAt   = parseInt(el.dataset.started) || 0;
             const duration    = parseInt(el.dataset.duration) || 60;
-            this.riderName = el.dataset.rider || '';
-            this.initials  = el.dataset.initials || '';
-            this.score     = el.dataset.score || '';
-            this.avatarSrc = el.dataset.avatar || '';
+            this.riderName  = el.dataset.rider || '';
+            this.initials   = el.dataset.initials || '';
+            this.score      = el.dataset.score || '';
+            this.avatarSrc  = el.dataset.avatar || '';
+            this.eventTitle = el.dataset.event || '';
+            this.runNumber  = el.dataset.run || '';
 
             if (serverPhase === 'REVEALING') {
                 this.phase = 'REVEALING';
@@ -334,9 +341,10 @@ function livePhaseOverlay() {
         },
 
         get remainingFormatted() {
-            const m = Math.floor(this.remaining / 60);
+            const h = Math.floor(this.remaining / 3600);
+            const m = Math.floor((this.remaining % 3600) / 60);
             const s = this.remaining % 60;
-            return (m > 0 ? String(m).padStart(2, '0') + ':' : '') + String(s).padStart(2, '0');
+            return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
         }
     };
 }
