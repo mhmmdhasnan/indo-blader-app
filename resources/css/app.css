@@ -522,3 +522,8 @@ select.input-field option {
 [data-theme="dark"]  .logo-dark  { display: block; }
 [data-theme="light"] .logo-dark  { display: none; }
 [data-theme="light"] .logo-light { display: block; }
+
+/* ── LIVE FULLSCREEN ─────────────────────────────────────────── */
+html.is-fullscreen header,
+html.is-fullscreen footer { display: none !important; }
+html.is-fullscreen main { padding: 0 !important; }

@@ -1,4 +1,4 @@
-<div wire:poll.3s>
+<div wire:poll.3s x-data="liveFullscreen()">
     {{-- Hidden data bridge: Livewire updates these attrs; Alpine reads them via MutationObserver --}}
     <div id="live-data"
          data-phase="{{ $displayPhase ?? '' }}"
@@ -28,7 +28,7 @@
                 </h1>
             </div>
             <div class="col" style="gap:8px;align-items:flex-end;">
-                <select wire:model.live="selectedEventId"
+                <select wire:model.live="selectedEventId" x-show="!isFullscreen"
                     class="mono"
                     style="padding:8px 12px;border:2px solid var(--ink);background:var(--bg);color:var(--ink);font-size:12px;letter-spacing:0.08em;border-radius:3px;cursor:pointer;">
                     <option value="0">— Pilih Event —</option>
@@ -40,6 +40,11 @@
                     AUTO-REFRESH 3s<br>
                     <span style="color:var(--lime);">● SYSTEM LIVE</span>
                 </div>
+                <button @click="toggle()" x-show="!isFullscreen"
+                    class="mono"
+                    style="padding:8px 12px;border:2px solid var(--ink);background:var(--bg);color:var(--ink);font-size:11px;letter-spacing:0.1em;border-radius:3px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                    ⤢ FULLSCREEN
+                </button>
             </div>
         </div>
     </div>
@@ -245,6 +250,29 @@
 </div>
 
 <script>
+function liveFullscreen() {
+    return {
+        isFullscreen: false,
+
+        init() {
+            const onChange = () => {
+                this.isFullscreen = !!document.fullscreenElement;
+                document.documentElement.classList.toggle('is-fullscreen', this.isFullscreen);
+            };
+            document.addEventListener('fullscreenchange', onChange);
+            this.$cleanup = () => document.removeEventListener('fullscreenchange', onChange);
+        },
+
+        toggle() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+    };
+}
+
 function livePhaseOverlay() {
     return {
         phase: 'IDLE',
