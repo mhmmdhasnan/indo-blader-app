@@ -1,0 +1,93 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: indo-blader-app:latest
+    restart: unless-stopped
+    volumes:
+      - app_public:/var/www/html/public
+      - ./storage:/var/www/html/storage
+      - ./.env:/var/www/html/.env
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - indo-blader
+
+  queue:
+    image: indo-blader-app:latest
+    restart: unless-stopped
+    command: php artisan queue:work --sleep=3 --tries=3
+    environment:
+      - CONTAINER_ROLE=queue
+    volumes:
+      - app_public:/var/www/html/public
+      - ./storage:/var/www/html/storage
+      - ./.env:/var/www/html/.env
+    env_file:
+      - .env
+    depends_on:
+      - app
+    networks:
+      - indo-blader
+
+  webserver:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - app_public:/var/www/html/public:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - indo-blader
+
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - indo-blader
+
+  # Exposes the app to the internet via Cloudflare Tunnel, no router port
+  # forwarding needed. Not started by default (profile-gated) since it needs
+  # a tunnel token first. Create the tunnel in the Cloudflare Zero Trust
+  # dashboard, point it at http://webserver:80, put the token in
+  # CLOUDFLARE_TUNNEL_TOKEN in .env, then run:
+  #   docker compose --profile cloudflare up -d
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    profiles:
+      - cloudflare
+    depends_on:
+      - webserver
+    networks:
+      - indo-blader
+
+volumes:
+  app_public:
+  db_data:
+
+networks:
+  indo-blader:
+    driver: bridge
