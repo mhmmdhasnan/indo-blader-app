@@ -55,6 +55,10 @@ services:
       MYSQL_USER: ${DB_USERNAME}
       MYSQL_PASSWORD: ${DB_PASSWORD}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    # Bound to 127.0.0.1 only: reachable from the server itself (e.g. via an
+    # SSH tunnel) but never exposed to the LAN or internet directly.
+    ports:
+      - "127.0.0.1:3306:3306"
     volumes:
       - db_data:/var/lib/mysql
     healthcheck:
