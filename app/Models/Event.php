@@ -10,16 +10,22 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Event extends Model
 {
     protected $fillable = [
-        'slug', 'title', 'edition', 'city', 'venue', 'date', 'date_label',
-        'status', 'type', 'categories', 'prize', 'featured', 'blurb', 'banner',
+        'slug', 'title', 'edition', 'city', 'venue', 'latitude', 'longitude', 'date', 'date_label',
+        'status', 'type', 'categories', 'prize', 'prize_hidden', 'featured', 'blurb', 'banner',
+        'schedule', 'rules',
         'run_duration', 'live_rider_id', 'live_run_number', 'live_phase', 'live_started_at',
         'active_division_id', 'active_group_id',
     ];
 
     protected $casts = [
         'categories'     => 'array',
+        'schedule'       => 'array',
+        'rules'          => 'array',
         'date'           => 'datetime',
         'featured'       => 'boolean',
+        'prize_hidden'   => 'boolean',
+        'latitude'       => 'float',
+        'longitude'      => 'float',
         'live_started_at'=> 'datetime',
     ];
 

@@ -32,9 +32,9 @@ class EventDetail extends Component
             ->get();
 
         $bracket = Bracket::where('event_id', $this->event->id)->first();
-        $schedule = $this->buildSchedule($bracket);
+        $schedule = $this->event->schedule ? $this->buildScheduleFromEvent($this->event->schedule) : $this->buildSchedule($bracket);
 
-        $rules = [
+        $rules = $this->event->rules ?: [
             'Two timed runs per rider; best single run counts.',
             'Judging on Execution, Style, Creativity, and Difficulty (0–10 each).',
             'Mandatory protective gear in Vert and Park divisions.',
@@ -47,6 +47,32 @@ class EventDetail extends Component
 
         return view('livewire.event-detail', compact('riders', 'schedule', 'rules', 'prizeSplit'))
             ->title($this->title);
+    }
+
+    private function buildScheduleFromEvent(array $items): array
+    {
+        $byDate = collect($items)
+            ->filter(fn ($item) => !empty($item['date']))
+            ->sortBy(fn ($item) => $item['date'] . ' ' . ($item['time'] ?? ''))
+            ->groupBy('date');
+
+        $days = [];
+        $i = 1;
+        foreach ($byDate as $date => $dayItems) {
+            $dt = \Carbon\Carbon::parse($date);
+            $days[] = [
+                'day'   => 'DAY ' . $i . ' — ' . strtoupper($dt->format('D')),
+                'title' => $dt->format('d M Y'),
+                'items' => $dayItems->map(fn ($item) => [
+                    't'    => $item['time'] ?: '—',
+                    'name' => $item['title'],
+                    'tag'  => $item['tag'] ?: 'ALL',
+                ])->values()->toArray(),
+            ];
+            $i++;
+        }
+
+        return $days;
     }
 
     private function buildSchedule(?Bracket $bracket): array

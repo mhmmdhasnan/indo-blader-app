@@ -560,6 +560,25 @@
                                             @error('evVenue') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
                                         </div>
                                     </div>
+                                    <div>
+                                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">LOKASI VENUE (KLIK PETA / GESER PIN)</span>
+                                        <div wire:ignore wire:key="event-map-{{ $evId }}"
+                                            x-data="leafletPicker({{ $evLat ?? 'null' }}, {{ $evLng ?? 'null' }})"
+                                            x-init="init($wire)"
+                                            style="height:220px;border:2px solid var(--ink);border-radius:3px;overflow:hidden;"></div>
+                                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;">
+                                            <div>
+                                                <span class="mono dim" style="font-size:9px;display:block;margin-bottom:4px;">LATITUDE</span>
+                                                <input wire:model.live="evLat" type="number" step="0.000001" class="input-field" style="width:100%;" placeholder="-6.2088">
+                                            </div>
+                                            <div>
+                                                <span class="mono dim" style="font-size:9px;display:block;margin-bottom:4px;">LONGITUDE</span>
+                                                <input wire:model.live="evLng" type="number" step="0.000001" class="input-field" style="width:100%;" placeholder="106.8456">
+                                            </div>
+                                        </div>
+                                        @error('evLat') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
+                                        @error('evLng') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
+                                    </div>
                                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                                         <div>
                                             <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">DATE & TIME *</span>
@@ -601,6 +620,10 @@
                                         <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">PRIZE (IDR) *</span>
                                         <input wire:model="evPrize" type="number" min="0" class="input-field" style="width:100%;" placeholder="5000000">
                                         @error('evPrize') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
+                                        <label class="flex label" style="gap:8px;align-items:center;font-size:12px;cursor:pointer;margin-top:8px;">
+                                            <input type="checkbox" wire:model="evPrizeHidden" style="accent-color:var(--lime);">
+                                            Sembunyikan nominal prize dari publik
+                                        </label>
                                     </div>
                                     @if($evType === 'LIVE_SCORE')
                                     <div>
@@ -640,6 +663,48 @@
                                     </label>
                                 </div>
                             </div>
+
+                            {{-- Rules --}}
+                            <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:16px;">
+                                <div class="between" style="margin-bottom:10px;">
+                                    <span class="mono dim" style="font-size:10px;">RULES / PERATURAN</span>
+                                    <button type="button" wire:click="addEvRule" class="btn btn-sm btn-ghost">+ Tambah Rule</button>
+                                </div>
+                                <div class="col" style="gap:8px;">
+                                    @forelse($evRules as $i => $rule)
+                                        <div class="flex gap-s" style="align-items:flex-start;">
+                                            <span class="mono dim" style="font-size:11px;padding-top:9px;min-width:18px;">{{ $i + 1 }}.</span>
+                                            <input wire:model="evRules.{{ $i }}" type="text" class="input-field" style="width:100%;" placeholder="Cth: Dua run bergilir per rider; run terbaik dihitung.">
+                                            <button type="button" wire:click="removeEvRule({{ $i }})" class="btn btn-sm btn-ghost" style="color:var(--red);">✕</button>
+                                        </div>
+                                    @empty
+                                        <span class="mono dim" style="font-size:11px;">Belum ada rule. Klik "+ Tambah Rule".</span>
+                                    @endforelse
+                                </div>
+                            </div>
+
+                            {{-- Schedule --}}
+                            <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:16px;">
+                                <div class="between" style="margin-bottom:10px;">
+                                    <span class="mono dim" style="font-size:10px;">SCHEDULE / JADWAL</span>
+                                    <button type="button" wire:click="addEvScheduleItem" class="btn btn-sm btn-ghost">+ Tambah Jadwal</button>
+                                </div>
+                                <div class="col" style="gap:8px;">
+                                    @forelse($evSchedule as $i => $item)
+                                        <div class="flex gap-s" style="align-items:flex-start;flex-wrap:wrap;">
+                                            <input wire:model="evSchedule.{{ $i }}.date" type="date" class="input-field" style="width:140px;">
+                                            <input wire:model="evSchedule.{{ $i }}.time" type="time" class="input-field" style="width:100px;">
+                                            <input wire:model="evSchedule.{{ $i }}.title" type="text" class="input-field" style="flex:1;min-width:160px;" placeholder="Street Qualifiers — Heat 1–4">
+                                            <input wire:model="evSchedule.{{ $i }}.tag" type="text" class="input-field" style="width:110px;" placeholder="STREET">
+                                            <button type="button" wire:click="removeEvScheduleItem({{ $i }})" class="btn btn-sm btn-ghost" style="color:var(--red);">✕</button>
+                                        </div>
+                                        @error("evSchedule.{$i}.date") <p style="color:var(--red);font-size:11px;">{{ $message }}</p> @enderror
+                                    @empty
+                                        <span class="mono dim" style="font-size:11px;">Belum ada jadwal. Klik "+ Tambah Jadwal". Jika kosong, jadwal default akan ditampilkan.</span>
+                                    @endforelse
+                                </div>
+                            </div>
+
                             <div class="flex gap-s" style="margin-top:18px;">
                                 <button wire:click="saveEvent" class="btn btn-lime">{{ $evId ? '✓ Update Event' : '+ Create Event' }}</button>
                                 <button wire:click="cancelEvent" class="btn btn-ghost">Cancel</button>

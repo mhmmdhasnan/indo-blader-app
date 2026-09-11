@@ -113,6 +113,8 @@ class Dashboard extends Component
     public string $evEdition    = '';
     public string $evCity       = '';
     public string $evVenue      = '';
+    public ?float $evLat        = null;
+    public ?float $evLng        = null;
     public string $evDate       = '';
     public string $evDateLabel  = '';
     public string $evSlug       = '';
@@ -120,11 +122,14 @@ class Dashboard extends Component
     public string $evType       = 'KO';
     public array  $evCategories        = [];
     public int    $evPrize             = 5000000;
+    public bool   $evPrizeHidden       = false;
     public string $evBlurb      = '';
     public bool   $evFeatured   = false;
     public        $evBannerFile = null;
     public string $evBannerPath = '';
     public int    $evRunDuration = 60;
+    public array  $evRules      = [];
+    public array  $evSchedule   = [];
 
     // Division CRUD
     public int    $divManageEventId = 0;
@@ -400,6 +405,8 @@ class Dashboard extends Component
         $this->evEdition    = '';
         $this->evCity       = '';
         $this->evVenue      = '';
+        $this->evLat        = null;
+        $this->evLng        = null;
         $this->evDate       = '';
         $this->evDateLabel  = '';
         $this->evSlug       = '';
@@ -407,11 +414,14 @@ class Dashboard extends Component
         $this->evType       = 'KO';
         $this->evCategories        = [];
         $this->evPrize             = 5000000;
+        $this->evPrizeHidden       = false;
         $this->evBlurb             = '';
         $this->evFeatured          = false;
         $this->evBannerFile        = null;
         $this->evBannerPath        = '';
         $this->evRunDuration       = 60;
+        $this->evRules             = [];
+        $this->evSchedule          = [];
         $this->evEditing           = true;
     }
 
@@ -423,6 +433,8 @@ class Dashboard extends Component
         $this->evEdition    = $ev->edition;
         $this->evCity       = $ev->city;
         $this->evVenue      = $ev->venue;
+        $this->evLat        = $ev->latitude;
+        $this->evLng        = $ev->longitude;
         $this->evDate       = $ev->date->format('Y-m-d\TH:i');
         $this->evDateLabel  = $ev->date_label;
         $this->evSlug       = $ev->slug;
@@ -430,12 +442,37 @@ class Dashboard extends Component
         $this->evType       = $ev->type ?? 'KO';
         $this->evCategories        = $ev->categories ?? [];
         $this->evPrize      = (int) $ev->prize;
+        $this->evPrizeHidden = (bool) $ev->prize_hidden;
         $this->evBlurb      = $ev->blurb ?? '';
         $this->evFeatured   = (bool) $ev->featured;
         $this->evBannerFile  = null;
         $this->evBannerPath  = $ev->banner ?? '';
         $this->evRunDuration = $ev->run_duration ?? 60;
+        $this->evRules       = $ev->rules ?? [];
+        $this->evSchedule    = $ev->schedule ?? [];
         $this->evEditing     = true;
+    }
+
+    public function addEvRule(): void
+    {
+        $this->evRules[] = '';
+    }
+
+    public function removeEvRule(int $index): void
+    {
+        unset($this->evRules[$index]);
+        $this->evRules = array_values($this->evRules);
+    }
+
+    public function addEvScheduleItem(): void
+    {
+        $this->evSchedule[] = ['date' => '', 'time' => '', 'title' => '', 'tag' => ''];
+    }
+
+    public function removeEvScheduleItem(int $index): void
+    {
+        unset($this->evSchedule[$index]);
+        $this->evSchedule = array_values($this->evSchedule);
     }
 
     public function saveEvent(): void
@@ -444,22 +481,36 @@ class Dashboard extends Component
             'evTitle'      => 'required|string|max:120',
             'evCity'       => 'required|string|max:80',
             'evVenue'      => 'required|string|max:120',
+            'evLat'        => 'nullable|numeric|between:-90,90',
+            'evLng'        => 'nullable|numeric|between:-180,180',
             'evDate'       => 'required|date',
             'evSlug'       => 'required|alpha_dash|max:80',
             'evStatus'     => 'required|in:SOON,OPEN,CLOSING,FULL,LIVE,CLOSED',
             'evPrize'      => 'required|integer|min:0',
             'evBannerFile' => 'nullable|image|max:5120',
             'evRunDuration'=> 'required|integer|min:30|max:300',
+            'evRules'         => 'nullable|array',
+            'evRules.*'       => 'nullable|string|max:300',
+            'evSchedule'          => 'nullable|array',
+            'evSchedule.*.date'   => 'nullable|date',
+            'evSchedule.*.time'   => 'nullable|string|max:20',
+            'evSchedule.*.title'  => 'nullable|string|max:150',
+            'evSchedule.*.tag'    => 'nullable|string|max:30',
         ], [], [
             'evTitle'      => 'title',
             'evCity'       => 'city',
             'evVenue'      => 'venue',
+            'evLat'        => 'latitude',
+            'evLng'        => 'longitude',
             'evDate'       => 'date',
             'evSlug'       => 'slug',
             'evStatus'     => 'status',
             'evPrize'      => 'prize',
             'evBannerFile' => 'banner',
         ]);
+
+        $rules = array_values(array_filter($this->evRules, fn ($r) => trim((string) $r) !== ''));
+        $schedule = array_values(array_filter($this->evSchedule, fn ($s) => trim((string) ($s['title'] ?? '')) !== ''));
 
         $bannerPath = $this->evBannerPath;
         if ($this->evBannerFile) {
@@ -471,17 +522,22 @@ class Dashboard extends Component
             'edition'    => $this->evEdition,
             'city'       => $this->evCity,
             'venue'      => $this->evVenue,
+            'latitude'   => $this->evLat,
+            'longitude'  => $this->evLng,
             'date'       => $this->evDate,
             'date_label' => $this->evDateLabel,
             'slug'       => $this->evSlug,
             'status'     => $this->evStatus,
             'type'       => $this->evType,
             'categories' => $this->evCategories,
-            'prize'      => $this->evPrize,
+            'prize'        => $this->evPrize,
+            'prize_hidden' => $this->evPrizeHidden,
             'blurb'      => $this->evBlurb,
             'featured'     => $this->evFeatured,
             'banner'       => $bannerPath ?: null,
             'run_duration' => $this->evRunDuration,
+            'rules'        => $rules,
+            'schedule'     => $schedule,
         ];
 
         if ($this->evId) {
