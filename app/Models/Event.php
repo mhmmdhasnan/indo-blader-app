@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -12,6 +13,7 @@ class Event extends Model
         'slug', 'title', 'edition', 'city', 'venue', 'date', 'date_label',
         'status', 'type', 'categories', 'prize', 'featured', 'blurb', 'banner',
         'run_duration', 'live_rider_id', 'live_run_number', 'live_phase', 'live_started_at',
+        'active_division_id', 'active_group_id',
     ];
 
     protected $casts = [
@@ -44,6 +46,16 @@ class Event extends Model
     public function divisions(): HasMany
     {
         return $this->hasMany(EventDivision::class);
+    }
+
+    public function activeDivision(): BelongsTo
+    {
+        return $this->belongsTo(EventDivision::class, 'active_division_id');
+    }
+
+    public function activeGroup(): BelongsTo
+    {
+        return $this->belongsTo(DivisionGroup::class, 'active_group_id');
     }
 
     public function rankingHistories(): HasMany

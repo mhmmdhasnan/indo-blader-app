@@ -6,6 +6,8 @@ use App\Models\Bracket;
 use App\Models\BracketMatch;
 use App\Models\BattleSubmission;
 use App\Models\Category;
+use App\Models\DivisionFinalist;
+use App\Models\DivisionGroup;
 use App\Models\Event;
 use App\Models\EventDivision;
 use App\Models\EventJudgeAssignment;
@@ -20,17 +22,19 @@ use App\Models\ScoringCriterion;
 use App\Models\Trick;
 use App\Models\User;
 use App\Services\BracketService;
+use App\Services\LiveScoreboardService;
 use App\Services\NotificationService;
 use App\Services\QualificationService;
 use App\Services\RankingService;
 use App\Services\ScoringService;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
 #[Layout('layouts.admin')]
-#[Title('Admin — Indo Blader')]
+#[Title('Admin — FRAMEBLADESCORE')]
 class Dashboard extends Component
 {
     use WithFileUploads;
@@ -45,6 +49,7 @@ class Dashboard extends Component
     public bool   $scoreSubmitted    = false;
     public int    $judgeEventId     = 0;
     public int    $judgeDivisionId  = 0;
+    public int    $judgeGroupId     = 0;
     public string $scoringMode      = 'live';
     public string $koMatchType      = 'QUALIFICATION';
     public int    $koMatchId        = 0;
@@ -130,6 +135,15 @@ class Dashboard extends Component
     public ?int   $divSlots         = null;
     public bool   $divUnlimited     = true;
 
+    // Live Score finalist picker
+    public int   $finalistPickerDivisionId = 0;
+    public array $selectedFinalistRegIds   = [];
+
+    // Live Score qualification groups
+    public int    $groupManageDivisionId = 0;
+    public string $newGroupName          = '';
+    public int    $randomizeGroupCount   = 2;
+
     // Competition Level CRUD
     public bool   $clEditing     = false;
     public int    $clId          = 0;
@@ -156,10 +170,19 @@ class Dashboard extends Component
     public bool   $userEditing  = false;
     public int    $userId       = 0;
     public string $userName     = '';
+    public string $userUsername = '';
     public string $userEmail    = '';
     public string $userRole     = 'rider';
     public string $userPassword = '';
     public string $userSearch   = '';
+
+    // Rider directory (universal) + quick add to active event
+    public string $riderDirSearch     = '';
+    public int    $quickAddUserId     = 0;
+    public string $quickAddCity       = '';
+    public string $quickAddPhone      = '';
+    public string $quickAddDob        = '';
+    public int    $quickAddDivisionId = 0;
 
     // ─── Boot ────────────────────────────────────────────────────────────────
 
@@ -173,6 +196,8 @@ class Dashboard extends Component
             $this->activeEventId   = $active->id;
             $this->judgeEventId    = $active->id;
             $this->selectedEventId = $active->id;
+            $this->judgeDivisionId = $active->active_division_id ?? 0;
+            $this->judgeGroupId    = $active->active_group_id ?? 0;
         }
     }
 
@@ -190,7 +215,9 @@ class Dashboard extends Component
 
     public function updatedJudgeEventId(): void
     {
-        $this->judgeDivisionId = 0;
+        $event = $this->judgeEventId ? Event::find($this->judgeEventId) : null;
+        $this->judgeDivisionId = $event?->active_division_id ?? 0;
+        $this->judgeGroupId    = $event?->active_group_id ?? 0;
         $this->liveRiderId     = 0;
         $this->koMatchId       = 0;
         $this->scoreSubmitted  = false;
@@ -200,9 +227,26 @@ class Dashboard extends Component
     public function updatedJudgeDivisionId(): void
     {
         $this->liveRiderId    = 0;
+        $this->judgeGroupId   = 0;
         $this->koMatchId      = 0;
         $this->scoreSubmitted = false;
         $this->criteriaScores = [];
+
+        if ($this->judgeEventId) {
+            Event::whereKey($this->judgeEventId)->update([
+                'active_division_id' => $this->judgeDivisionId ?: null,
+                'active_group_id'    => null,
+            ]);
+        }
+    }
+
+    public function updatedJudgeGroupId(): void
+    {
+        if ($this->judgeEventId) {
+            Event::whereKey($this->judgeEventId)->update([
+                'active_group_id' => $this->judgeGroupId ?: null,
+            ]);
+        }
     }
 
     // ─── Scoring ─────────────────────────────────────────────────────────────
@@ -214,11 +258,22 @@ class Dashboard extends Component
             return;
         }
 
+        $riderId = $this->resolveRiderIdFromRegistration($this->liveRiderId);
+        if (!$riderId) {
+            $this->addError('liveRiderId', 'Rider tidak ditemukan untuk peserta ini.');
+            return;
+        }
+
+        $stage = Registration::find($this->liveRiderId)?->division?->live_stage ?? 'QUALIFICATION';
+
         $score = JudgeScore::firstOrCreate(
             [
-                'event_id'   => $this->judgeEventId,
-                'rider_id'   => $this->liveRiderId,
-                'run_number' => $this->liveRunNumber,
+                'judge_user_id' => auth()->id(),
+                'event_id'      => $this->judgeEventId,
+                'rider_id'      => $riderId,
+                'run_number'    => $this->liveRunNumber,
+                'scoring_mode'  => 'LIVE',
+                'live_stage'    => $stage,
             ],
             ['status' => 'WAITING']
         );
@@ -226,6 +281,56 @@ class Dashboard extends Component
         app(ScoringService::class)->submitScore($score, $this->criteriaScores);
 
         $this->scoreSubmitted = true;
+    }
+
+    private function resolveRiderIdFromRegistration(int $registrationId): ?int
+    {
+        $reg = Registration::find($registrationId);
+        if (!$reg) return null;
+
+        if ($reg->user_id) {
+            $rider = Rider::where('user_id', $reg->user_id)->first();
+            if ($rider) return $rider->id;
+        }
+
+        $rider = Rider::where('name', $reg->name)->first();
+        if ($rider) return $rider->id;
+
+        $age = $reg->dob ? (int) $reg->dob->diffInYears(now()) : 0;
+        $rider = Rider::create([
+            'user_id'  => $reg->user_id,
+            'name'     => $reg->name,
+            'nick'     => $reg->name,
+            'city'     => $reg->city ?? '-',
+            'age'      => $age,
+            'category' => in_array($reg->category, ['STREET','PARK','VERT','FLAT','MINIRAMP']) ? $reg->category : 'STREET',
+            'stance'   => in_array($reg->stance, ['Regular','Goofy']) ? $reg->stance : 'Regular',
+            'slug'     => Str::slug($reg->name . '-' . $reg->id),
+        ]);
+
+        return $rider->id;
+    }
+
+    private function currentLiveStage(Event $event): string
+    {
+        if (!$event->live_rider_id) return 'QUALIFICATION';
+
+        $liveRider = Rider::find($event->live_rider_id);
+        if (!$liveRider) return 'QUALIFICATION';
+
+        $reg = Registration::where('event_id', $event->id)
+            ->where('status', 'APPROVED')
+            ->where(function ($q) use ($liveRider) {
+                if ($liveRider->user_id) {
+                    $q->where('user_id', $liveRider->user_id)
+                      ->orWhere('name', $liveRider->name);
+                } else {
+                    $q->where('name', $liveRider->name);
+                }
+            })
+            ->first();
+
+        return $reg?->division?->live_stage ?? 'QUALIFICATION';
     }
 
     public function submitKnockoutScore(): void
@@ -247,6 +352,39 @@ class Dashboard extends Component
         $this->scoreSubmitted  = false;
         $this->criteriaScores  = [];
         $this->criteriaScoresB = [];
+    }
+
+    public function syncLiveState(): void
+    {
+        if (auth()->user()->isHeadJudge()) return;
+
+        $event = $this->judgeEventId ? Event::find($this->judgeEventId) : null;
+        if (!$event || $event->live_phase !== 'RUNNING') {
+            return;
+        }
+
+        $liveRider = $event->live_rider_id ? Rider::find($event->live_rider_id) : null;
+        if (!$liveRider) return;
+
+        $reg = Registration::where('event_id', $this->judgeEventId)
+            ->where('status', 'APPROVED')
+            ->where(function ($q) use ($liveRider) {
+                if ($liveRider->user_id) {
+                    $q->where('user_id', $liveRider->user_id)
+                      ->orWhere('name', $liveRider->name);
+                } else {
+                    $q->where('name', $liveRider->name);
+                }
+            })
+            ->first();
+
+        if ($reg && $this->liveRiderId !== $reg->id) {
+            $this->liveRiderId     = $reg->id;
+            $this->liveRunNumber   = $event->live_run_number ?? 1;
+            $this->scoreSubmitted  = false;
+            $this->criteriaScores  = [];
+            $this->criteriaScoresB = [];
+        }
     }
 
     // ─── Event CRUD ───────────────────────────────────────────────────────────
@@ -374,6 +512,7 @@ class Dashboard extends Component
         $this->userEditing  = true;
         $this->userId       = 0;
         $this->userName     = '';
+        $this->userUsername = '';
         $this->userEmail    = '';
         $this->userRole     = 'rider';
         $this->userPassword = '';
@@ -385,6 +524,7 @@ class Dashboard extends Component
         $this->userEditing  = true;
         $this->userId       = $id;
         $this->userName     = $user->name;
+        $this->userUsername = $user->username;
         $this->userEmail    = $user->email;
         $this->userRole     = $user->role;
         $this->userPassword = '';
@@ -393,9 +533,10 @@ class Dashboard extends Component
     public function userSave(): void
     {
         $rules = [
-            'userName'  => 'required|string|max:100',
-            'userEmail' => 'required|email|unique:users,email' . ($this->userId ? ",{$this->userId}" : ''),
-            'userRole'  => 'required|in:admin,head_judge,judge,rider',
+            'userName'     => 'required|string|max:100',
+            'userUsername' => 'required|string|max:30|alpha_dash|unique:users,username' . ($this->userId ? ",{$this->userId}" : ''),
+            'userEmail'    => 'required|email|unique:users,email' . ($this->userId ? ",{$this->userId}" : ''),
+            'userRole'     => 'required|in:admin,head_judge,judge,rider',
         ];
         if (!$this->userId) {
             $rules['userPassword'] = 'required|min:8';
@@ -405,6 +546,9 @@ class Dashboard extends Component
 
         $this->validate($rules, [
             'userName.required'      => 'Nama wajib diisi.',
+            'userUsername.required'  => 'Username wajib diisi.',
+            'userUsername.alpha_dash' => 'Username hanya boleh huruf, angka, - dan _.',
+            'userUsername.unique'    => 'Username sudah dipakai.',
             'userEmail.required'     => 'Email wajib diisi.',
             'userEmail.unique'       => 'Email sudah dipakai.',
             'userPassword.required'  => 'Password wajib diisi untuk user baru.',
@@ -412,9 +556,10 @@ class Dashboard extends Component
         ]);
 
         $payload = [
-            'name'  => $this->userName,
-            'email' => $this->userEmail,
-            'role'  => $this->userRole,
+            'name'     => $this->userName,
+            'username' => $this->userUsername,
+            'email'    => $this->userEmail,
+            'role'     => $this->userRole,
         ];
         if ($this->userPassword) {
             $payload['password'] = bcrypt($this->userPassword);
@@ -501,6 +646,93 @@ class Dashboard extends Component
     public function deleteRegistration(int $id): void
     {
         Registration::findOrFail($id)->delete();
+    }
+
+    public function openQuickAdd(int $userId): void
+    {
+        $previous = Registration::where('user_id', $userId)
+            ->whereNotNull('city')
+            ->latest()
+            ->first();
+
+        $this->quickAddUserId     = $userId;
+        $this->quickAddCity       = $previous->city ?? '';
+        $this->quickAddPhone      = $previous->phone ?? '';
+        $this->quickAddDob        = $previous->dob?->format('Y-m-d') ?? '';
+        $this->quickAddDivisionId = 0;
+        $this->resetErrorBag();
+    }
+
+    public function cancelQuickAdd(): void
+    {
+        $this->quickAddUserId = 0;
+    }
+
+    public function quickAddToEvent(): void
+    {
+        if (!$this->activeEventId) {
+            $this->addError('quickAdd', 'Pilih event aktif dulu (di sidebar) sebelum menambahkan rider.');
+            return;
+        }
+
+        $user = User::findOrFail($this->quickAddUserId);
+
+        $existing = Registration::where('event_id', $this->activeEventId)
+            ->where('user_id', $user->id)
+            ->where('division_id', $this->quickAddDivisionId ?: null)
+            ->exists();
+
+        if ($existing) {
+            $message = $this->quickAddDivisionId
+                ? "{$user->name} sudah terdaftar di divisi ini."
+                : "{$user->name} sudah punya pendaftaran tanpa divisi di event ini.";
+            $this->addError('quickAdd', $message);
+            return;
+        }
+
+        $this->validate([
+            'quickAddCity'  => 'required|string|max:100',
+            'quickAddPhone' => 'required|string|max:20',
+            'quickAddDob'   => 'required|date',
+        ], [], [
+            'quickAddCity'  => 'kota',
+            'quickAddPhone' => 'telepon',
+            'quickAddDob'   => 'tanggal lahir',
+        ]);
+
+        Rider::firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'name'     => $user->name,
+                'nick'     => $user->name,
+                'city'     => $this->quickAddCity,
+                'age'      => \Carbon\Carbon::parse($this->quickAddDob)->age,
+                'category' => 'STREET',
+                'stance'   => 'Regular',
+                'slug'     => Str::slug($user->name . '-' . $user->id),
+            ]
+        );
+
+        Registration::create([
+            'user_id'        => $user->id,
+            'entry_code'     => 'IB26-' . strtoupper(Str::random(5)),
+            'name'           => $user->name,
+            'email'          => $user->email,
+            'phone'          => $this->quickAddPhone,
+            'dob'            => $this->quickAddDob,
+            'city'           => $this->quickAddCity,
+            'event_id'       => $this->activeEventId,
+            'division_id'    => $this->quickAddDivisionId ?: null,
+            'experience'     => 'Amateur',
+            'ec_name'        => '-',
+            'ec_phone'       => '-',
+            'ec_relation'    => '-',
+            'payment_method' => 'Transfer',
+            'payment_status' => 'VERIFIED',
+            'status'         => 'APPROVED',
+        ]);
+
+        $this->quickAddUserId = 0;
     }
 
     public function openEditPayment(int $id): void
@@ -758,6 +990,122 @@ class Dashboard extends Component
         }
         $this->divManageEventId = $div->event_id;
         $div->delete();
+    }
+
+    // ─── Live Score: Qualification → Final ──────────────────────────────────────
+
+    public function openFinalistPicker(int $divisionId): void
+    {
+        $this->finalistPickerDivisionId = $divisionId;
+        $this->selectedFinalistRegIds   = DivisionFinalist::where('event_division_id', $divisionId)
+            ->pluck('registration_id')->toArray();
+    }
+
+    public function cancelFinalistPicker(): void
+    {
+        $this->finalistPickerDivisionId = 0;
+        $this->selectedFinalistRegIds   = [];
+    }
+
+    public function openFinalPhase(int $divisionId): void
+    {
+        if (empty($this->selectedFinalistRegIds)) {
+            $this->addError('finalist', 'Pilih minimal 1 finalis.');
+            return;
+        }
+
+        $division = EventDivision::findOrFail($divisionId);
+
+        foreach ($this->selectedFinalistRegIds as $regId) {
+            DivisionFinalist::firstOrCreate([
+                'event_division_id' => $divisionId,
+                'registration_id'   => $regId,
+            ]);
+        }
+        DivisionFinalist::where('event_division_id', $divisionId)
+            ->whereNotIn('registration_id', $this->selectedFinalistRegIds)
+            ->delete();
+
+        $division->update(['live_stage' => 'FINAL']);
+
+        foreach (Registration::whereIn('id', $this->selectedFinalistRegIds)->get() as $reg) {
+            NotificationService::send($reg, 'final_selected', 'Selamat, Anda Lolos Final!',
+                "Anda terpilih sebagai finalis divisi {$division->name}. Final akan segera dimulai.");
+        }
+
+        $this->cancelFinalistPicker();
+    }
+
+    public function reopenQualification(int $divisionId): void
+    {
+        EventDivision::findOrFail($divisionId)->update(['live_stage' => 'QUALIFICATION']);
+    }
+
+    public function completeLiveFinal(int $divisionId): void
+    {
+        $division = EventDivision::findOrFail($divisionId);
+        if ($division->live_final_completed_at) {
+            return;
+        }
+        app(RankingService::class)->calculateForLiveFinal($division);
+    }
+
+    // ─── Live Score: Qualification Groups ───────────────────────────────────────
+
+    public function openGroupManager(int $divisionId): void
+    {
+        $this->groupManageDivisionId = $divisionId;
+        $this->newGroupName          = '';
+    }
+
+    public function closeGroupManager(): void
+    {
+        $this->groupManageDivisionId = 0;
+        $this->newGroupName          = '';
+    }
+
+    public function createGroup(): void
+    {
+        $this->validate(['newGroupName' => 'required|string|max:60'], [], ['newGroupName' => 'nama group']);
+
+        DivisionGroup::create([
+            'event_division_id' => $this->groupManageDivisionId,
+            'name'               => $this->newGroupName,
+        ]);
+
+        $this->newGroupName = '';
+    }
+
+    public function deleteGroup(int $groupId): void
+    {
+        $group = DivisionGroup::findOrFail($groupId);
+        Registration::where('division_group_id', $group->id)->update(['division_group_id' => null]);
+        $group->delete();
+    }
+
+    public function assignToGroup(int $registrationId, ?int $groupId): void
+    {
+        Registration::where('id', $registrationId)->update(['division_group_id' => $groupId ?: null]);
+    }
+
+    public function randomizeGroups(int $divisionId): void
+    {
+        $groups = DivisionGroup::where('event_division_id', $divisionId)->pluck('id');
+        if ($groups->isEmpty()) {
+            $this->addError('groupRandomize', 'Buat minimal 1 group dulu sebelum diacak.');
+            return;
+        }
+
+        $regIds = Registration::where('division_id', $divisionId)
+            ->where('status', 'APPROVED')
+            ->pluck('id')
+            ->shuffle()
+            ->values();
+
+        foreach ($regIds as $i => $regId) {
+            $groupId = $groups[$i % $groups->count()];
+            Registration::where('id', $regId)->update(['division_group_id' => $groupId]);
+        }
     }
 
     // ─── Trick Management ─────────────────────────────────────────────────────
@@ -1216,6 +1564,23 @@ class Dashboard extends Component
             : collect();
 
         $data = compact('registrations', 'events', 'riders', 'revenue', 'activeEvent', 'competitionLevels', 'eventDivisions', 'bracketDivisions');
+        $data['finalistSections'] = $this->finalistPickerDivisionId
+            ? app(LiveScoreboardService::class)->buildQualificationSections(
+                EventDivision::findOrFail($this->finalistPickerDivisionId)
+              )
+            : collect();
+
+        $data['groupManageDivision'] = $this->groupManageDivisionId
+            ? EventDivision::findOrFail($this->groupManageDivisionId)
+            : null;
+        $data['groupManageGroups'] = $this->groupManageDivisionId
+            ? DivisionGroup::where('event_division_id', $this->groupManageDivisionId)
+                ->withCount('registrations')->orderBy('name')->get()
+            : collect();
+        $data['groupManageRegistrations'] = $this->groupManageDivisionId
+            ? Registration::where('division_id', $this->groupManageDivisionId)
+                ->where('status', 'APPROVED')->orderBy('name')->get()
+            : collect();
         $data['eventCriteria']       = collect();
         $data['judgeAssignment']     = null;
         $data['otherJudgeScores']    = collect();
@@ -1226,7 +1591,9 @@ class Dashboard extends Component
             // selalu ikuti active event
             if ($this->activeEventId && $this->judgeEventId !== $this->activeEventId) {
                 $this->judgeEventId    = $this->activeEventId;
-                $this->judgeDivisionId = 0;
+                $activeEvent           = Event::find($this->activeEventId);
+                $this->judgeDivisionId = $activeEvent?->active_division_id ?? 0;
+                $this->judgeGroupId    = $activeEvent?->active_group_id ?? 0;
             }
             $jeid = $this->judgeEventId ?: null;
             $mode = strtoupper($this->scoringMode);
@@ -1249,13 +1616,37 @@ class Dashboard extends Component
                 : collect();
 
             $eventHasDivisions = $jeid ? EventDivision::where('event_id', $jeid)->exists() : false;
+            $selectedDivision  = $did ? EventDivision::find($did) : null;
+
+            $data['judgeGroups'] = ($did && $selectedDivision?->live_stage !== 'FINAL')
+                ? DivisionGroup::where('event_division_id', $did)->orderBy('name')->get()
+                : collect();
+
+            $finalistRegIds = $jeid
+                ? DivisionFinalist::whereIn(
+                    'event_division_id',
+                    EventDivision::where('event_id', $jeid)->where('live_stage', 'FINAL')->pluck('id')
+                  )->pluck('registration_id')
+                : collect();
 
             $data['judgeRiders'] = $jeid
                 ? Registration::with('division')
                     ->where('event_id', $jeid)
                     ->where('status', 'APPROVED')
-                    ->when($did, fn ($q) => $q->where('division_id', $did))
-                    ->when(!$did && $eventHasDivisions, fn ($q) => $q->whereNotNull('division_id'))
+                    ->when($did, function ($q) use ($finalistRegIds, $selectedDivision) {
+                        $q->where('division_id', $this->judgeDivisionId);
+                        if ($selectedDivision?->live_stage === 'FINAL') {
+                            $q->whereIn('id', $finalistRegIds);
+                        } elseif ($this->judgeGroupId) {
+                            $q->where('division_group_id', $this->judgeGroupId);
+                        }
+                    })
+                    ->when(!$did && $eventHasDivisions, function ($q) use ($finalistRegIds) {
+                        $q->whereNotNull('division_id')->where(function ($q2) use ($finalistRegIds) {
+                            $q2->whereDoesntHave('division', fn ($q3) => $q3->where('live_stage', 'FINAL'))
+                               ->orWhereIn('id', $finalistRegIds);
+                        });
+                    })
                     ->orderBy('name')->get()
                 : collect();
 
@@ -1282,6 +1673,42 @@ class Dashboard extends Component
                     ? QualificationMatch::with(['riderA', 'riderB', 'trick'])->find($this->koMatchId)
                     : BracketMatch::with(['riderA', 'riderB', 'trick'])->find($this->koMatchId))
                 : null;
+
+            // Other judges' live scores for current rider/run
+            $resolvedLiveRiderId = ($this->scoringMode === 'live' && $this->liveRiderId)
+                ? $this->resolveRiderIdFromRegistration($this->liveRiderId)
+                : null;
+            $selectedLiveStage = Registration::find($this->liveRiderId)?->division?->live_stage ?? 'QUALIFICATION';
+
+            if ($this->scoringMode === 'live' && $jeid && $resolvedLiveRiderId) {
+                $data['otherJudgeScores'] = JudgeScore::where('event_id', $jeid)
+                    ->where('rider_id', $resolvedLiveRiderId)
+                    ->where('run_number', $this->liveRunNumber)
+                    ->where('scoring_mode', 'LIVE')
+                    ->where('live_stage', $selectedLiveStage)
+                    ->with(['judge', 'scoreDetails'])
+                    ->get();
+            }
+            $data['riderAlreadyRan'] = $data['otherJudgeScores']->isNotEmpty();
+
+            // HEAD JUDGE: live session — status per judge
+            $data['liveJudgeScores'] = collect();
+            $data['assignedJudges']  = collect();
+            if (auth()->user()->isHeadJudge() && $jeid) {
+                $liveEvent = $data['activeEvent'];
+                if ($liveEvent?->live_rider_id) {
+                    $data['liveJudgeScores'] = JudgeScore::where('event_id', $jeid)
+                        ->where('rider_id', $liveEvent->live_rider_id)
+                        ->where('run_number', $liveEvent->live_run_number)
+                        ->where('scoring_mode', 'LIVE')
+                        ->where('live_stage', $this->currentLiveStage($liveEvent))
+                        ->with(['judge', 'scoreDetails'])
+                        ->get();
+                }
+                $data['assignedJudges'] = EventJudgeAssignment::where('event_id', $jeid)
+                    ->with('user')
+                    ->get();
+            }
         }
 
         if ($this->view === 'categories') {
@@ -1342,6 +1769,23 @@ class Dashboard extends Component
             $data['users']  = User::when($search, fn ($q) => $q->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%"))
                 ->orderBy('role')->orderBy('name')->get();
+        }
+
+        if ($this->view === 'riders_all') {
+            $search = trim($this->riderDirSearch);
+
+            $registrationsByUser = $eid
+                ? Registration::where('event_id', $eid)->whereNotNull('user_id')->with('division')->get()->groupBy('user_id')
+                : collect();
+
+            $data['riderDirectory']         = User::where('role', 'rider')
+                ->with('rider')
+                ->when($search, fn ($q) => $q->where(fn ($q2) => $q2
+                    ->where('name', 'like', "%{$search}%")
+                    ->orWhere('username', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")))
+                ->orderBy('name')->get();
+            $data['registrationsByUser'] = $registrationsByUser;
         }
 
         return view('livewire.admin.dashboard', $data);

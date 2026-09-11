@@ -11,7 +11,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
-#[Title('Bracket — Indo Blader')]
+#[Title('Bracket — FRAMEBLADESCORE')]
 class BracketPage extends Component
 {
     public string $selectedSlug       = '';

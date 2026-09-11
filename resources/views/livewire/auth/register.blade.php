@@ -3,7 +3,7 @@
         <div style="text-align:center;margin-bottom:32px;">
             <x-logo :size="48" />
             <h1 class="display" style="font-size:36px;margin-top:16px;">DAFTAR AKUN</h1>
-            <p class="label" style="color:var(--ink-dim);margin-top:4px;">Buat akun rider Indo Blader</p>
+            <p class="label" style="color:var(--ink-dim);margin-top:4px;">Buat akun rider FRAMEBLADESCORE</p>
         </div>
 
         <form wire:submit="register" style="display:flex;flex-direction:column;gap:16px;">
@@ -14,6 +14,15 @@
                     onfocus="this.style.borderColor='var(--lime)'" onblur="this.style.borderColor='var(--line)'"
                     placeholder="Nama kamu">
                 @error('name') <p style="color:var(--red);font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
+            </div>
+
+            <div>
+                <label class="label" style="font-size:11px;color:var(--ink-dim);display:block;margin-bottom:6px;">USERNAME</label>
+                <input wire:model="username" type="text" autocomplete="username"
+                    style="width:100%;padding:12px 14px;background:var(--surface);border:2px solid var(--line);border-radius:3px;color:var(--ink);font-family:inherit;font-size:14px;outline:none;"
+                    onfocus="this.style.borderColor='var(--lime)'" onblur="this.style.borderColor='var(--line)'"
+                    placeholder="username unik kamu">
+                @error('username') <p style="color:var(--red);font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
             </div>
 
             <div>

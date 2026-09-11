@@ -3,9 +3,9 @@
     <aside class="admin-side" style="border-right:2px solid var(--ink);background:var(--bg-2);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;">
         <div style="padding:20px 18px;border-bottom:2px solid var(--ink);">
             <div style="display:flex;align-items:center;gap:10px;">
-                <img src="{{ asset('images/logo-dark.png') }}" alt="Indo Blader" style="width:36px;height:36px;flex-shrink:0;">
+                <img src="{{ asset('images/logo-dark.png') }}" alt="FRAMEBLADESCORE" style="width:36px;height:36px;flex-shrink:0;">
                 <div class="col" style="line-height:0.9;">
-                    <span class="display" style="font-size:16px;">Indo Blader</span>
+                    <span class="display" style="font-size:16px;">FRAMEBLADESCORE</span>
                     <span class="mono" style="font-size:9px;letter-spacing:0.2em;color:var(--ink-dim);">AGGRESSIVE INLINE · ID</span>
                 </div>
             </div>
@@ -93,7 +93,7 @@
     <div style="min-width:0;display:flex;flex-direction:column;">
         <header class="between admin-topbar" style="padding:16px 26px;border-bottom:2px solid var(--ink);position:sticky;top:0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);z-index:20;">
             <div class="col">
-                <span class="kicker">{{ isset($activeEvent) && $activeEvent ? strtoupper($activeEvent->title) : 'INDO BLADER' }}</span>
+                <span class="kicker">{{ isset($activeEvent) && $activeEvent ? strtoupper($activeEvent->title) : 'FRAMEBLADESCORE' }}</span>
                 <h1 class="display" style="font-size:26px;">
                     {{ collect([
                         'judging'      => 'Judge Panel',

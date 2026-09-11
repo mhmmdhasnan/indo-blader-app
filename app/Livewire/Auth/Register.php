@@ -9,10 +9,11 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
-#[Title('Daftar Akun — Indo Blader')]
+#[Title('Daftar Akun — FRAMEBLADESCORE')]
 class Register extends Component
 {
     public string $name = '';
+    public string $username = '';
     public string $email = '';
     public string $password = '';
     public string $password_confirmation = '';
@@ -21,12 +22,14 @@ class Register extends Component
     {
         $this->validate([
             'name'     => 'required|string|max:100',
+            'username' => 'required|string|max:30|alpha_dash|unique:users,username',
             'email'    => 'required|email|unique:users,email',
             'password' => 'required|min:8|confirmed',
         ]);
 
         $user = User::create([
             'name'     => $this->name,
+            'username' => $this->username,
             'email'    => $this->email,
             'password' => $this->password,
             'role'     => 'rider',

@@ -14,7 +14,7 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
-    protected $fillable = ['name', 'email', 'password', 'role'];
+    protected $fillable = ['name', 'username', 'email', 'password', 'role'];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -39,6 +39,11 @@ class User extends Authenticatable
     public function isHeadJudge(): bool
     {
         return $this->role === 'head_judge';
+    }
+
+    public function isOperator(): bool
+    {
+        return $this->role === 'operator';
     }
 
     public function isRider(): bool

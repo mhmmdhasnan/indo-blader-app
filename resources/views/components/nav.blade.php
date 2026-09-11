@@ -24,7 +24,7 @@ $current = Route::currentRouteName();
         <x-logo :size="44" />
 
         {{-- Desktop Nav --}}
-        <nav class="nav-links flex" style="gap:6px;align-items:center;">
+        <nav class="nav-links nav-fs-hide flex" style="gap:6px;align-items:center;">
             @foreach($navLinks as $link)
                 <a href="{{ route($link['route']) }}" class="label" style="
                     font-size:13px;padding:10px 16px;position:relative;
@@ -44,7 +44,7 @@ $current = Route::currentRouteName();
             </a>
 
             {{-- Theme toggle --}}
-            <button @click="dark = !dark" class="center" style="width:44px;height:44px;border:2px solid var(--ink);border-radius:3px;" aria-label="Toggle theme">
+            <button @click="dark = !dark" class="center nav-fs-hide" style="width:44px;height:44px;border:2px solid var(--ink);border-radius:3px;" aria-label="Toggle theme">
                 <span x-show="dark">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 1v3M12 20v3M4 12H1M23 12h-3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>
                 </span>
@@ -53,26 +53,28 @@ $current = Route::currentRouteName();
                 </span>
             </button>
 
-            @auth
-                {{-- Dashboard link sesuai role --}}
-                @if(auth()->user()->isRider())
-                    <a href="{{ route('rider.dashboard') }}" class="btn btn-lime btn-sm nav-reg">DASHBOARD</a>
-                @elseif(auth()->user()->isAdmin())
-                    <a href="{{ route('admin') }}" class="btn btn-lime btn-sm nav-reg">ADMIN</a>
-                @elseif(auth()->user()->isJudge())
-                    <a href="{{ route('judge') }}" class="btn btn-lime btn-sm nav-reg">JUDGE</a>
-                @endif
-                <form method="POST" action="{{ route('logout') }}" style="display:inline;">
-                    @csrf
-                    <button type="submit" class="btn btn-ghost btn-sm" style="font-size:11px;">LOGOUT</button>
-                </form>
-            @else
-                <a href="{{ route('register') }}" class="btn btn-lime btn-sm nav-reg">REGISTER</a>
-                <a href="{{ route('login') }}" class="btn btn-ghost btn-sm" style="font-size:11px;">LOGIN</a>
-            @endauth
+            <div class="flex nav-fs-hide" style="gap:10px;align-items:center;">
+                @auth
+                    {{-- Dashboard link sesuai role --}}
+                    @if(auth()->user()->isRider())
+                        <a href="{{ route('rider.dashboard') }}" class="btn btn-lime btn-sm nav-reg">DASHBOARD</a>
+                    @elseif(auth()->user()->isAdmin())
+                        <a href="{{ route('admin') }}" class="btn btn-lime btn-sm nav-reg">ADMIN</a>
+                    @elseif(auth()->user()->isJudge() || auth()->user()->isOperator())
+                        <a href="{{ route('judge') }}" class="btn btn-lime btn-sm nav-reg">{{ auth()->user()->isOperator() ? 'OPERATOR' : 'JUDGE' }}</a>
+                    @endif
+                    <form method="POST" action="{{ route('logout') }}" style="display:inline;">
+                        @csrf
+                        <button type="submit" class="btn btn-ghost btn-sm" style="font-size:11px;">LOGOUT</button>
+                    </form>
+                @else
+                    <a href="{{ route('register') }}" class="btn btn-lime btn-sm nav-reg">REGISTER</a>
+                    <a href="{{ route('login') }}" class="btn btn-ghost btn-sm" style="font-size:11px;">LOGIN</a>
+                @endauth
+            </div>
 
             {{-- Mobile burger --}}
-            <button class="burger center" @click="$dispatch('toggle-menu')" style="width:44px;height:44px;border:2px solid var(--ink);border-radius:3px;" aria-label="Menu">
+            <button class="burger nav-fs-hide center" @click="$dispatch('toggle-menu')" style="width:44px;height:44px;border:2px solid var(--ink);border-radius:3px;" aria-label="Menu">
                 <div class="col" style="gap:4px;">
                     <span style="width:16px;height:2px;background:var(--ink);display:block;"></span>
                     <span style="width:16px;height:2px;background:var(--ink);display:block;"></span>
@@ -83,7 +85,7 @@ $current = Route::currentRouteName();
     </div>
 
     {{-- Mobile menu --}}
-    <div x-data="{ open: false }" @toggle-menu.window="open = !open" x-show="open" x-transition
+    <div class="nav-fs-hide" x-data="{ open: false }" @toggle-menu.window="open = !open" x-show="open" x-transition
         style="background:var(--bg);border-bottom:2px solid var(--ink);padding:10px 20px 20px;">
         @foreach($navLinks as $link)
             <a href="{{ route($link['route']) }}" class="display" style="display:block;font-size:28px;padding:10px 0;border-bottom:1px solid var(--line);">
@@ -95,8 +97,8 @@ $current = Route::currentRouteName();
                 <a href="{{ route('rider.dashboard') }}" class="display" style="display:block;font-size:28px;padding:10px 0;border-bottom:1px solid var(--line);">Dashboard</a>
             @elseif(auth()->user()->isAdmin())
                 <a href="{{ route('admin') }}" class="display" style="display:block;font-size:28px;padding:10px 0;border-bottom:1px solid var(--line);">Admin</a>
-            @elseif(auth()->user()->isJudge())
-                <a href="{{ route('judge') }}" class="display" style="display:block;font-size:28px;padding:10px 0;border-bottom:1px solid var(--line);">Judge Panel</a>
+            @elseif(auth()->user()->isJudge() || auth()->user()->isOperator())
+                <a href="{{ route('judge') }}" class="display" style="display:block;font-size:28px;padding:10px 0;border-bottom:1px solid var(--line);">{{ auth()->user()->isOperator() ? 'Operator Panel' : 'Judge Panel' }}</a>
             @endif
             <form method="POST" action="{{ route('logout') }}">
                 @csrf

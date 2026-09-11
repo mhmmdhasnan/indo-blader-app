@@ -10,10 +10,12 @@ class EventDivision extends Model
 {
     protected $fillable = [
         'event_id', 'name', 'discipline', 'level', 'slots', 'filled', 'is_active',
+        'live_stage', 'live_final_completed_at',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
+        'is_active'                => 'boolean',
+        'live_final_completed_at'  => 'datetime',
     ];
 
     public function event(): BelongsTo
@@ -29,6 +31,21 @@ class EventDivision extends Model
     public function brackets(): HasMany
     {
         return $this->hasMany(Bracket::class, 'division_id');
+    }
+
+    public function finalists(): HasMany
+    {
+        return $this->hasMany(DivisionFinalist::class, 'event_division_id');
+    }
+
+    public function groups(): HasMany
+    {
+        return $this->hasMany(DivisionGroup::class, 'event_division_id');
+    }
+
+    public function getIsFinalStageAttribute(): bool
+    {
+        return $this->live_stage === 'FINAL';
     }
 
     public function getIsUnlimitedAttribute(): bool

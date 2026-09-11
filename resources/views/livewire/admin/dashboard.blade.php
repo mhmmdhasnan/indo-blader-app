@@ -3,9 +3,9 @@
     <aside class="admin-side" style="border-right:2px solid var(--ink);background:var(--bg-2);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;">
         <div style="padding:20px 18px;border-bottom:2px solid var(--ink);">
             <div style="display:flex;align-items:center;gap:10px;">
-                <img src="{{ asset('images/logo-dark.png') }}" alt="Indo Blader" style="width:36px;height:36px;flex-shrink:0;">
+                <img src="{{ asset('images/logo-dark.png') }}" alt="FRAMEBLADESCORE" style="width:36px;height:36px;flex-shrink:0;">
                 <div class="col" style="line-height:0.9;">
-                    <span class="display" style="font-size:16px;">Indo Blader</span>
+                    <span class="display" style="font-size:16px;">FRAMEBLADESCORE</span>
                     <span class="mono" style="font-size:9px;letter-spacing:0.2em;color:var(--ink-dim);">AGGRESSIVE INLINE · ID</span>
                 </div>
             </div>
@@ -44,7 +44,7 @@
                 'PENDAFTARAN' => [
                     ['registrations', '✓', 'Registrations'],
                     ['payments',      '₨', 'Payments'],
-                    ['riders',        '◉', 'Riders'],
+                    ['riders',        '◉', 'Riders (Event)'],
                 ],
                 'EVENT' => [
                     ['events', '◆', 'Events'],
@@ -60,6 +60,7 @@
                     ['tricks',        '◈', 'Tricks'],
                     ['scoring',       '⊙', 'Scoring Setup'],
                     ['ranking_admin', '▲', 'Rankings'],
+                    ['riders_all',    '👤', 'Semua Rider'],
                     ['users',         '👤', 'Users'],
                 ],
             ];
@@ -99,11 +100,11 @@
         {{-- Top bar --}}
         <header class="between admin-topbar" style="padding:16px 26px;border-bottom:2px solid var(--ink);position:sticky;top:0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);z-index:20;">
             <div class="col">
-                <span class="kicker">{{ isset($activeEvent) && $activeEvent ? strtoupper($activeEvent->title) : 'INDO BLADER' }}</span>
+                <span class="kicker">{{ isset($activeEvent) && $activeEvent ? strtoupper($activeEvent->title) : 'FRAMEBLADESCORE' }}</span>
                 <h1 class="display" style="font-size:26px;">
                     {{ collect([
                         'overview' => 'Overview', 'registrations' => 'Registrations', 'payments' => 'Payments',
-                        'riders' => 'Riders', 'events' => 'Events', 'judging' => 'Judge Panel', 'brackets' => 'Brackets',
+                        'riders_all' => 'Semua Rider', 'riders' => 'Riders', 'events' => 'Events', 'judging' => 'Judge Panel', 'brackets' => 'Brackets',
                         'categories' => 'Categories', 'qualification' => 'Qualification', 'tricks' => 'Tricks',
                         'submissions' => 'Submissions', 'ranking_admin' => 'Rankings', 'users' => 'Users',
                     ])->get($view, 'Overview') }}
@@ -391,6 +392,111 @@
                 </div>
             @endif
 
+            {{-- ── SEMUA RIDER (universal, dari akun User) ── --}}
+            @if($view === 'riders_all')
+                <div class="col" style="gap:16px;">
+                    @if(!$activeEvent)
+                        <div class="panel" style="padding:14px 18px;border-left:3px solid var(--red);">
+                            <span class="dim" style="font-size:13px;">Pilih event aktif di sidebar dulu untuk bisa menambahkan rider ke event.</span>
+                        </div>
+                    @endif
+
+                    <div style="position:relative;flex:1;min-width:200px;max-width:340px;">
+                        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ink-dim);font-size:13px;">⌕</span>
+                        <input wire:model.live="riderDirSearch" type="text" placeholder="Cari nama, username, atau email..."
+                            style="width:100%;padding:10px 14px 10px 34px;background:var(--surface);border:2px solid var(--line);border-radius:3px;color:var(--ink);font-family:inherit;font-size:13px;outline:none;"
+                            onfocus="this.style.borderColor='var(--lime)'" onblur="this.style.borderColor='var(--line)'">
+                    </div>
+
+                    @if(isset($riderDirectory) && $riderDirectory->count())
+                        <div class="panel" style="overflow:hidden;overflow-x:auto;">
+                            <div style="display:grid;grid-template-columns:1.6fr 1fr 1.2fr 1fr 140px;padding:12px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);min-width:800px;">
+                                @foreach(['RIDER','USERNAME','EMAIL','PROFIL','ACTION'] as $h)
+                                    <span class="mono dim" style="font-size:10px;letter-spacing:0.12em;">{{ $h }}</span>
+                                @endforeach
+                            </div>
+                            @foreach($riderDirectory as $u)
+                                @php $userRegs = ($registrationsByUser ?? collect())->get($u->id, collect()); @endphp
+                                <div style="border-bottom:1px solid var(--line);min-width:800px;">
+                                    <div style="display:grid;grid-template-columns:1.6fr 1fr 1.2fr 1fr 140px;align-items:center;padding:12px 18px;">
+                                        <div class="flex" style="align-items:center;gap:11px;min-width:0;">
+                                            <x-avatar :initials="collect(explode(' ',$u->name))->map(fn($w)=>strtoupper($w[0]))->take(2)->implode('')" :size="32" />
+                                            <span class="label" style="font-size:13px;">{{ $u->name }}</span>
+                                        </div>
+                                        <span class="mono dim" style="font-size:12px;">{{ '@' . $u->username }}</span>
+                                        <span class="mono dim" style="font-size:12px;word-break:break-all;">{{ $u->email }}</span>
+                                        <span>
+                                            @if($u->rider)
+                                                <span class="badge badge-lime" style="font-size:9px;">{{ number_format($u->rider->points) }} PTS</span>
+                                            @else
+                                                <span class="mono dim" style="font-size:10px;">— belum ada profil</span>
+                                            @endif
+                                        </span>
+                                        <div class="flex gap-s" style="justify-content:flex-end;">
+                                            @if($activeEvent)
+                                                <button wire:click="openQuickAdd({{ $u->id }})" class="btn btn-sm btn-lime" style="font-size:11px;">+ Tambah ke Event</button>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    @if($userRegs->isNotEmpty())
+                                        <div style="padding:0 18px 10px 61px;display:flex;gap:6px;flex-wrap:wrap;">
+                                            @foreach($userRegs as $reg)
+                                                <span class="badge badge-lime" style="font-size:9px;">✓ {{ $reg->division?->name ?? 'Tanpa divisi' }}</span>
+                                            @endforeach
+                                        </div>
+                                    @endif
+
+                                    {{-- Inline quick-add form --}}
+                                    @if($quickAddUserId === $u->id)
+                                        <div style="padding:14px 18px 16px;background:var(--bg-2);border-top:1px solid var(--line);">
+                                            <span class="mono dim" style="font-size:10px;letter-spacing:0.1em;display:block;margin-bottom:10px;">
+                                                TAMBAHKAN {{ strtoupper($u->name) }} KE {{ $activeEvent?->title }} — LANGSUNG APPROVED, TANPA ALUR PENDAFTARAN PUBLIK
+                                            </span>
+                                            <div class="flex gap-m" style="flex-wrap:wrap;align-items:flex-end;">
+                                                <div class="col" style="gap:4px;min-width:140px;">
+                                                    <span class="mono dim" style="font-size:10px;">KOTA *</span>
+                                                    <input wire:model="quickAddCity" class="input-field" style="font-size:12px;" placeholder="Jakarta">
+                                                </div>
+                                                <div class="col" style="gap:4px;min-width:140px;">
+                                                    <span class="mono dim" style="font-size:10px;">TELEPON *</span>
+                                                    <input wire:model="quickAddPhone" class="input-field" style="font-size:12px;" placeholder="08xxxxxxxxxx">
+                                                </div>
+                                                <div class="col" style="gap:4px;min-width:150px;">
+                                                    <span class="mono dim" style="font-size:10px;">TANGGAL LAHIR *</span>
+                                                    <input wire:model="quickAddDob" type="date" class="input-field" style="font-size:12px;">
+                                                </div>
+                                                <div class="col" style="gap:4px;min-width:160px;">
+                                                    <span class="mono dim" style="font-size:10px;">DIVISI</span>
+                                                    <select wire:model="quickAddDivisionId" class="input-field" style="font-size:12px;">
+                                                        <option value="0">— pilih divisi —</option>
+                                                        @foreach($activeEvent?->divisions ?? [] as $div)
+                                                            <option value="{{ $div->id }}">{{ $div->name }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <div class="flex gap-s">
+                                                    <button wire:click="quickAddToEvent" class="btn btn-sm btn-lime">Tambahkan</button>
+                                                    <button wire:click="cancelQuickAdd" class="btn btn-sm btn-ghost">Batal</button>
+                                                </div>
+                                            </div>
+                                            @error('quickAdd') <p style="color:var(--red);font-size:11px;margin-top:8px;">{{ $message }}</p> @enderror
+                                            @error('quickAddCity') <p style="color:var(--red);font-size:11px;margin-top:8px;">{{ $message }}</p> @enderror
+                                            @error('quickAddPhone') <p style="color:var(--red);font-size:11px;margin-top:8px;">{{ $message }}</p> @enderror
+                                            @error('quickAddDob') <p style="color:var(--red);font-size:11px;margin-top:8px;">{{ $message }}</p> @enderror
+                                        </div>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="panel center col" style="padding:50px;gap:12px;text-align:center;">
+                            <span style="font-size:40px;">👤</span>
+                            <p class="dim">{{ $riderDirSearch ? 'Tidak ada rider yang cocok dengan pencarian.' : 'Belum ada akun rider.' }}</p>
+                        </div>
+                    @endif
+                </div>
+            @endif
+
             {{-- ── RIDERS ── --}}
             @if($view === 'riders')
                 <div class="panel" style="overflow:hidden;overflow-x:auto;">
@@ -428,7 +534,7 @@
                                 <div class="col" style="gap:12px;">
                                     <div>
                                         <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">TITLE *</span>
-                                        <input wire:model.live="evTitle" type="text" class="input-field" style="width:100%;" placeholder="Indo Blader Nationals">
+                                        <input wire:model.live="evTitle" type="text" class="input-field" style="width:100%;" placeholder="FRAMEBLADESCORE Nationals">
                                         @error('evTitle') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
                                     </div>
                                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -500,7 +606,7 @@
                                     <div>
                                         <span class="mono dim" style="font-size:10px;display:block;margin-bottom:8px;">CATEGORIES (DISCIPLINE)</span>
                                         <div class="flex gap-s" style="flex-wrap:wrap;">
-                                            @foreach(['STREET','PARK','VERT','FLAT'] as $cat)
+                                            @foreach(['STREET','PARK','VERT','FLAT','MINIRAMP'] as $cat)
                                                 <label class="flex label" style="gap:6px;align-items:center;font-size:12px;cursor:pointer;">
                                                     <input type="checkbox" wire:model="evCategories" value="{{ $cat }}" style="accent-color:var(--lime);">
                                                     {{ $cat }}
@@ -592,7 +698,7 @@
                                                     <span class="mono dim" style="font-size:9px;">DISCIPLINE *</span>
                                                     <select wire:model.live="divDiscipline" class="input-field" style="font-size:12px;">
                                                         <option value="">— pilih —</option>
-                                                        @foreach($ev->categories ?? ['STREET','PARK','VERT','FLAT'] as $d)
+                                                        @foreach($ev->categories ?? ['STREET','PARK','VERT','FLAT','MINIRAMP'] as $d)
                                                             <option value="{{ $d }}">{{ $d }}</option>
                                                         @endforeach
                                                     </select>
@@ -654,8 +760,29 @@
                                                         <span class="mono dim" style="font-size:9px;">(inactive)</span>
                                                     @endif
                                                     <span class="mono dim" style="font-size:9px;">{{ $div->filled }}/{{ $div->slots ?? '∞' }} slot</span>
+                                                    @if($ev->type === 'LIVE_SCORE')
+                                                        <span class="badge {{ $div->live_stage === 'FINAL' ? 'badge-lime' : 'badge-out' }}" style="font-size:9px;">
+                                                            {{ $div->live_stage === 'FINAL' ? 'FINAL' : 'QUALIFIKASI' }}
+                                                        </span>
+                                                        @if($div->live_final_completed_at)
+                                                            <span class="badge badge-lime" style="font-size:9px;">RANKING SELESAI</span>
+                                                        @endif
+                                                    @endif
                                                 </div>
                                                 <div class="flex gap-s">
+                                                    @if($ev->type === 'LIVE_SCORE')
+                                                        @if($div->live_stage === 'FINAL')
+                                                            @if(!$div->live_final_completed_at)
+                                                                <button wire:click="reopenQualification({{ $div->id }})" class="btn btn-sm btn-ghost" style="font-size:11px;"
+                                                                    wire:confirm="Kembali ke fase kualifikasi?">↩ Kualifikasi</button>
+                                                                <button wire:click="completeLiveFinal({{ $div->id }})" class="btn btn-sm btn-lime" style="font-size:11px;"
+                                                                    wire:confirm="Selesaikan final dan hitung ranking? Poin akan ditambahkan ke rider.">✓ Selesaikan &amp; Hitung Ranking</button>
+                                                            @endif
+                                                        @else
+                                                            <button wire:click="openGroupManager({{ $div->id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">👥 Kelola Group</button>
+                                                            <button wire:click="openFinalistPicker({{ $div->id }})" class="btn btn-sm btn-lime" style="font-size:11px;">🏆 Pilih Finalis</button>
+                                                        @endif
+                                                    @endif
                                                     <button wire:click="openEditDivision({{ $div->id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">Edit</button>
                                                     <button wire:click="deleteDivision({{ $div->id }})" class="btn btn-sm btn-ghost" style="color:var(--red);font-size:11px;"
                                                         wire:confirm="Hapus divisi '{{ $div->name }}'?">Hapus</button>
@@ -664,6 +791,93 @@
                                             @error('divDelete_' . $div->id)
                                                 <p style="padding:4px 18px;color:var(--red);font-size:10px;">{{ $message }}</p>
                                             @enderror
+
+                                            {{-- Group manager --}}
+                                            @if($groupManageDivisionId === $div->id)
+                                                <div style="padding:14px 18px 16px;background:var(--bg-2);border-bottom:1px solid var(--line);">
+                                                    <span class="mono dim" style="font-size:10px;letter-spacing:0.1em;display:block;margin-bottom:10px;">
+                                                        KELOLA GROUP KUALIFIKASI — {{ strtoupper($div->name) }}
+                                                    </span>
+
+                                                    <div class="flex gap-s" style="margin-bottom:10px;align-items:flex-end;flex-wrap:wrap;">
+                                                        <div class="col" style="gap:4px;">
+                                                            <span class="mono dim" style="font-size:9px;">NAMA GROUP BARU</span>
+                                                            <input wire:model="newGroupName" wire:keydown.enter="createGroup" type="text" class="input-field" style="font-size:12px;" placeholder="Heat A">
+                                                        </div>
+                                                        <button wire:click="createGroup" class="btn btn-sm btn-lime">+ Tambah Group</button>
+                                                        @error('newGroupName') <span style="color:var(--red);font-size:10px;">{{ $message }}</span> @enderror
+                                                    </div>
+
+                                                    @if($groupManageGroups->isNotEmpty())
+                                                        <div class="flex gap-s" style="margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+                                                            @foreach($groupManageGroups as $g)
+                                                                <span class="badge badge-out" style="font-size:10px;">
+                                                                    {{ $g->name }} ({{ $g->registrations_count }})
+                                                                    <button wire:click="deleteGroup({{ $g->id }})" wire:confirm="Hapus group '{{ $g->name }}'? Rider di dalamnya jadi belum ter-group."
+                                                                        style="background:none;border:none;color:var(--red);cursor:pointer;margin-left:4px;">✕</button>
+                                                                </span>
+                                                            @endforeach
+                                                            <button wire:click="randomizeGroups({{ $div->id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">🎲 Acak ke Group</button>
+                                                        </div>
+                                                        @error('groupRandomize') <p style="color:var(--red);font-size:11px;margin-bottom:10px;">{{ $message }}</p> @enderror
+
+                                                        <div class="col" style="gap:4px;margin-bottom:14px;max-height:260px;overflow-y:auto;">
+                                                            @foreach($groupManageRegistrations as $reg)
+                                                                <div class="between" style="padding:6px 10px;background:var(--bg);border-radius:3px;">
+                                                                    <span class="label" style="font-size:12px;">{{ $reg->name }}</span>
+                                                                    <select wire:change="assignToGroup({{ $reg->id }}, $event.target.value)" class="input-field" style="font-size:11px;width:auto;">
+                                                                        <option value="" @selected(!$reg->division_group_id)>— belum ada group —</option>
+                                                                        @foreach($groupManageGroups as $g)
+                                                                            <option value="{{ $g->id }}" @selected($reg->division_group_id === $g->id)>{{ $g->name }}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                </div>
+                                                            @endforeach
+                                                        </div>
+                                                    @else
+                                                        <p class="mono dim" style="font-size:12px;margin-bottom:14px;">Belum ada group. Tambah group dulu, baru bisa acak/assign rider.</p>
+                                                    @endif
+
+                                                    <button wire:click="closeGroupManager" class="btn btn-sm btn-ghost">Tutup</button>
+                                                </div>
+                                            @endif
+
+                                            {{-- Finalist picker --}}
+                                            @if($finalistPickerDivisionId === $div->id)
+                                                <div style="padding:14px 18px 16px;background:var(--bg-2);border-bottom:1px solid var(--line);">
+                                                    <span class="mono dim" style="font-size:10px;letter-spacing:0.1em;display:block;margin-bottom:10px;">
+                                                        PILIH FINALIS — {{ strtoupper($div->name) }} (DARI LEADERBOARD KUALIFIKASI)
+                                                    </span>
+                                                    @forelse($finalistSections as $section)
+                                                        <div style="margin-bottom:16px;">
+                                                            <span class="mono" style="font-size:10px;color:var(--lime);display:block;margin-bottom:6px;">
+                                                                {{ $section['group']?->name ?? 'BELUM ADA GROUP' }}
+                                                            </span>
+                                                            @if($section['leaderboard']->isEmpty())
+                                                                <p class="mono dim" style="font-size:11px;">Belum ada skor kualifikasi.</p>
+                                                            @else
+                                                                <div class="col" style="gap:6px;max-height:220px;overflow-y:auto;">
+                                                                    @foreach($section['leaderboard'] as $i => $row)
+                                                                        <label class="flex gap-s" style="align-items:center;padding:6px 10px;background:var(--bg);border-radius:3px;cursor:pointer;">
+                                                                            <input type="checkbox" wire:model="selectedFinalistRegIds" value="{{ $row['registration']->id }}" style="accent-color:var(--lime);">
+                                                                            <span class="mono dim" style="font-size:11px;width:24px;">#{{ $i + 1 }}</span>
+                                                                            <span class="label" style="font-size:13px;flex:1;">{{ $row['rider']->name }}</span>
+                                                                            <span class="mono tnum" style="font-size:12px;color:var(--lime);">{{ number_format($row['best'], 1) }}</span>
+                                                                        </label>
+                                                                    @endforeach
+                                                                </div>
+                                                            @endif
+                                                        </div>
+                                                    @empty
+                                                        <p class="mono dim" style="font-size:12px;">Belum ada skor kualifikasi untuk divisi ini.</p>
+                                                    @endforelse
+                                                    <div class="flex gap-s">
+                                                        <button wire:click="openFinalPhase({{ $div->id }})" class="btn btn-sm btn-lime">Simpan &amp; Buka Final</button>
+                                                        <button wire:click="cancelFinalistPicker" class="btn btn-sm btn-ghost">Batal</button>
+                                                    </div>
+                                                    @error('finalist') <p style="color:var(--red);font-size:11px;margin-top:8px;">{{ $message }}</p> @enderror
+                                                </div>
+                                            @endif
                                         @endforeach
                                     @else
                                         <div class="center" style="padding:20px;">
@@ -1311,6 +1525,11 @@
                                         @error('userName') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
                                     </div>
                                     <div>
+                                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">USERNAME</span>
+                                        <input wire:model="userUsername" type="text" placeholder="username" class="input-field" style="width:100%;" autocomplete="off">
+                                        @error('userUsername') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
+                                    </div>
+                                    <div>
                                         <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">EMAIL</span>
                                         <input wire:model="userEmail" type="email" placeholder="email@example.com" class="input-field" style="width:100%;">
                                         @error('userEmail') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
@@ -1356,18 +1575,23 @@
                         @endif
                     </div>
 
-                    {{-- User table --}}
+                    {{-- User table (admin / head judge / judge — rider punya tabel sendiri di bawah) --}}
+                    @php
+                        $staffUsers = $users->whereIn('role', ['admin', 'head_judge', 'judge'])->values();
+                        $riderUsers = $users->where('role', 'rider')->values();
+                    @endphp
                     @if(isset($users) && $users->count())
+                        @if($staffUsers->count())
                         <div class="panel" style="overflow:hidden;overflow-x:auto;">
                             {{-- Header --}}
-                            <div style="display:grid;grid-template-columns:2fr 2fr 130px 100px 120px;padding:12px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);min-width:640px;">
-                                @foreach(['NAMA', 'EMAIL', 'ROLE', 'BERGABUNG', ''] as $h)
+                            <div style="display:grid;grid-template-columns:1.8fr 1.3fr 2fr 130px 100px 120px;padding:12px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);min-width:760px;">
+                                @foreach(['NAMA', 'USERNAME', 'EMAIL', 'ROLE', 'BERGABUNG', ''] as $h)
                                     <span class="mono dim" style="font-size:10px;letter-spacing:0.12em;">{{ $h }}</span>
                                 @endforeach
                             </div>
                             {{-- Rows --}}
-                            @foreach($users as $u)
-                                <div style="display:grid;grid-template-columns:2fr 2fr 130px 100px 120px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);min-width:640px;">
+                            @foreach($staffUsers as $u)
+                                <div style="display:grid;grid-template-columns:1.8fr 1.3fr 2fr 130px 100px 120px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);min-width:760px;">
                                     <div class="flex" style="align-items:center;gap:10px;">
                                         <x-avatar
                                             :initials="collect(explode(' ', $u->name))->map(fn($w)=>strtoupper($w[0]))->take(2)->implode('')"
@@ -1380,6 +1604,7 @@
                                             @endif
                                         </div>
                                     </div>
+                                    <span class="mono dim" style="font-size:12px;">{{ '@' . $u->username }}</span>
                                     <span class="mono dim" style="font-size:12px;word-break:break-all;">{{ $u->email }}</span>
                                     <span class="badge badge-{{
                                         match($u->role) {
@@ -1404,13 +1629,48 @@
 
                         {{-- Summary per role --}}
                         <div class="flex gap-s" style="flex-wrap:wrap;">
-                            @foreach($users->groupBy('role') as $role => $group)
+                            @foreach($staffUsers->groupBy('role') as $role => $group)
                                 <div class="panel" style="padding:12px 18px;display:flex;align-items:center;gap:10px;">
                                     <span class="display tnum" style="font-size:24px;color:var(--lime);">{{ $group->count() }}</span>
                                     <span class="mono dim" style="font-size:10px;letter-spacing:0.1em;">{{ strtoupper(str_replace('_', ' ', $role)) }}</span>
                                 </div>
                             @endforeach
                         </div>
+                        @endif
+
+                        {{-- ── Table khusus RIDER ── --}}
+                        @if($riderUsers->count())
+                            <div style="margin-top:8px;">
+                                <span class="kicker" style="display:block;margin-bottom:10px;">DAFTAR RIDER ({{ $riderUsers->count() }})</span>
+                                <div class="panel" style="overflow:hidden;overflow-x:auto;">
+                                    <div style="display:grid;grid-template-columns:1.8fr 1.3fr 2fr 100px 120px;padding:12px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);min-width:680px;">
+                                        @foreach(['NAMA', 'USERNAME', 'EMAIL', 'BERGABUNG', ''] as $h)
+                                            <span class="mono dim" style="font-size:10px;letter-spacing:0.12em;">{{ $h }}</span>
+                                        @endforeach
+                                    </div>
+                                    @foreach($riderUsers as $u)
+                                        <div style="display:grid;grid-template-columns:1.8fr 1.3fr 2fr 100px 120px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);min-width:680px;">
+                                            <div class="flex" style="align-items:center;gap:10px;">
+                                                <x-avatar
+                                                    :initials="collect(explode(' ', $u->name))->map(fn($w)=>strtoupper($w[0]))->take(2)->implode('')"
+                                                    :size="32"
+                                                />
+                                                <span class="label" style="font-size:13px;">{{ $u->name }}</span>
+                                            </div>
+                                            <span class="mono dim" style="font-size:12px;">{{ '@' . $u->username }}</span>
+                                            <span class="mono dim" style="font-size:12px;word-break:break-all;">{{ $u->email }}</span>
+                                            <span class="mono dim" style="font-size:11px;">{{ $u->created_at->format('d M Y') }}</span>
+                                            <div class="flex gap-s" style="justify-content:flex-end;">
+                                                <button wire:click="userEdit({{ $u->id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">Edit</button>
+                                                <button wire:click="userDelete({{ $u->id }})"
+                                                    wire:confirm="Hapus user {{ $u->name }}? Tindakan ini tidak bisa dibatalkan."
+                                                    class="btn btn-sm btn-ghost" style="font-size:11px;color:var(--red);">Hapus</button>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
                     @else
                         <div class="panel center col" style="padding:50px;gap:12px;text-align:center;">
                             <span style="font-size:40px;">👤</span>

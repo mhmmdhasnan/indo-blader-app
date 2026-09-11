@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class JudgeScore extends Model
 {
     protected $fillable = [
-        'judge_user_id', 'event_id', 'rider_id', 'run_number', 'scoring_mode',
+        'judge_user_id', 'event_id', 'rider_id', 'run_number', 'scoring_mode', 'live_stage',
         'execution', 'style', 'creativity', 'difficulty', 'consistency', 'total', 'status',
     ];
 

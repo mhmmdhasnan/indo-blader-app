@@ -8,7 +8,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
-#[Title('Gallery — Indo Blader')]
+#[Title('Gallery — FRAMEBLADESCORE')]
 class Gallery extends Component
 {
     public ?int $lightbox = null;

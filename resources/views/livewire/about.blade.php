@@ -3,7 +3,7 @@
         <div class="wrap" style="padding:48px 0 40px;">
             <div class="eyebrow-row" style="margin-bottom:12px;">
                 <span class="mono" style="font-size:11px;color:var(--lime);font-weight:700;">ABOUT /</span>
-                <span class="kicker">INDO BLADER</span>
+                <span class="kicker">FRAMEBLADESCORE</span>
             </div>
             <h1 class="display" style="font-size:clamp(40px,7vw,84px);">One Wheel,<br>One Family.</h1>
         </div>
@@ -11,9 +11,9 @@
 
     <div class="wrap section" style="display:grid;grid-template-columns:1.4fr 1fr;gap:60px;" class="prof-grid">
         <div>
-            <h2 class="display" style="font-size:clamp(34px,5vw,64px);margin-bottom:24px;">About Indo Blader</h2>
+            <h2 class="display" style="font-size:clamp(34px,5vw,64px);margin-bottom:24px;">About FRAMEBLADESCORE</h2>
             <div class="col" style="gap:20px;font-size:16px;line-height:1.7;">
-                <p>Indo Blader is the national organizing body for competitive aggressive inline skating in Indonesia. Founded in 2020, we run the national circuit, maintain the official ranking, and publish competition results.</p>
+                <p>FRAMEBLADESCORE is the national organizing body for competitive aggressive inline skating in Indonesia. Founded in 2020, we run the national circuit, maintain the official ranking, and publish competition results.</p>
                 <p>Our mission: build a legitimate, professional competition structure that elevates Indonesian aggressive inline to an international standard — while keeping the core community spirit alive.</p>
                 <p>Since Vol. 01, the circuit has grown from a single Jakarta stop to five national events, with over 500 registered competitors and a combined prize pool exceeding Rp 500 juta per season.</p>
             </div>

@@ -37,6 +37,7 @@ class NasionalRiderSeeder extends Seeder
                 ['email' => $email],
                 [
                     'name'     => $data['name'],
+                    'username' => $data['slug'],
                     'password' => Hash::make('password'),
                     'role'     => 'rider',
                 ]

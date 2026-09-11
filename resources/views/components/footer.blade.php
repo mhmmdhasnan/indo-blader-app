@@ -60,7 +60,7 @@ $navLinks = [
     </div>
 
     <div class="wrap between" style="padding:20px 0;flex-wrap:wrap;gap:10px;">
-        <span class="mono dim" style="font-size:11px;">© 2026 INDO BLADER — ONE WHEEL ONE FAMILY</span>
+        <span class="mono dim" style="font-size:11px;">© 2026 FRAMEBLADESCORE — ONE WHEEL ONE FAMILY</span>
         <span class="mono dim" style="font-size:11px;">BUILT WITH LARAVEL 12 + LIVEWIRE</span>
     </div>
 </footer>

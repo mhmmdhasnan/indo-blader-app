@@ -10,6 +10,7 @@
          data-avatar="{{ $liveRider?->avatar ? asset('storage/' . $liveRider->avatar) : '' }}"
          data-event="{{ $event?->title ?? '' }}"
          data-run="{{ $event?->live_run_number ?? '' }}"
+         data-division-label="{{ $liveDivisionLabel }}"
          style="display:none;">
     </div>
 
@@ -23,7 +24,7 @@
                     @else
                         <span class="badge badge-out">OFFLINE</span>
                     @endif
-                    <span class="badge badge-out">STREET FINAL</span>
+                    <span class="badge badge-out">{{ $division ? strtoupper($division->name) . ' · ' . ($stage === 'FINAL' ? 'FINAL' : 'KUALIFIKASI') : 'SEMUA DIVISI' }}</span>
                 </div>
                 <h1 class="display" style="font-size:clamp(22px,5vw,48px);">
                     {{ $event ? $event->title . ' — Live Score' : 'Live Scoring' }}
@@ -38,9 +39,29 @@
                         <option value="{{ $ev->id }}">{{ $ev->title }}{{ $ev->status === 'LIVE' ? ' ● LIVE' : '' }}</option>
                     @endforeach
                 </select>
+                @if($divisions->isNotEmpty())
+                    <div class="mono dim" style="font-size:10px;letter-spacing:0.1em;text-align:right;" x-show="!isFullscreen">
+                        MENGIKUTI PILIHAN HEAD JUDGE
+                    </div>
+                    <div class="flex gap-s" style="flex-wrap:wrap;justify-content:flex-end;" x-show="!isFullscreen">
+                        <span class="mono" style="padding:8px 12px;border:2px solid var(--ink);background:var(--bg);color:var(--ink);font-size:12px;letter-spacing:0.08em;border-radius:3px;">
+                            {{ $division?->name ?? '— Belum dipilih Head Judge —' }}
+                        </span>
+                        @if($division)
+                            <span class="mono" style="padding:6px 10px;border:2px solid var(--ink);background:{{ $stage === 'FINAL' ? 'var(--lime)' : 'var(--bg)' }};color:{{ $stage === 'FINAL' ? '#0a0a0b' : 'var(--ink)' }};font-size:10px;letter-spacing:0.08em;border-radius:3px;">
+                                {{ $stage === 'FINAL' ? 'FINAL' : 'KUALIFIKASI' }}
+                            </span>
+                        @endif
+                        @if($stage === 'QUALIFICATION' && $groups->isNotEmpty())
+                            <span class="mono" style="padding:6px 10px;border:2px solid var(--ink);background:var(--bg);color:var(--ink);font-size:11px;letter-spacing:0.08em;border-radius:3px;">
+                                {{ $groups->firstWhere('id', $selectedGroupId)?->name ?? 'Semua Group' }}
+                            </span>
+                        @endif
+                    </div>
+                @endif
                 <div class="mono dim" style="font-size:11px;letter-spacing:0.12em;text-align:right;">
                     AUTO-REFRESH 3s<br>
-                    <span style="color:var(--lime);">● SYSTEM LIVE</span>
+                    <span style="color:var(--red);">● SYSTEM LIVE</span>
                 </div>
                 <button @click="toggle()" x-show="!isFullscreen"
                     class="mono"
@@ -96,9 +117,9 @@
                     <div class="display" style="font-size:clamp(32px,3vw,52px);line-height:1;" x-text="riderName"></div>
                     <div style="display:flex;flex-direction:column;gap:3px;">
                         <div class="mono dim" style="font-size:10px;letter-spacing:0.12em;" x-text="eventTitle"></div>
-                        <div class="mono" style="font-size:10px;letter-spacing:0.12em;color:var(--lime);">INDO BLADER</div>
+                        <div class="mono" style="font-size:10px;letter-spacing:0.12em;color:var(--lime);">FRAMEBLADESCORE</div>
                         <div class="mono dim" style="font-size:10px;letter-spacing:0.14em;"
-                             x-text="runNumber ? 'STREET FINAL · RUN ' + runNumber : 'STREET FINAL'"></div>
+                             x-text="runNumber ? divisionLabel + ' · RUN ' + runNumber : divisionLabel"></div>
                     </div>
                 </div>
 
@@ -108,7 +129,7 @@
 
                     {{-- NEXT --}}
                     <div x-show="phase === 'NEXT'" style="display:none;text-align:center;">
-                        <p class="mono dim" style="font-size:12px;letter-spacing:0.14em;">STREET FINAL</p>
+                        <p class="mono dim" style="font-size:12px;letter-spacing:0.14em;" x-text="divisionLabel"></p>
                     </div>
 
                     {{-- RUNNING --}}
@@ -286,6 +307,7 @@ function livePhaseOverlay() {
         avatarSrc: '',
         eventTitle: '',
         runNumber: '',
+        divisionLabel: '',
         _timer: null,
         _observer: null,
 
@@ -310,6 +332,7 @@ function livePhaseOverlay() {
             this.avatarSrc  = el.dataset.avatar || '';
             this.eventTitle = el.dataset.event || '';
             this.runNumber  = el.dataset.run || '';
+            this.divisionLabel = el.dataset.divisionLabel || '';
 
             if (serverPhase === 'REVEALING') {
                 this.phase = 'REVEALING';

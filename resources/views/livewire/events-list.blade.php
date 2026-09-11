@@ -13,7 +13,7 @@
     <div class="wrap section" style="padding-top:40px;">
         <div style="margin-bottom:26px;">
             <div class="flex gap-s" style="flex-wrap:wrap;">
-                @foreach(['ALL','STREET','PARK','VERT','FLAT'] as $opt)
+                @foreach(['ALL','STREET','PARK','VERT','FLAT','MINIRAMP'] as $opt)
                     <button wire:click="$set('category','{{ $opt }}')" class="label" style="
                         font-size:11px;padding:8px 14px;border:2px solid var(--ink);border-radius:3px;
                         background:{{ $category === $opt ? 'var(--ink)' : 'transparent' }};
@@ -30,7 +30,7 @@
                 <div class="rise" style="animation-delay:{{ $loop->index * 50 }}ms;">
                     <a href="{{ route('events.show', $ev->slug) }}" class="panel event-card" style="transition:box-shadow .15s;"
                         onmouseover="this.style.boxShadow='6px 6px 0 var(--lime)'" onmouseout="this.style.boxShadow='var(--paper-shadow)'">
-                        <div class="ph scanlines event-card-thumb" data-ph="{{ $ev->title }}">
+                        <div class="event-card-thumb {{ $ev->banner ? '' : 'ph scanlines' }}" data-ph="{{ $ev->title }}" style="{{ $ev->banner ? 'background:url(\''.Storage::url($ev->banner).'\') center/cover no-repeat;' : '' }}">
                             <div style="position:absolute;top:12px;left:12px;"><x-status-badge :status="$ev->status" /></div>
                         </div>
                         <div style="padding:22px 24px;">

@@ -1,7 +1,7 @@
 @props(['cat', 'sm' => false])
 @php
-$variants = ['STREET' => 'lime', 'PARK' => 'solid', 'VERT' => 'red', 'FLAT' => 'out'];
-$labels   = ['STREET' => 'Street', 'PARK' => 'Park', 'VERT' => 'Vert', 'FLAT' => 'Flatland'];
+$variants = ['STREET' => 'lime', 'PARK' => 'solid', 'VERT' => 'red', 'FLAT' => 'out', 'MINIRAMP' => 'solid'];
+$labels   = ['STREET' => 'Street', 'PARK' => 'Park', 'VERT' => 'Vert', 'FLAT' => 'Flatland', 'MINIRAMP' => 'Miniramp'];
 $v = $variants[$cat] ?? 'out';
 $l = $labels[$cat] ?? $cat;
 @endphp

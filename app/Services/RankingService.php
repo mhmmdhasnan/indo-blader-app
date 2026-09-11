@@ -4,10 +4,12 @@ namespace App\Services;
 
 use App\Models\Bracket;
 use App\Models\BracketMatch;
+use App\Models\EventDivision;
 use App\Models\Ranking;
 use App\Models\RankingHistory;
 use App\Models\Registration;
 use App\Models\Rider;
+use Illuminate\Support\Collection;
 
 class RankingService
 {
@@ -61,6 +63,69 @@ class RankingService
         }
 
         $this->rebuildRankingsTable();
+    }
+
+    public function calculateForLiveFinal(EventDivision $division): void
+    {
+        $event       = $division->event;
+        $leaderboard = app(LiveScoreboardService::class)->buildLeaderboard($division, 'FINAL');
+        $placements  = $this->deriveLiveFinalPlacements($leaderboard);
+
+        foreach ($placements as $placement => $rows) {
+            foreach ($rows as $row) {
+                $rider = $row['rider'];
+                $reg   = $row['registration'];
+                if (!$rider) continue;
+
+                $points = self::POINTS[$placement] ?? 20;
+
+                RankingHistory::updateOrCreate(
+                    ['rider_id' => $rider->id, 'event_id' => $event->id],
+                    ['placement' => $placement, 'points_earned' => $points]
+                );
+
+                $rider->increment('points', $points);
+
+                if ($placement === 1) {
+                    $rider->increment('wins');
+                }
+                if ($placement <= 3) {
+                    $rider->increment('podiums');
+                }
+
+                if ($reg) {
+                    NotificationService::send(
+                        $reg,
+                        'score_published',
+                        'Final Results Published',
+                        "Your final placement in {$division->name}: #{$placement} — {$points} ranking points awarded."
+                    );
+                }
+            }
+        }
+
+        $division->update(['live_final_completed_at' => now()]);
+
+        $this->rebuildRankingsTable();
+    }
+
+    private function deriveLiveFinalPlacements(Collection $leaderboard): array
+    {
+        $placements = [];
+        $rank       = 0;
+        $index      = 0;
+        $prevBest   = null;
+
+        foreach ($leaderboard as $row) {
+            $index++;
+            if ($prevBest === null || $row['best'] < $prevBest) {
+                $rank = $index; // standard "1224" competition ranking: ties share a rank
+            }
+            $placements[$rank][] = $row;
+            $prevBest = $row['best'];
+        }
+
+        return $placements;
     }
 
     public function rebuildRankingsTable(): void

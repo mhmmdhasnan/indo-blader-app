@@ -21,6 +21,6 @@ class RiderProfile extends Component
     public function render()
     {
         return view('livewire.rider-profile')
-            ->title($this->rider->name . ' — Indo Blader');
+            ->title($this->rider->name . ' — FRAMEBLADESCORE');
     }
 }

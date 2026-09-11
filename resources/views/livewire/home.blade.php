@@ -102,7 +102,7 @@
     {{-- ── MARQUEE ── --}}
     <div class="marquee" style="background:var(--ink);color:var(--bg);padding:11px 0;--mq:30s;border-top:2px solid var(--ink);border-bottom:2px solid var(--ink);">
         <div class="marquee-inner">
-            @foreach(["INDO BLADER NATIONALS '26", "AUG 22–24 · JAKARTA", "STREET · PARK · VERT", "Rp 250 JT PRIZE POOL", "REGISTRATION OPEN", "INDO BLADER NATIONALS '26", "AUG 22–24 · JAKARTA", "STREET · PARK · VERT", "Rp 250 JT PRIZE POOL", "REGISTRATION OPEN"] as $item)
+            @foreach(["FRAMEBLADESCORE NATIONALS '26", "AUG 22–24 · JAKARTA", "STREET · PARK · VERT", "Rp 250 JT PRIZE POOL", "REGISTRATION OPEN", "FRAMEBLADESCORE NATIONALS '26", "AUG 22–24 · JAKARTA", "STREET · PARK · VERT", "Rp 250 JT PRIZE POOL", "REGISTRATION OPEN"] as $item)
                 <span class="display flex" style="align-items:center;font-size:16px;padding:0 22px;white-space:nowrap;">
                     {{ $item }}<span style="margin:0 0 0 22px;color:var(--lime);font-size:12px;">✦</span>
                 </span>
@@ -128,7 +128,7 @@
                 <div class="rise" style="animation-delay:{{ $loop->index * 70 }}ms;">
                     <a href="{{ route('events.show', $ev->slug) }}" class="panel" style="display:block;overflow:hidden;height:100%;transition:transform .15s;"
                         onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'">
-                        <div class="ph scanlines" data-ph="{{ $ev->title }}" style="height:200px;border-bottom:2px solid var(--ink);position:relative;">
+                        <div class="{{ $ev->banner ? '' : 'ph scanlines' }}" data-ph="{{ $ev->title }}" style="height:200px;border-bottom:2px solid var(--ink);position:relative;{{ $ev->banner ? 'background:url(\''.Storage::url($ev->banner).'\') center/cover no-repeat;' : '' }}">
                             <div style="position:absolute;top:12px;left:12px;"><x-status-badge :status="$ev->status" /></div>
                             <div style="position:absolute;bottom:12px;right:12px;">
                                 <span class="sticker" style="--rot:-4deg;font-size:13px;">{{ $ev->prize_formatted }}</span>

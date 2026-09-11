@@ -14,7 +14,7 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 
 #[Layout('layouts.app')]
-#[Title('Dashboard — Indo Blader')]
+#[Title('Dashboard — FRAMEBLADESCORE')]
 class Dashboard extends Component
 {
     use WithFileUploads;

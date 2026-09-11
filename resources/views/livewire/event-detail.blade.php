@@ -1,7 +1,11 @@
 <div>
     {{-- Hero --}}
     <div style="border-bottom:2px solid var(--ink);position:relative;overflow:hidden;">
-        <div class="ph no-label scanlines" style="position:absolute;inset:0;"></div>
+        @if($event->banner)
+            <div style="position:absolute;inset:0;background:url('{{ Storage::url($event->banner) }}') center/cover no-repeat;"></div>
+        @else
+            <div class="ph no-label scanlines" style="position:absolute;inset:0;"></div>
+        @endif
         <div style="position:absolute;inset:0;background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 40%,transparent),var(--bg));"></div>
         <div class="wrap" style="position:relative;padding:40px 0 34px;">
             <a href="{{ route('events') }}" class="mono dim" style="font-size:11px;letter-spacing:0.14em;">← ALL EVENTS</a>
@@ -86,7 +90,7 @@
                     </div>
                     @foreach($event->categories as $cat)
                         @php
-                            $descs = ['STREET'=>'Rails, ledges, stairs and gaps.','PARK'=>'Bowls, transfers and flow lines.','VERT'=>'Big air on the mega ramp.','FLAT'=>'Footwork and balance combos.'];
+                            $descs = ['STREET'=>'Rails, ledges, stairs and gaps.','PARK'=>'Bowls, transfers and flow lines.','VERT'=>'Big air on the mega ramp.','FLAT'=>'Footwork and balance combos.','MINIRAMP'=>'Quick transitions and lines on a compact ramp.'];
                         @endphp
                         <div class="panel" style="padding:18px;">
                             <x-cat-badge :cat="$cat" />
@@ -125,7 +129,7 @@
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
                 @foreach($event->categories as $cat)
                     @php
-                        $info = ['STREET'=>'Rails, ledges, stairs and gaps. Real urban obstacles.','PARK'=>'Bowls, transfers and flow lines in a built skatepark.','VERT'=>'Big air on the mega ramp. Rotations and grabs.','FLAT'=>'Footwork and balance combos on flat ground.'];
+                        $info = ['STREET'=>'Rails, ledges, stairs and gaps. Real urban obstacles.','PARK'=>'Bowls, transfers and flow lines in a built skatepark.','VERT'=>'Big air on the mega ramp. Rotations and grabs.','FLAT'=>'Footwork and balance combos on flat ground.','MINIRAMP'=>'Quick transitions and technical lines on a compact ramp.'];
                     @endphp
                     <div class="panel halftone" style="padding:22px;">
                         <x-cat-badge :cat="$cat" />

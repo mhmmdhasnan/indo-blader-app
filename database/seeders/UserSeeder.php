@@ -14,6 +14,7 @@ class UserSeeder extends Seeder
             ['email' => 'admin@indoblader.id'],
             [
                 'name'     => 'Admin',
+                'username' => 'admin',
                 'password' => Hash::make('admin123'),
                 'role'     => 'admin',
             ]
@@ -23,6 +24,7 @@ class UserSeeder extends Seeder
             ['email' => 'judge@indoblader.id'],
             [
                 'name'     => 'Head Judge',
+                'username' => 'judge',
                 'password' => Hash::make('judge123'),
                 'role'     => 'judge',
             ]

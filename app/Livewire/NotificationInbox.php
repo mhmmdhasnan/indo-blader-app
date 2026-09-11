@@ -9,7 +9,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
-#[Title('Notifications — Indo Blader')]
+#[Title('Notifications — FRAMEBLADESCORE')]
 class NotificationInbox extends Component
 {
     public string $entryCode;

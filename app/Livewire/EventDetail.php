@@ -21,7 +21,7 @@ class EventDetail extends Component
     public function mount(string $slug): void
     {
         $this->event = Event::where('slug', $slug)->firstOrFail();
-        $this->title = $this->event->title . ' — Indo Blader';
+        $this->title = $this->event->title . ' — FRAMEBLADESCORE';
     }
 
     public function render()

@@ -13,7 +13,7 @@
     <div class="wrap section" style="padding-top:40px;">
         <div class="between" style="margin-bottom:22px;flex-wrap:wrap;gap:12px;">
             <div class="flex gap-s" style="flex-wrap:wrap;">
-                @foreach(['ALL','STREET','PARK','VERT','FLAT'] as $opt)
+                @foreach(['ALL','STREET','PARK','VERT','FLAT','MINIRAMP'] as $opt)
                     <button wire:click="$set('category','{{ $opt }}')" class="label" style="
                         font-size:11px;padding:8px 14px;border:2px solid var(--ink);border-radius:3px;
                         background:{{ $category === $opt ? 'var(--ink)' : 'transparent' }};

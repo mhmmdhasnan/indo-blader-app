@@ -15,7 +15,7 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 
 #[Layout('layouts.app')]
-#[Title('Register — Indo Blader')]
+#[Title('Register — FRAMEBLADESCORE')]
 class RegistrationForm extends Component
 {
     use WithFileUploads;

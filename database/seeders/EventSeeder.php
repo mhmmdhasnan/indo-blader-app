@@ -13,7 +13,7 @@ class EventSeeder extends Seeder
     {
         $events = [
             [
-                'slug' => 'nationals', 'title' => 'Indo Blader Nationals', 'edition' => 'Vol. 06',
+                'slug' => 'nationals', 'title' => 'FRAMEBLADESCORE Nationals', 'edition' => 'Vol. 06',
                 'city' => 'Jakarta', 'venue' => 'Senayan Plaza', 'date' => '2026-08-22',
                 'date_label' => 'AUG 22–24, 2026', 'status' => 'OPEN',
                 'categories' => ['STREET', 'PARK', 'VERT'], 'prize' => 250000000,

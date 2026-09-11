@@ -25,7 +25,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.admin')]
-#[Title('Judge Panel — Indo Blader')]
+#[Title('Judge Panel — FRAMEBLADESCORE')]
 class Dashboard extends Component
 {
     public string $view = 'judging';
@@ -44,6 +44,7 @@ class Dashboard extends Component
     public int    $liveRiderId     = 0;
     public int    $liveRunNumber   = 1;
     public int    $judgeDivisionId = 0;
+    public int    $judgeGroupId    = 0;
 
     // Category review
     public int    $moveToCategoryId = 0;
@@ -76,6 +77,8 @@ class Dashboard extends Component
             $this->activeEventId   = $active->id;
             $this->judgeEventId    = $active->id;
             $this->selectedEventId = $active->id;
+            $this->judgeDivisionId = $active->active_division_id ?? 0;
+            $this->judgeGroupId    = $active->active_group_id ?? 0;
             $this->initCriteria();
         }
     }
@@ -92,9 +95,38 @@ class Dashboard extends Component
 
     public function updatedJudgeEventId(): void
     {
+        $event = Event::find($this->judgeEventId);
+        $this->judgeDivisionId = $event?->active_division_id ?? 0;
+        $this->judgeGroupId    = $event?->active_group_id ?? 0;
         $this->initCriteria();
         $this->scoreSubmitted = false;
         $this->koMatchId      = 0;
+    }
+
+    public function updatedJudgeDivisionId(): void
+    {
+        $this->judgeGroupId = 0;
+
+        if ($this->judgeEventId && $this->canControlLiveSession()) {
+            Event::whereKey($this->judgeEventId)->update([
+                'active_division_id' => $this->judgeDivisionId ?: null,
+                'active_group_id'    => null,
+            ]);
+        }
+    }
+
+    public function updatedJudgeGroupId(): void
+    {
+        if ($this->judgeEventId && $this->canControlLiveSession()) {
+            Event::whereKey($this->judgeEventId)->update([
+                'active_group_id' => $this->judgeGroupId ?: null,
+            ]);
+        }
+    }
+
+    private function canControlLiveSession(): bool
+    {
+        return auth()->user()->isHeadJudge() || auth()->user()->isOperator();
     }
 
     public function updatedScoringMode(): void
@@ -132,6 +164,8 @@ class Dashboard extends Component
 
     public function submitScore(): void
     {
+        if (auth()->user()->isOperator()) return;
+
         if (!$this->judgeEventId || !$this->liveRiderId) {
             $this->addError('judgeEventId', 'Pilih event dan rider terlebih dahulu.');
             return;
@@ -143,6 +177,8 @@ class Dashboard extends Component
             return;
         }
 
+        $stage = Registration::find($this->liveRiderId)?->division?->live_stage ?? 'QUALIFICATION';
+
         $score = JudgeScore::firstOrCreate(
             [
                 'judge_user_id' => auth()->id(),
@@ -150,6 +186,7 @@ class Dashboard extends Component
                 'rider_id'      => $riderId,
                 'run_number'    => $this->liveRunNumber,
                 'scoring_mode'  => 'LIVE',
+                'live_stage'    => $stage,
             ],
             ['status' => 'WAITING']
         );
@@ -182,12 +219,34 @@ class Dashboard extends Component
             'nick'     => $reg->name,
             'city'     => $reg->city ?? '-',
             'age'      => $age,
-            'category' => in_array($reg->category, ['STREET','PARK','VERT','FLAT']) ? $reg->category : 'STREET',
+            'category' => in_array($reg->category, ['STREET','PARK','VERT','FLAT','MINIRAMP']) ? $reg->category : 'STREET',
             'stance'   => in_array($reg->stance, ['Regular','Goofy']) ? $reg->stance : 'Regular',
             'slug'     => \Illuminate\Support\Str::slug($reg->name . '-' . $reg->id),
         ]);
 
         return $rider->id;
+    }
+
+    private function currentLiveStage(Event $event): string
+    {
+        if (!$event->live_rider_id) return 'QUALIFICATION';
+
+        $liveRider = Rider::find($event->live_rider_id);
+        if (!$liveRider) return 'QUALIFICATION';
+
+        $reg = Registration::where('event_id', $event->id)
+            ->where('status', 'APPROVED')
+            ->where(function ($q) use ($liveRider) {
+                if ($liveRider->user_id) {
+                    $q->where('user_id', $liveRider->user_id)
+                      ->orWhere('name', $liveRider->name);
+                } else {
+                    $q->where('name', $liveRider->name);
+                }
+            })
+            ->first();
+
+        return $reg?->division?->live_stage ?? 'QUALIFICATION';
     }
 
     public function submitKnockoutScore(): void
@@ -234,14 +293,14 @@ class Dashboard extends Component
         $this->initCriteria();
     }
 
-    // ─── Live Session Sync (non-head judges) ─────────────────────────────────
+    // ─── Live Session Sync (everyone except Operator, who sets the state) ─────
 
     public function syncLiveState(): void
     {
-        if (auth()->user()->isHeadJudge()) return;
+        if (auth()->user()->isOperator()) return;
 
         $event = $this->judgeEventId ? Event::find($this->judgeEventId) : null;
-        if (!$event || $event->live_phase !== 'RUNNING') {
+        if (!$event || !in_array($event->live_phase, ['NEXT', 'RUNNING'], true)) {
             return;
         }
 
@@ -264,14 +323,15 @@ class Dashboard extends Component
             $this->liveRiderId   = $reg->id;
             $this->liveRunNumber = $event->live_run_number ?? 1;
             $this->scoreSubmitted = false;
+            $this->initCriteria();
         }
     }
 
-    // ─── Live Session Control (Head Judge only) ───────────────────────────────
+    // ─── Live Session Control (Head Judge starts/reveals, Operator sets up) ───
 
     public function showNextRider(): void
     {
-        if (!auth()->user()->isHeadJudge()) return;
+        if (!$this->canControlLiveSession()) return;
         if (!$this->judgeEventId || !$this->liveRiderId) return;
 
         $riderId = $this->resolveRiderIdFromRegistration($this->liveRiderId);
@@ -301,6 +361,9 @@ class Dashboard extends Component
             'live_phase'      => 'RUNNING',
             'live_started_at' => now(),
         ]);
+
+        $this->scoreSubmitted = false;
+        $this->initCriteria();
     }
 
     public function revealScore(): void
@@ -612,39 +675,70 @@ class Dashboard extends Component
                 ? \App\Models\EventDivision::where('event_id', $this->judgeEventId)->where('is_active', true)->orderBy('name')->get()
                 : collect();
 
+            $selectedDivision = $this->judgeDivisionId ? \App\Models\EventDivision::find($this->judgeDivisionId) : null;
+            $data['judgeGroups'] = ($this->judgeDivisionId && $selectedDivision?->live_stage !== 'FINAL')
+                ? \App\Models\DivisionGroup::where('event_division_id', $this->judgeDivisionId)->orderBy('name')->get()
+                : collect();
+
             // Use Registration records directly so all approved participants appear,
             // regardless of whether they have a Rider profile yet.
+            $finalistRegIds = \App\Models\DivisionFinalist::whereIn(
+                'event_division_id',
+                \App\Models\EventDivision::where('event_id', $this->judgeEventId)->where('live_stage', 'FINAL')->pluck('id')
+            )->pluck('registration_id');
+
             $data['judgeRiders'] = $this->judgeEventId
                 ? Registration::where('event_id', $this->judgeEventId)
                     ->where('status', 'APPROVED')
-                    ->when($this->judgeDivisionId, fn ($q) => $q->where('division_id', $this->judgeDivisionId))
+                    ->when($this->judgeDivisionId, function ($q) use ($finalistRegIds, $selectedDivision) {
+                        $q->where('division_id', $this->judgeDivisionId);
+                        if ($selectedDivision?->live_stage === 'FINAL') {
+                            $q->whereIn('id', $finalistRegIds);
+                        } elseif ($this->judgeGroupId) {
+                            $q->where('division_group_id', $this->judgeGroupId);
+                        }
+                    })
+                    ->when(!$this->judgeDivisionId, function ($q) use ($finalistRegIds) {
+                        $q->where(function ($q2) use ($finalistRegIds) {
+                            $q2->whereDoesntHave('division', fn ($q3) => $q3->where('live_stage', 'FINAL'))
+                               ->orWhereIn('id', $finalistRegIds);
+                        });
+                    })
                     ->with('division')
                     ->orderBy('name')
                     ->get()
                 : collect();
 
             // Other judges' live scores for current rider/run
-            if ($this->scoringMode === 'live' && $this->judgeEventId && $this->liveRiderId) {
+            $resolvedLiveRiderId = ($this->scoringMode === 'live' && $this->liveRiderId)
+                ? $this->resolveRiderIdFromRegistration($this->liveRiderId)
+                : null;
+            $selectedLiveStage = Registration::find($this->liveRiderId)?->division?->live_stage ?? 'QUALIFICATION';
+
+            if ($this->scoringMode === 'live' && $this->judgeEventId && $resolvedLiveRiderId) {
                 $data['otherJudgeScores'] = JudgeScore::where('event_id', $this->judgeEventId)
-                    ->where('rider_id', $this->liveRiderId)
+                    ->where('rider_id', $resolvedLiveRiderId)
                     ->where('run_number', $this->liveRunNumber)
                     ->where('scoring_mode', 'LIVE')
+                    ->where('live_stage', $selectedLiveStage)
                     ->with(['judge', 'scoreDetails'])
                     ->get();
             } else {
                 $data['otherJudgeScores'] = collect();
             }
+            $data['riderAlreadyRan'] = $data['otherJudgeScores']->isNotEmpty();
 
-            // HEAD JUDGE: live session — status per judge
+            // HEAD JUDGE / OPERATOR: live session — status per judge
             $data['liveJudgeScores'] = collect();
             $data['assignedJudges']  = collect();
-            if (auth()->user()->isHeadJudge() && $this->judgeEventId) {
+            if ($this->canControlLiveSession() && $this->judgeEventId) {
                 $liveEvent = $data['activeEvent'];
                 if ($liveEvent?->live_rider_id) {
                     $data['liveJudgeScores'] = JudgeScore::where('event_id', $this->judgeEventId)
                         ->where('rider_id', $liveEvent->live_rider_id)
                         ->where('run_number', $liveEvent->live_run_number)
                         ->where('scoring_mode', 'LIVE')
+                        ->where('live_stage', $this->currentLiveStage($liveEvent))
                         ->with(['judge', 'scoreDetails'])
                         ->get();
                 }

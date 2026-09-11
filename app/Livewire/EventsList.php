@@ -9,7 +9,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
-#[Title('Events — Indo Blader')]
+#[Title('Events — FRAMEBLADESCORE')]
 class EventsList extends Component
 {
     #[Url(as: 'cat')]

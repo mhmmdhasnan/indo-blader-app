@@ -524,6 +524,6 @@ select.input-field option {
 [data-theme="light"] .logo-light { display: block; }
 
 /* ── LIVE FULLSCREEN ─────────────────────────────────────────── */
-html.is-fullscreen header,
-html.is-fullscreen footer { display: none !important; }
+html.is-fullscreen footer,
+html.is-fullscreen .nav-fs-hide { display: none !important; }
 html.is-fullscreen main { padding: 0 !important; }

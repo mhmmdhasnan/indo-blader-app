@@ -9,7 +9,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
-#[Title('Riders — Indo Blader')]
+#[Title('Riders — FRAMEBLADESCORE')]
 class RidersList extends Component
 {
     #[Url(as: 'cat')]

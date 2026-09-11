@@ -7,7 +7,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
-#[Title('About — Indo Blader')]
+#[Title('About — FRAMEBLADESCORE')]
 class About extends Component
 {
     public function render()

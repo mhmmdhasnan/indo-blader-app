@@ -9,7 +9,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
-#[Title('Qualification — Indo Blader')]
+#[Title('Qualification — FRAMEBLADESCORE')]
 class QualificationPage extends Component
 {
     public Event $event;

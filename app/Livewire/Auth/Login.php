@@ -8,22 +8,22 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
-#[Title('Login — Indo Blader')]
+#[Title('Login — FRAMEBLADESCORE')]
 class Login extends Component
 {
-    public string $email = '';
+    public string $username = '';
     public string $password = '';
     public bool $remember = false;
 
     public function login(): void
     {
         $this->validate([
-            'email'    => 'required|email',
+            'username' => 'required|string',
             'password' => 'required',
         ]);
 
-        if (!Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
-            $this->addError('email', 'Email atau password salah.');
+        if (!Auth::attempt(['username' => $this->username, 'password' => $this->password], $this->remember)) {
+            $this->addError('username', 'Username atau password salah.');
             return;
         }
 
