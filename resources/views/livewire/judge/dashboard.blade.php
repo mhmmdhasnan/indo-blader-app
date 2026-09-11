@@ -12,19 +12,26 @@
             <span class="badge badge-out" style="margin-top:12px;font-size:9px;">JUDGE PANEL</span>
         </div>
 
-        {{-- ── GLOBAL EVENT SELECTOR ── --}}
+        {{-- ── GLOBAL EVENT SELECTOR — Operator saja yang bisa ganti, Head Judge/Judge cuma ikut ── --}}
         <div style="padding:12px 14px;border-bottom:2px solid var(--ink);background:var(--bg);">
             <span class="mono" style="font-size:9px;letter-spacing:0.16em;color:var(--ink-dim);display:block;margin-bottom:6px;">ACTIVE EVENT</span>
-            <select wire:model.live="activeEventId" style="
-                width:100%;padding:8px 10px;background:var(--bg-2);
-                border:2px solid var(--lime);border-radius:3px;
-                color:var(--ink);font-family:inherit;font-size:12px;outline:none;
-            ">
-                <option value="0">— pilih event —</option>
-                @foreach($events as $ev)
-                    <option value="{{ $ev->id }}">{{ $ev->title }}</option>
-                @endforeach
-            </select>
+            @if(auth()->user()->isOperator())
+                <select wire:model.live="activeEventId" style="
+                    width:100%;padding:8px 10px;background:var(--bg-2);
+                    border:2px solid var(--lime);border-radius:3px;
+                    color:var(--ink);font-family:inherit;font-size:12px;outline:none;
+                ">
+                    <option value="0">— pilih event —</option>
+                    @foreach($events as $ev)
+                        <option value="{{ $ev->id }}">{{ $ev->title }}</option>
+                    @endforeach
+                </select>
+            @else
+                <div style="padding:8px 10px;background:var(--bg-2);border:2px solid var(--line);border-radius:3px;color:var(--ink);font-size:12px;">
+                    {{ $activeEvent->title ?? '— belum ada event aktif —' }}
+                </div>
+                <p class="mono dim" style="font-size:8px;margin-top:4px;">mengikuti pilihan Operator</p>
+            @endif
             @if(isset($activeEvent) && $activeEvent)
                 <div class="flex" style="align-items:center;gap:6px;margin-top:6px;">
                     <span class="badge badge-{{ $activeEvent->status === 'LIVE' ? 'lime' : ($activeEvent->status === 'DONE' ? 'out' : 'red') }}" style="font-size:8px;">

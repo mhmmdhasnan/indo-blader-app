@@ -446,20 +446,20 @@ select.input-field option {
 .score-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .score-header {
     display: grid;
-    grid-template-columns: 50px 1fr 90px 90px 110px;
-    padding: 10px 18px;
+    grid-template-columns: 64px 1fr 110px 110px 140px;
+    padding: 14px 22px;
     border-bottom: 1px solid var(--line);
-    min-width: 430px;
+    min-width: 520px;
 }
 .score-row {
     display: grid;
-    grid-template-columns: 50px 1fr 90px 90px 110px;
+    grid-template-columns: 64px 1fr 110px 110px 140px;
     align-items: center;
-    padding: 13px 18px;
-    min-width: 430px;
+    padding: 20px 22px;
+    min-width: 520px;
 }
 @media (max-width: 580px) {
-    .score-header, .score-row { grid-template-columns: 44px 1fr 80px 90px; min-width: 0; }
+    .score-header, .score-row { grid-template-columns: 54px 1fr 100px 120px; min-width: 0; }
     .score-hide { display: none !important; }
 }
 

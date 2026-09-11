@@ -69,9 +69,7 @@ class Dashboard extends Component
 
     public function mount(): void
     {
-        $active = Event::where('status', 'LIVE')->orderBy('date')->first()
-            ?? Event::orderByRaw("ABS(DATEDIFF(date, NOW()))")->orderBy('date')->first()
-            ?? Event::orderBy('date')->first();
+        $active = $this->resolveActiveEvent();
 
         if ($active) {
             $this->activeEventId   = $active->id;
@@ -83,8 +81,24 @@ class Dashboard extends Component
         }
     }
 
+    private function resolveActiveEvent(): ?Event
+    {
+        $settingId = \App\Models\Setting::get('active_event_id');
+        if ($settingId && $event = Event::find($settingId)) {
+            return $event;
+        }
+
+        return Event::where('status', 'LIVE')->orderBy('date')->first()
+            ?? Event::orderByRaw("ABS(DATEDIFF(date, NOW()))")->orderBy('date')->first()
+            ?? Event::orderBy('date')->first();
+    }
+
     public function updatedActiveEventId(): void
     {
+        if (auth()->user()->isOperator()) {
+            \App\Models\Setting::set('active_event_id', $this->activeEventId ?: null);
+        }
+
         $this->judgeEventId    = $this->activeEventId;
         $this->selectedEventId = $this->activeEventId;
         $this->scoreSubmitted  = false;
@@ -299,6 +313,22 @@ class Dashboard extends Component
     {
         if (auth()->user()->isOperator()) return;
 
+        $settingEventId = \App\Models\Setting::get('active_event_id');
+        if ($settingEventId && $this->activeEventId !== (int) $settingEventId) {
+            $newEvent = Event::find($settingEventId);
+            if ($newEvent) {
+                $this->activeEventId   = $newEvent->id;
+                $this->judgeEventId    = $newEvent->id;
+                $this->selectedEventId = $newEvent->id;
+                $this->judgeDivisionId = $newEvent->active_division_id ?? 0;
+                $this->judgeGroupId    = $newEvent->active_group_id ?? 0;
+                $this->scoreSubmitted  = false;
+                $this->koMatchId       = 0;
+                $this->liveRiderId     = 0;
+                $this->initCriteria();
+            }
+        }
+
         $event = $this->judgeEventId ? Event::find($this->judgeEventId) : null;
         if (!$event || !in_array($event->live_phase, ['NEXT', 'RUNNING'], true)) {
             return;
@@ -319,11 +349,36 @@ class Dashboard extends Component
             })
             ->first();
 
-        if ($reg && $this->liveRiderId !== $reg->id) {
+        if (!$reg) return;
+
+        $eventRunNumber = $event->live_run_number ?? 1;
+        $riderChanged   = $this->liveRiderId !== $reg->id;
+        $runChanged     = $this->liveRunNumber !== $eventRunNumber;
+
+        if ($riderChanged || $runChanged) {
             $this->liveRiderId   = $reg->id;
-            $this->liveRunNumber = $event->live_run_number ?? 1;
-            $this->scoreSubmitted = false;
+            $this->liveRunNumber = $eventRunNumber;
             $this->initCriteria();
+        }
+
+        // Selalu cek ulang ke database — bukan cuma saat rider/run berganti —
+        // supaya kalau run ini sempat dibatalkan (skor dihapus) lalu dijalankan
+        // ulang dengan rider & run number yang sama, tombol Submit Score muncul
+        // lagi alih-alih nyangkut di status "sudah submit" yang basi.
+        if ($event->live_phase === 'RUNNING') {
+            $wasSubmitted = $this->scoreSubmitted;
+            $this->scoreSubmitted = JudgeScore::where('event_id', $event->id)
+                ->where('rider_id', $event->live_rider_id)
+                ->where('run_number', $eventRunNumber)
+                ->where('scoring_mode', 'LIVE')
+                ->where('live_stage', $this->currentLiveStage($event))
+                ->where('judge_user_id', auth()->id())
+                ->where('status', 'DONE')
+                ->exists();
+
+            if ($wasSubmitted && !$this->scoreSubmitted) {
+                $this->initCriteria();
+            }
         }
     }
 
@@ -338,8 +393,9 @@ class Dashboard extends Component
         if (!$riderId) return;
 
         Event::findOrFail($this->judgeEventId)->update([
-            'live_rider_id' => $riderId,
-            'live_phase'    => 'NEXT',
+            'live_rider_id'   => $riderId,
+            'live_run_number' => $this->liveRunNumber,
+            'live_phase'      => 'NEXT',
         ]);
     }
 
@@ -374,8 +430,23 @@ class Dashboard extends Component
 
     public function endSession(): void
     {
-        if (!auth()->user()->isHeadJudge()) return;
-        Event::findOrFail($this->judgeEventId)->update([
+        if (!$this->canControlLiveSession()) return;
+
+        $event = Event::findOrFail($this->judgeEventId);
+
+        // Membatalkan run yang sedang berjalan (bukan sekadar batal preview atau
+        // kembali dari layar reveal) juga menghapus skor yang sudah disubmit
+        // untuk run itu, supaya tidak ada skor "nyangkut" kalau rider run ulang.
+        if ($event->live_phase === 'RUNNING' && $event->live_rider_id && $event->live_run_number) {
+            JudgeScore::where('event_id', $event->id)
+                ->where('rider_id', $event->live_rider_id)
+                ->where('run_number', $event->live_run_number)
+                ->where('scoring_mode', 'LIVE')
+                ->where('live_stage', $this->currentLiveStage($event))
+                ->delete();
+        }
+
+        $event->update([
             'live_rider_id'   => null,
             'live_run_number' => null,
             'live_phase'      => null,
@@ -678,6 +749,14 @@ class Dashboard extends Component
             $selectedDivision = $this->judgeDivisionId ? \App\Models\EventDivision::find($this->judgeDivisionId) : null;
             $data['judgeGroups'] = ($this->judgeDivisionId && $selectedDivision?->live_stage !== 'FINAL')
                 ? \App\Models\DivisionGroup::where('event_division_id', $this->judgeDivisionId)->orderBy('name')->get()
+                : collect();
+
+            $data['operatorLeaderboard'] = ($selectedDivision && $this->scoringMode === 'live')
+                ? app(\App\Services\LiveScoreboardService::class)->buildLeaderboard(
+                    $selectedDivision,
+                    $selectedDivision->live_stage,
+                    ($selectedDivision->live_stage !== 'FINAL' && $this->judgeGroupId) ? $this->judgeGroupId : null
+                  )
                 : collect();
 
             // Use Registration records directly so all approved participants appear,

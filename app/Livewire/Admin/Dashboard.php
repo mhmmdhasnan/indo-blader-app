@@ -378,9 +378,12 @@ class Dashboard extends Component
             })
             ->first();
 
-        if ($reg && $this->liveRiderId !== $reg->id) {
+        if (!$reg) return;
+
+        $eventRunNumber = $event->live_run_number ?? 1;
+        if ($this->liveRiderId !== $reg->id || $this->liveRunNumber !== $eventRunNumber) {
             $this->liveRiderId     = $reg->id;
-            $this->liveRunNumber   = $event->live_run_number ?? 1;
+            $this->liveRunNumber   = $eventRunNumber;
             $this->scoreSubmitted  = false;
             $this->criteriaScores  = [];
             $this->criteriaScoresB = [];

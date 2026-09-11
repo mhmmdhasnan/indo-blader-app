@@ -5,11 +5,11 @@
         $isOperator  = auth()->user()->isOperator();
     @endphp
 
-    {{-- ── HEAD JUDGE / OPERATOR LIVE CONTROL ── --}}
-    @if(($isHeadJudge || $isOperator) && $scoringMode === 'live')
+    {{-- ── OPERATOR STATUS SUMMARY (LIVE CONTROL milik Head Judge sekarang di bawah Context Scoring) ── --}}
+    @if($isOperator && $scoringMode === 'live')
     <div class="panel" style="border:2px solid var(--lime);padding:18px;">
         <div class="between" style="margin-bottom:14px;">
-            <span class="kicker" style="color:var(--lime);">{{ $isOperator ? '⚙ OPERATOR — SETUP' : '⚡ LIVE CONTROL' }}</span>
+            <span class="kicker" style="color:var(--lime);">⚙ OPERATOR — SETUP</span>
             @if($activeEvent?->live_phase)
                 <span class="badge badge-red"><span class="live-dot" style="margin-right:5px;"></span>{{ $activeEvent->live_phase }}</span>
             @else
@@ -19,85 +19,13 @@
 
         @if(!$activeEvent?->live_phase || $activeEvent?->live_phase === 'NEXT')
 
-            @if($isOperator)
-                {{-- OPERATOR: pilih rider, run number, preview --}}
-                <div class="col" style="gap:12px;margin-bottom:12px;">
-                    <div>
-                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">
-                            RIDER
-                            @if($judgeDivisionId && isset($activeDivName))
-                                <span style="color:var(--lime);margin-left:6px;">· {{ strtoupper($activeDivName) }}</span>
-                            @endif
-                        </span>
-                        @if(!$judgeEventId)
-                            <p class="mono dim" style="font-size:11px;">Pilih event terlebih dahulu.</p>
-                        @elseif($judgeRiders->isEmpty() && ($activeDiv ?? null)?->live_stage === 'FINAL')
-                            <p class="mono" style="font-size:11px;color:var(--red);">Belum ada finalis untuk divisi ini. Pilih finalis dulu di tab Events → Divisi.</p>
-                        @elseif($judgeRiders->isEmpty())
-                            <p class="mono" style="font-size:11px;color:var(--red);">Belum ada peserta approved untuk event{{ $judgeDivisionId ? ' / divisi' : '' }} ini.</p>
-                        @else
-                        <select wire:model.live="liveRiderId" class="input-field" style="width:100%;">
-                            <option value="0">— pilih rider —</option>
-                            @foreach($judgeRiders as $r)
-                                <option value="{{ $r->id }}">{{ $r->name }}{{ $r->division ? " · {$r->division->name}" : '' }}</option>
-                            @endforeach
-                        </select>
-                        @endif
-                    </div>
-                    <div class="flex gap-s" style="align-items:flex-end;">
-                        <div>
-                            <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">RUN NUMBER</span>
-                            <select wire:model.live="liveRunNumber" class="input-field" style="max-width:120px;">
-                                <option value="1">Run 1</option>
-                                <option value="2">Run 2</option>
-                                <option value="3">Run 3</option>
-                            </select>
-                        </div>
-                        <button wire:click="showNextRider"
-                            class="btn btn-ghost btn-sm"
-                            @if(!$liveRiderId) disabled @endif>
-                            👁 Preview
-                        </button>
-                    </div>
-                </div>
-            @endif
-
             @if($activeEvent?->live_phase === 'NEXT')
                 @php $nextR = $activeEvent->live_rider_id ? \App\Models\Rider::find($activeEvent->live_rider_id) : null; @endphp
-                <div class="flex" style="align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:var(--bg-2);border-radius:3px;">
+                <div class="flex" style="align-items:center;gap:10px;padding:10px;background:var(--bg-2);border-radius:3px;">
                     <span style="font-size:13px;">→</span>
                     <span class="label" style="font-size:13px;">{{ $nextR?->name ?? '—' }}</span>
                     <span class="mono dim" style="font-size:10px;margin-left:auto;">NEXT UP · RUN {{ $activeEvent->live_run_number }}</span>
                 </div>
-            @elseif($isHeadJudge)
-                @php $readyRider = $liveRiderId ? $judgeRiders->find($liveRiderId) : null; @endphp
-                <p class="mono dim" style="font-size:11px;margin-bottom:12px;">
-                    @if($readyRider)
-                        Rider siap: <strong>{{ $readyRider->name }}</strong> · Run {{ $liveRunNumber }}. Klik START RUN untuk mulai.
-                    @else
-                        Menunggu Operator memilih rider &amp; run.
-                    @endif
-                </p>
-            @endif
-
-            @if($isHeadJudge)
-                <div class="flex gap-s" style="margin-bottom:8px;">
-                    <button wire:click="startRun"
-                        wire:key="start-run-{{ $liveRiderId }}-{{ $liveRunNumber }}-{{ ($riderAlreadyRan ?? false) ? 1 : 0 }}"
-                        class="btn btn-lime"
-                        @if(!$liveRiderId) disabled @endif
-                        @if($riderAlreadyRan ?? false) wire:confirm="Rider ini sudah melakukan run {{ $liveRunNumber }} sebelumnya. Yakin ingin mengulang run?" @endif
-                        style="flex:1;justify-content:center;font-size:13px;letter-spacing:0.1em;">
-                        ▶ START RUN
-                    </button>
-                </div>
-                @if($activeEvent?->live_phase === 'NEXT')
-                    <button wire:click="endSession" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;font-size:11px;">
-                        ✗ Batal Preview
-                    </button>
-                @elseif(!$liveRiderId)
-                    <p class="mono dim" style="font-size:10px;text-align:center;">Menunggu Operator memilih rider</p>
-                @endif
             @endif
 
         @elseif($activeEvent->live_phase === 'RUNNING')
@@ -141,36 +69,15 @@
             </div>
             @endif
 
-            @if($isHeadJudge)
-                @php
-                    $pendingJudgeNames = ($assignedJudges ?? collect())
-                        ->reject(fn ($aj) => in_array($aj->user_id, $submittedIds))
-                        ->map(fn ($aj) => $aj->user?->name)
-                        ->filter()
-                        ->implode(', ');
-                @endphp
-                <div class="flex gap-s">
-                    <button wire:click="revealScore"
-                        wire:key="reveal-score-{{ $activeEvent->live_rider_id }}-{{ $activeEvent->live_run_number }}-{{ $doneCount }}-{{ $totalJudges }}"
-                        @if($totalJudges && $doneCount < $totalJudges)
-                            wire:confirm="Masih ada {{ $totalJudges - $doneCount }} judge yang belum menilai ({{ $pendingJudgeNames ?: 'tidak diketahui' }}). Yakin ingin reveal score sekarang?"
-                        @endif
-                        class="btn btn-lime" style="flex:1;justify-content:center;">✓ REVEAL SCORE</button>
-                    <button wire:click="endSession" class="btn btn-ghost btn-sm">✗ BATAL</button>
-                </div>
-            @else
-                <p class="mono dim" style="font-size:11px;">Menunggu Head Judge klik REVEAL SCORE.</p>
-            @endif
+            <p class="mono dim" style="font-size:11px;">Menunggu Head Judge klik REVEAL SCORE.</p>
 
         @elseif($activeEvent->live_phase === 'REVEALING')
             <p class="mono" style="font-size:11px;margin-bottom:12px;color:var(--lime);">
                 Skor sedang ditampilkan di layar publik.
             </p>
-            @if($isHeadJudge)
-                <button wire:click="endSession" class="btn btn-ghost" style="width:100%;justify-content:center;">
-                    ← KEMBALI KE LEADERBOARD
-                </button>
-            @endif
+            <button wire:click="endSession" class="btn btn-ghost" style="width:100%;justify-content:center;">
+                ← KEMBALI KE LEADERBOARD
+            </button>
         @endif
     </div>
     @endif
@@ -271,6 +178,90 @@
         @endif
     </div>
 
+    {{-- Operator setup panel — muncul setelah filter divisi/group di atas --}}
+    @if($isOperator && $scoringMode === 'live' && (!$activeEvent?->live_phase || $activeEvent?->live_phase === 'NEXT'))
+    <div class="panel" style="border:2px solid var(--lime);padding:18px;">
+        <span class="kicker" style="color:var(--lime);display:block;margin-bottom:14px;">⚙ SETUP RUN</span>
+        <div class="col" style="gap:12px;margin-bottom:12px;">
+            <div>
+                <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">
+                    RIDER
+                    @if($judgeDivisionId && isset($activeDivName))
+                        <span style="color:var(--lime);margin-left:6px;">· {{ strtoupper($activeDivName) }}</span>
+                    @endif
+                </span>
+                @if(!$judgeEventId)
+                    <p class="mono dim" style="font-size:11px;">Pilih event terlebih dahulu.</p>
+                @elseif($judgeRiders->isEmpty() && ($activeDiv ?? null)?->live_stage === 'FINAL')
+                    <p class="mono" style="font-size:11px;color:var(--red);">Belum ada finalis untuk divisi ini. Pilih finalis dulu di tab Events → Divisi.</p>
+                @elseif($judgeRiders->isEmpty())
+                    <p class="mono" style="font-size:11px;color:var(--red);">Belum ada peserta approved untuk event{{ $judgeDivisionId ? ' / divisi' : '' }} ini.</p>
+                @else
+                <select wire:model.live="liveRiderId" class="input-field" style="width:100%;">
+                    <option value="0">— pilih rider —</option>
+                    @foreach($judgeRiders as $r)
+                        <option value="{{ $r->id }}">{{ $r->name }}{{ $r->division ? " · {$r->division->name}" : '' }}</option>
+                    @endforeach
+                </select>
+                @endif
+            </div>
+            <div class="flex gap-s" style="align-items:flex-end;">
+                <div>
+                    <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">RUN NUMBER</span>
+                    <select wire:model.live="liveRunNumber" class="input-field" style="max-width:120px;">
+                        <option value="1">Run 1</option>
+                        <option value="2">Run 2</option>
+                        <option value="3">Run 3</option>
+                    </select>
+                </div>
+                <button wire:click="showNextRider"
+                    class="btn btn-ghost btn-sm"
+                    @if(!$liveRiderId) disabled @endif>
+                    👁 Preview
+                </button>
+            </div>
+        </div>
+        @if($activeEvent?->live_phase === 'NEXT')
+            <button wire:click="endSession" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;font-size:11px;">
+                ✗ Batal Preview
+            </button>
+        @endif
+    </div>
+    @endif
+
+    {{-- Operator: leaderboard divisi/group yang sedang aktif — tampil di semua fase --}}
+    @if($isOperator && $scoringMode === 'live' && $judgeDivisionId)
+    <div class="panel" style="overflow:hidden;">
+        <div style="padding:14px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
+            <span class="kicker">📊 LEADERBOARD — {{ strtoupper($activeDivName ?? '') }}{{ ($activeDiv ?? null)?->live_stage === 'FINAL' ? ' · FINAL' : ' · KUALIFIKASI' }}</span>
+        </div>
+        @if(($operatorLeaderboard ?? collect())->isEmpty())
+            <p class="mono dim" style="font-size:12px;padding:18px;">Belum ada skor masuk untuk divisi/group ini.</p>
+        @else
+            <div class="score-scroll">
+                <div class="score-header">
+                    @foreach(['#','RIDER','RUN 1','RUN 2','BEST'] as $i => $h)
+                        <span class="mono {{ $h === 'RUN 1' ? 'score-hide' : '' }}"
+                            style="font-size:10px;letter-spacing:0.12em;color:var(--ink-dim);text-align:{{ $i >= 2 ? 'right' : 'left' }};">{{ $h }}</span>
+                    @endforeach
+                </div>
+                @foreach($operatorLeaderboard as $i => $row)
+                    <div class="score-row" style="border-bottom:{{ !$loop->last ? '1px solid var(--line)' : 'none' }};">
+                        <span class="display tnum" style="font-size:26px;color:{{ $i === 0 ? 'var(--lime)' : ($i < 3 ? 'var(--ink)' : 'var(--ink-faint)') }};">{{ str_pad($i+1,2,'0',STR_PAD_LEFT) }}</span>
+                        <div class="flex" style="align-items:center;gap:12px;">
+                            <x-avatar :initials="$row['rider']->initials" :size="36" :ring="$i === 0" />
+                            <span class="label" style="font-size:14px;">{{ $row['rider']->name }}</span>
+                        </div>
+                        <span class="mono tnum score-hide" style="font-size:14px;text-align:right;color:var(--ink-dim);">{{ $row['run1'] !== null ? number_format($row['run1'], 1) : '—' }}</span>
+                        <span class="mono tnum" style="font-size:14px;text-align:right;color:var(--ink-dim);">{{ $row['run2'] !== null ? number_format($row['run2'], 1) : '—' }}</span>
+                        <span class="display tnum" style="font-size:22px;text-align:right;color:{{ $i === 0 ? 'var(--lime)' : 'var(--ink)' }};">{{ $row['best'] > 0 ? number_format($row['best'], 1) : '—' }}</span>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    </div>
+    @endif
+
     @php
         $criteria  = $eventCriteria ?? collect();
         $critCount = $criteria->count() ?: 1;
@@ -285,7 +276,7 @@
         @php $isRunning = $activeEvent?->live_phase === 'RUNNING'; @endphp
 
         @if($isOperator)
-            {{-- Operator tidak menilai — panel setup di atas sudah cukup --}}
+            {{-- Operator tidak menilai — panel setup di atas (setelah filter divisi/group) sudah cukup --}}
         @elseif(!$isHeadJudge && !$isRunning)
             {{-- Judge biasa: standby state --}}
             <div class="panel center col" style="padding:48px;gap:14px;text-align:center;">
@@ -410,6 +401,121 @@
             </div>
         </div>
         @endif {{-- end standby/active check --}}
+
+        {{-- ── HEAD JUDGE LIVE CONTROL — di bawah Context Scoring ── --}}
+        @if($isHeadJudge)
+        <div class="panel" style="border:2px solid var(--lime);padding:18px;">
+            <div class="between" style="margin-bottom:14px;">
+                <span class="kicker" style="color:var(--lime);">⚡ LIVE CONTROL</span>
+                @if($activeEvent?->live_phase)
+                    <span class="badge badge-red"><span class="live-dot" style="margin-right:5px;"></span>{{ $activeEvent->live_phase }}</span>
+                @else
+                    <span class="badge badge-out">STANDBY</span>
+                @endif
+            </div>
+
+            @if(!$activeEvent?->live_phase || $activeEvent?->live_phase === 'NEXT')
+
+                @if($activeEvent?->live_phase === 'NEXT')
+                    @php $nextR = $activeEvent->live_rider_id ? \App\Models\Rider::find($activeEvent->live_rider_id) : null; @endphp
+                    <div class="flex" style="align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:var(--bg-2);border-radius:3px;">
+                        <span style="font-size:13px;">→</span>
+                        <span class="label" style="font-size:13px;">{{ $nextR?->name ?? '—' }}</span>
+                        <span class="mono dim" style="font-size:10px;margin-left:auto;">NEXT UP · RUN {{ $activeEvent->live_run_number }}</span>
+                    </div>
+                @else
+                    @php $readyRider = $liveRiderId ? $judgeRiders->find($liveRiderId) : null; @endphp
+                    <p class="mono dim" style="font-size:11px;margin-bottom:12px;">
+                        @if($readyRider)
+                            Rider siap: <strong>{{ $readyRider->name }}</strong> · Run {{ $liveRunNumber }}. Klik START RUN untuk mulai.
+                        @else
+                            Menunggu Operator memilih rider &amp; run.
+                        @endif
+                    </p>
+                @endif
+
+                <div class="flex gap-s" style="margin-bottom:8px;">
+                    <button wire:click="startRun"
+                        wire:key="start-run-{{ $liveRiderId }}-{{ $liveRunNumber }}-{{ ($riderAlreadyRan ?? false) ? 1 : 0 }}"
+                        class="btn btn-lime"
+                        @if(!$liveRiderId) disabled @endif
+                        @if($riderAlreadyRan ?? false) wire:confirm="Rider ini sudah melakukan run {{ $liveRunNumber }} sebelumnya. Yakin ingin mengulang run?" @endif
+                        style="flex:1;justify-content:center;font-size:13px;letter-spacing:0.1em;">
+                        ▶ START RUN
+                    </button>
+                </div>
+                @if(!$liveRiderId)
+                    <p class="mono dim" style="font-size:10px;text-align:center;">Menunggu Operator memilih rider</p>
+                @endif
+
+            @elseif($activeEvent->live_phase === 'RUNNING')
+                @php
+                    $liveR        = $activeEvent->live_rider_id ? \App\Models\Rider::find($activeEvent->live_rider_id) : null;
+                    $submittedIds = ($liveJudgeScores ?? collect())->where('status', 'DONE')->pluck('judge_user_id')->toArray();
+                    $accTotal     = ($liveJudgeScores ?? collect())->where('status', 'DONE')->avg('total') ?? 0;
+                    $totalJudges  = ($assignedJudges ?? collect())->count();
+                    $doneCount    = count($submittedIds);
+                @endphp
+                <div class="flex" style="align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:var(--bg-2);border-radius:3px;">
+                    <span class="live-dot"></span>
+                    <span class="label" style="font-size:13px;">{{ $liveR?->name ?? 'Rider' }}</span>
+                    <span class="mono dim" style="font-size:10px;">RUN {{ $activeEvent->live_run_number }}</span>
+                    <span class="mono" style="font-size:10px;margin-left:auto;color:var(--lime);">{{ $activeEvent->run_duration }}s</span>
+                </div>
+
+                @if($totalJudges)
+                <div style="margin-bottom:12px;padding:10px;border:1px solid var(--line);border-radius:3px;">
+                    <div class="between" style="margin-bottom:8px;">
+                        <span class="mono dim" style="font-size:10px;">JUDGE ({{ $doneCount }}/{{ $totalJudges }} SUBMIT)</span>
+                        @if($accTotal > 0)
+                            <span class="display tnum" style="font-size:20px;color:var(--lime);">{{ number_format($accTotal, 1) }}</span>
+                        @endif
+                    </div>
+                    @foreach($assignedJudges as $aj)
+                        @php
+                            $submitted = in_array($aj->user_id, $submittedIds);
+                            $ajTotal   = ($liveJudgeScores ?? collect())->firstWhere('judge_user_id', $aj->user_id)?->total;
+                        @endphp
+                        <div class="between" style="padding:4px 0;border-bottom:1px solid var(--line);">
+                            <span class="mono" style="font-size:11px;">{{ $aj->user?->name ?? '—' }}</span>
+                            <div class="flex gap-s" style="align-items:center;">
+                                @if($submitted && $ajTotal !== null)
+                                    <span class="mono tnum" style="font-size:11px;color:var(--lime);">{{ number_format($ajTotal, 1) }}</span>
+                                @endif
+                                <span class="badge {{ $submitted ? 'badge-lime' : 'badge-out' }}" style="font-size:9px;">{{ $submitted ? '✓ DONE' : 'PENDING' }}</span>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+                @endif
+
+                @php
+                    $pendingJudgeNames = ($assignedJudges ?? collect())
+                        ->reject(fn ($aj) => in_array($aj->user_id, $submittedIds))
+                        ->map(fn ($aj) => $aj->user?->name)
+                        ->filter()
+                        ->implode(', ');
+                @endphp
+                <div class="flex gap-s">
+                    <button wire:click="revealScore"
+                        wire:key="reveal-score-{{ $activeEvent->live_rider_id }}-{{ $activeEvent->live_run_number }}-{{ $doneCount }}-{{ $totalJudges }}"
+                        @if($totalJudges && $doneCount < $totalJudges)
+                            wire:confirm="Masih ada {{ $totalJudges - $doneCount }} judge yang belum menilai ({{ $pendingJudgeNames ?: 'tidak diketahui' }}). Yakin ingin reveal score sekarang?"
+                        @endif
+                        class="btn btn-lime" style="flex:1;justify-content:center;">✓ REVEAL SCORE</button>
+                    <button wire:click="endSession" class="btn btn-ghost btn-sm">✗ BATAL</button>
+                </div>
+
+            @elseif($activeEvent->live_phase === 'REVEALING')
+                <p class="mono" style="font-size:11px;margin-bottom:12px;color:var(--lime);">
+                    Skor sedang ditampilkan di layar publik.
+                </p>
+                <button wire:click="endSession" class="btn btn-ghost" style="width:100%;justify-content:center;">
+                    ← KEMBALI KE LEADERBOARD
+                </button>
+            @endif
+        </div>
+        @endif
 
     @else
         {{-- ── KNOCKOUT SCORING ── --}}

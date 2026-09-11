@@ -41,6 +41,11 @@ class LiveScoreboardService
         return Rider::where('name', $reg->name)->value('id');
     }
 
+    /**
+     * Always returns one row per registered rider — even before any score is
+     * submitted — so the public leaderboard can show the full roster (with
+     * blank scores) instead of an empty state.
+     */
     public function buildLeaderboard(EventDivision $division, string $stage, ?int $groupId = null): Collection
     {
         $registrations = $this->registrationsForStage($division, $stage, $groupId);
@@ -53,30 +58,35 @@ class LiveScoreboardService
             return collect();
         }
 
-        return JudgeScore::with('rider')
-            ->where('event_id', $division->event_id)
+        $riders = Rider::whereIn('id', $riderMap->keys())->get()->keyBy('id');
+
+        $scoresByRider = JudgeScore::where('event_id', $division->event_id)
             ->where('scoring_mode', 'LIVE')
             ->where('status', 'DONE')
             ->where('live_stage', $stage)
             ->whereIn('rider_id', $riderMap->keys())
             ->get()
-            ->groupBy('rider_id')
-            ->map(function ($riderScores) use ($riderMap) {
-                $rider   = $riderScores->first()->rider;
-                $run1avg = $riderScores->where('run_number', 1)->avg('total');
-                $run2avg = $riderScores->where('run_number', 2)->avg('total');
-                $best    = max($run1avg ?? 0, $run2avg ?? 0);
+            ->groupBy('rider_id');
+
+        return $riderMap
+            ->map(function ($reg, $riderId) use ($riders, $scoresByRider) {
+                $rider       = $riders->get($riderId);
+                $riderScores = $scoresByRider->get($riderId, collect());
+                $run1avg     = $riderScores->where('run_number', 1)->avg('total');
+                $run2avg     = $riderScores->where('run_number', 2)->avg('total');
+                $best        = max($run1avg ?? 0, $run2avg ?? 0);
 
                 return [
                     'rider'        => $rider,
-                    'registration' => $riderMap->get($rider?->id),
+                    'registration' => $reg,
                     'run1'         => $run1avg !== null ? round($run1avg, 1) : null,
                     'run2'         => $run2avg !== null ? round($run2avg, 1) : null,
                     'best'         => round($best, 1),
                 ];
             })
             ->filter(fn ($row) => $row['rider'] !== null)
-            ->sortByDesc('best')
+            ->values()
+            ->sort(fn ($a, $b) => $b['best'] <=> $a['best'] ?: strcmp($a['rider']->name, $b['rider']->name))
             ->values();
     }
 

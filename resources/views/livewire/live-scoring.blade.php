@@ -10,6 +10,7 @@
          data-avatar="{{ $liveRider?->avatar ? asset('storage/' . $liveRider->avatar) : '' }}"
          data-event="{{ $event?->title ?? '' }}"
          data-run="{{ $event?->live_run_number ?? '' }}"
+         data-best="{{ $liveRiderBestScore !== null ? number_format($liveRiderBestScore, 1) : '' }}"
          data-division-label="{{ $liveDivisionLabel }}"
          style="display:none;">
     </div>
@@ -31,21 +32,13 @@
                 </h1>
             </div>
             <div class="col" style="gap:8px;align-items:flex-end;">
-                <select wire:model.live="selectedEventId" x-show="!isFullscreen"
-                    class="mono"
-                    style="padding:8px 12px;border:2px solid var(--ink);background:var(--bg);color:var(--ink);font-size:12px;letter-spacing:0.08em;border-radius:3px;cursor:pointer;">
-                    <option value="0">— Pilih Event —</option>
-                    @foreach($events as $ev)
-                        <option value="{{ $ev->id }}">{{ $ev->title }}{{ $ev->status === 'LIVE' ? ' ● LIVE' : '' }}</option>
-                    @endforeach
-                </select>
+                <div class="mono dim" style="font-size:10px;letter-spacing:0.1em;text-align:right;" x-show="!isFullscreen">
+                    MENGIKUTI PILIHAN OPERATOR
+                </div>
                 @if($divisions->isNotEmpty())
-                    <div class="mono dim" style="font-size:10px;letter-spacing:0.1em;text-align:right;" x-show="!isFullscreen">
-                        MENGIKUTI PILIHAN HEAD JUDGE
-                    </div>
                     <div class="flex gap-s" style="flex-wrap:wrap;justify-content:flex-end;" x-show="!isFullscreen">
                         <span class="mono" style="padding:8px 12px;border:2px solid var(--ink);background:var(--bg);color:var(--ink);font-size:12px;letter-spacing:0.08em;border-radius:3px;">
-                            {{ $division?->name ?? '— Belum dipilih Head Judge —' }}
+                            {{ $division?->name ?? '— Belum dipilih Operator —' }}
                         </span>
                         @if($division)
                             <span class="mono" style="padding:6px 10px;border:2px solid var(--ink);background:{{ $stage === 'FINAL' ? 'var(--lime)' : 'var(--bg)' }};color:{{ $stage === 'FINAL' ? '#0a0a0b' : 'var(--ink)' }};font-size:10px;letter-spacing:0.08em;border-radius:3px;">
@@ -115,10 +108,10 @@
                         <span x-show="phase === 'REVEALING'" class="badge badge-out" style="border-color:var(--lime);color:var(--lime);display:none;">✦ FINAL SCORE</span>
                     </div>
                     <div class="display" style="font-size:clamp(32px,3vw,52px);line-height:1;" x-text="riderName"></div>
-                    <div style="display:flex;flex-direction:column;gap:3px;">
-                        <div class="mono dim" style="font-size:10px;letter-spacing:0.12em;" x-text="eventTitle"></div>
-                        <div class="mono" style="font-size:10px;letter-spacing:0.12em;color:var(--lime);">FRAMEBLADESCORE</div>
-                        <div class="mono dim" style="font-size:10px;letter-spacing:0.14em;"
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                        <div class="mono dim" style="font-size:14px;letter-spacing:0.12em;" x-text="eventTitle"></div>
+                        <div class="mono" style="font-size:14px;letter-spacing:0.12em;color:var(--lime);">FRAMEBLADESCORE</div>
+                        <div class="mono dim" style="font-size:14px;letter-spacing:0.1em;"
                              x-text="runNumber ? divisionLabel + ' · RUN ' + runNumber : divisionLabel"></div>
                     </div>
                 </div>
@@ -129,7 +122,14 @@
 
                     {{-- NEXT --}}
                     <div x-show="phase === 'NEXT'" style="display:none;text-align:center;">
+                        <p class="kicker" style="margin-bottom:8px;font-size:11px;" x-text="'RUN ' + (runNumber || '—')"></p>
                         <p class="mono dim" style="font-size:12px;letter-spacing:0.14em;" x-text="divisionLabel"></p>
+                        <template x-if="bestScore">
+                            <p class="mono dim" style="font-size:16px;letter-spacing:0.1em;margin-top:26px;">
+                                SKOR TERTINGGI SEBELUMNYA<br>
+                                <span class="display tnum text-glow-lime" style="font-size:clamp(80px,11vw,160px);color:var(--lime);line-height:1.1;" x-text="bestScore"></span>
+                            </p>
+                        </template>
                     </div>
 
                     {{-- RUNNING --}}
@@ -152,12 +152,19 @@
 
                     {{-- REVEALING --}}
                     <div x-show="phase === 'REVEALING'" style="display:none;text-align:center;position:relative;z-index:1;">
+                        <p class="kicker" style="margin-bottom:8px;font-size:11px;" x-text="'RUN ' + (runNumber || '—')"></p>
                         <div class="score-reveal-anim" style="display:flex;align-items:baseline;justify-content:center;gap:10px;">
                             <span class="display tnum text-glow-lime"
                                   style="font-size:clamp(80px,11vw,180px);color:var(--lime);line-height:1;"
                                   x-text="score || '—'"></span>
                             <span class="mono dim" style="font-size:16px;letter-spacing:0.1em;">/ 100</span>
                         </div>
+                        <template x-if="bestScore">
+                            <p class="mono dim" style="font-size:16px;letter-spacing:0.08em;margin-top:20px;">
+                                SKOR TERTINGGI SEBELUMNYA<br>
+                                <span class="display tnum text-glow-lime" style="font-size:clamp(48px,7vw,90px);color:var(--lime);line-height:1.2;" x-text="bestScore"></span>
+                            </p>
+                        </template>
                     </div>
                 </div>
 
@@ -175,10 +182,9 @@
     @elseif($scores->isEmpty())
         <div class="wrap section center col" style="padding:80px 0;gap:16px;">
             <span class="display" style="font-size:48px;color:var(--ink-faint);">—</span>
-            <span class="kicker">BELUM ADA SCORE</span>
+            <span class="kicker">BELUM ADA PESERTA</span>
             <p class="mono dim" style="font-size:13px;text-align:center;max-width:360px;">
-                Belum ada skor masuk untuk <strong>{{ $event->title }}</strong>.<br>
-                Halaman ini akan update otomatis setiap 3 detik.
+                Belum ada peserta approved untuk <strong>{{ $event->title }}</strong>.
             </p>
         </div>
     @else
@@ -193,7 +199,7 @@
                             <div class="score-header">
                                 @foreach(['#','RIDER','RUN 1','RUN 2','BEST'] as $i => $h)
                                     <span class="mono {{ $h === 'RUN 1' ? 'score-hide' : '' }}"
-                                        style="font-size:10px;letter-spacing:0.12em;color:var(--ink-dim);text-align:{{ $i >= 2 ? 'right' : 'left' }};">{{ $h }}</span>
+                                        style="font-size:13px;letter-spacing:0.12em;color:var(--ink-dim);text-align:{{ $i >= 2 ? 'right' : 'left' }};">{{ $h }}</span>
                                 @endforeach
                             </div>
                             @foreach($scores as $i => $row)
@@ -203,21 +209,21 @@
                                     background:{{ $isOnCourse ? 'color-mix(in srgb,var(--red) 8%,transparent)' : 'transparent' }};
                                     border-left:{{ $isOnCourse ? '3px solid var(--red)' : '3px solid transparent' }};
                                 ">
-                                    <span class="display tnum" style="font-size:26px;color:{{ $i === 0 ? 'var(--lime)' : ($i < 3 ? 'var(--ink)' : 'var(--ink-faint)') }};">{{ str_pad($i+1,2,'0',STR_PAD_LEFT) }}</span>
-                                    <div class="flex" style="align-items:center;gap:12px;">
-                                        <x-avatar :initials="$row['rider']->initials" :size="36" :ring="$i === 0" />
+                                    <span class="display tnum" style="font-size:34px;color:{{ $i === 0 ? 'var(--lime)' : ($i < 3 ? 'var(--ink)' : 'var(--ink-faint)') }};">{{ str_pad($i+1,2,'0',STR_PAD_LEFT) }}</span>
+                                    <div class="flex" style="align-items:center;gap:14px;">
+                                        <x-avatar :initials="$row['rider']->initials" :size="48" :ring="$i === 0" />
                                         <div class="col">
-                                            <span class="label" style="font-size:14px;">{{ $row['rider']->name }}</span>
-                                            <span class="mono dim" style="font-size:10px;">
+                                            <span class="label" style="font-size:18px;">{{ $row['rider']->name }}</span>
+                                            <span class="mono dim" style="font-size:12px;">
                                                 {{ $isOnCourse ? '🔴 ON COURSE' : ($row['rider']->city ?? '—') }}
                                             </span>
                                         </div>
                                     </div>
-                                    <span class="mono tnum score-hide" style="font-size:14px;text-align:right;color:var(--ink-dim);">{{ (!$isOnCourse && $row['run1'] !== null) ? number_format($row['run1'], 1) : '—' }}</span>
-                                    <span class="mono tnum" style="font-size:14px;text-align:right;color:{{ $isOnCourse ? 'var(--red)' : 'var(--ink-dim)' }};">
+                                    <span class="mono tnum score-hide" style="font-size:18px;text-align:right;color:var(--ink-dim);">{{ (!$isOnCourse && $row['run1'] !== null) ? number_format($row['run1'], 1) : '—' }}</span>
+                                    <span class="mono tnum" style="font-size:18px;text-align:right;color:{{ $isOnCourse ? 'var(--red)' : 'var(--ink-dim)' }};">
                                         {{ $isOnCourse ? '...' : ($row['run2'] !== null ? number_format($row['run2'], 1) : '—') }}
                                     </span>
-                                    <span class="display tnum" style="font-size:22px;text-align:right;color:{{ $i === 0 ? 'var(--lime)' : 'var(--ink)' }};">{{ (!$isOnCourse && $row['best'] > 0) ? number_format($row['best'], 1) : '—' }}</span>
+                                    <span class="display tnum" style="font-size:30px;text-align:right;color:{{ $i === 0 ? 'var(--lime)' : 'var(--ink)' }};">{{ (!$isOnCourse && $row['best'] > 0) ? number_format($row['best'], 1) : '—' }}</span>
                                 </div>
                             @endforeach
                         </div>
@@ -304,6 +310,7 @@ function livePhaseOverlay() {
         riderName: '',
         initials: '',
         score: '',
+        bestScore: '',
         avatarSrc: '',
         eventTitle: '',
         runNumber: '',
@@ -329,6 +336,7 @@ function livePhaseOverlay() {
             this.riderName  = el.dataset.rider || '';
             this.initials   = el.dataset.initials || '';
             this.score      = el.dataset.score || '';
+            this.bestScore  = el.dataset.best || '';
             this.avatarSrc  = el.dataset.avatar || '';
             this.eventTitle = el.dataset.event || '';
             this.runNumber  = el.dataset.run || '';
@@ -364,10 +372,7 @@ function livePhaseOverlay() {
         },
 
         get remainingFormatted() {
-            const h = Math.floor(this.remaining / 3600);
-            const m = Math.floor((this.remaining % 3600) / 60);
-            const s = this.remaining % 60;
-            return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+            return String(this.remaining).padStart(2, '0');
         }
     };
 }

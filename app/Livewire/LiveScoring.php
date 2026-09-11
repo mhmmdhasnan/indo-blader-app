@@ -8,6 +8,7 @@ use App\Models\EventDivision;
 use App\Models\JudgeScore;
 use App\Models\Registration;
 use App\Models\Rider;
+use App\Models\Setting;
 use App\Services\LiveScoreboardService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -17,17 +18,16 @@ use Livewire\Component;
 #[Title('Live Scoring — FRAMEBLADESCORE')]
 class LiveScoring extends Component
 {
-    public int $selectedEventId = 0;
-
-    public function mount(): void
+    private function resolveActiveEvent(): ?Event
     {
-        $active = Event::where('status', 'LIVE')->orderBy('date')->first()
+        $settingId = Setting::get('active_event_id');
+        if ($settingId && $event = Event::find($settingId)) {
+            return $event;
+        }
+
+        return Event::where('status', 'LIVE')->orderBy('date')->first()
             ?? Event::orderByRaw("ABS(DATEDIFF(date, NOW()))")->orderBy('date')->first()
             ?? Event::orderBy('date')->first();
-
-        if ($active) {
-            $this->selectedEventId = $active->id;
-        }
     }
 
     private function resolveLiveRiderDivision(Event $event, Rider $liveRider): ?EventDivision
@@ -50,8 +50,7 @@ class LiveScoring extends Component
 
     public function render()
     {
-        $events   = Event::orderByRaw("FIELD(status,'LIVE','OPEN','CLOSING','SOON','FULL','DONE')")->orderBy('date', 'desc')->get();
-        $event    = $this->selectedEventId ? Event::find($this->selectedEventId) : null;
+        $event     = $this->resolveActiveEvent();
         $divisions = $event ? EventDivision::where('event_id', $event->id)->where('is_active', true)->orderBy('name')->get() : collect();
 
         // Leaderboard selalu mengikuti divisi/group yang sedang aktif dipilih Head Judge.
@@ -74,6 +73,7 @@ class LiveScoring extends Component
         $liveStartedAt = null;
         $runDuration  = $event?->run_duration ?? 60;
         $revealScore  = null;
+        $liveRiderBestScore = null;
         $liveDivisionLabel = $event?->title ?? 'FRAMEBLADESCORE';
 
         if ($event) {
@@ -138,12 +138,30 @@ class LiveScoring extends Component
                     ->where('live_stage', $liveStage)
                     ->whereNotNull('judge_user_id')
                     ->get();
+
+                // Saat REVEALING, "skor tertinggi sebelumnya" harus mengecualikan run
+                // yang baru saja diungkap ini sendiri — kalau tidak, run pertama
+                // akan selalu "mengalahkan dirinya sendiri" dan terlihat aneh.
+                $excludeRunNumber = $event->live_phase === 'REVEALING' ? $event->live_run_number : null;
+
+                $liveRiderBestScore = JudgeScore::where('event_id', $event->id)
+                    ->where('rider_id', $liveRider->id)
+                    ->where('scoring_mode', 'LIVE')
+                    ->where('live_stage', $liveStage)
+                    ->where('status', 'DONE')
+                    ->when($excludeRunNumber, fn ($q) => $q->where('run_number', '!=', $excludeRunNumber))
+                    ->get()
+                    ->groupBy('run_number')
+                    ->map(fn ($runScores) => $runScores->avg('total'))
+                    ->max();
+
+                $liveRiderBestScore = $liveRiderBestScore > 0 ? round($liveRiderBestScore, 1) : null;
             }
         }
 
         return view('livewire.live-scoring', compact(
-            'events', 'event', 'divisions', 'division', 'stage', 'groups', 'selectedGroupId', 'scores', 'judgeScores',
-            'liveRider', 'displayPhase', 'liveStartedAt', 'runDuration', 'revealScore', 'liveDivisionLabel'
+            'event', 'divisions', 'division', 'stage', 'groups', 'selectedGroupId', 'scores', 'judgeScores',
+            'liveRider', 'displayPhase', 'liveStartedAt', 'runDuration', 'revealScore', 'liveRiderBestScore', 'liveDivisionLabel'
         ));
     }
 }
