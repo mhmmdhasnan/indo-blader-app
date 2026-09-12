@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 # ---- Stage 1: build frontend assets ----
 FROM node:22-alpine AS assets
 WORKDIR /app
@@ -5,7 +7,12 @@ WORKDIR /app
 # layer is only invalidated when package*.json actually change — not on
 # every source edit, which is what COPY . . before npm ci used to do.
 COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts
+# --mount=type=cache persists npm's download cache across builds even when
+# this layer itself gets invalidated (i.e. package-lock.json actually
+# changed) — only the newly added/changed packages hit the network, not a
+# full re-download. Requires BuildKit (default on Docker 23+/buildx).
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --ignore-scripts
 COPY . .
 RUN npm run build
 
@@ -28,7 +35,8 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 # post-autoload-dump runs `artisan package:discover`, which needs the full
 # app (below) to exist first.
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-scripts --no-autoloader --no-interaction
+RUN --mount=type=cache,target=/root/.composer/cache \
+    composer install --no-dev --no-scripts --no-autoloader --no-interaction
 
 COPY . .
 COPY --from=assets /app/public/build ./public/build
