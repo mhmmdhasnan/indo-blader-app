@@ -13,6 +13,22 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Behind Cloudflare Tunnel, the connection Cloudflare→container is
+        // plain HTTP even though the client used HTTPS. Without trusting the
+        // proxy's X-Forwarded-* headers, Laravel thinks every request is
+        // insecure — breaking signed URLs (Livewire file uploads, etc.) whose
+        // signature is checked against the request's reconstructed scheme.
+        // The tunnel's source IP isn't fixed, so trust the whole chain: this
+        // app is only reachable via the tunnel or the private LAN, never
+        // directly from the open internet.
+        $middleware->trustProxies(
+            at: '*',
+            headers: Request::HEADER_X_FORWARDED_FOR
+                | Request::HEADER_X_FORWARDED_HOST
+                | Request::HEADER_X_FORWARDED_PORT
+                | Request::HEADER_X_FORWARDED_PROTO,
+        );
+
         $middleware->alias([
             'role' => RoleMiddleware::class,
         ]);

@@ -7,7 +7,13 @@ services:
     restart: unless-stopped
     volumes:
       - app_public:/var/www/html/public
-      - ./storage:/var/www/html/storage
+      # Only bind-mount what actually needs to survive a container recreate
+      # (uploaded files, logs). storage/framework/* (view cache, sessions,
+      # cache) lives inside the image instead — it's ephemeral, rebuilt by
+      # the entrypoint's `artisan view:cache`, and doesn't need the
+      # every-start `chown -R` that mounting the whole storage/ tree forced.
+      - ./storage/app/public:/var/www/html/storage/app/public
+      - ./storage/logs:/var/www/html/storage/logs
       - ./.env:/var/www/html/.env
     env_file:
       - .env
@@ -25,7 +31,8 @@ services:
       - CONTAINER_ROLE=queue
     volumes:
       - app_public:/var/www/html/public
-      - ./storage:/var/www/html/storage
+      - ./storage/app/public:/var/www/html/storage/app/public
+      - ./storage/logs:/var/www/html/storage/logs
       - ./.env:/var/www/html/.env
     env_file:
       - .env

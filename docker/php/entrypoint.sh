@@ -1,10 +1,17 @@
 #!/bin/sh
 set -e
 
-# storage/ and bootstrap/cache are bind-mounted from the host, which resets
-# ownership to the host user on every start — php-fpm runs as www-data, so
-# fix it back up before anything tries to write there.
-chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+# Only storage/app/public and storage/logs are bind-mounted from the host
+# (see docker-compose.yml) — that reset ownership to the host user on every
+# start, so fix it back up before anything tries to write there. Everything
+# else under storage/ (framework/*, i.e. view cache) lives inside the image
+# and keeps the ownership set at build time, so it doesn't need re-chowning
+# here — that's what used to make every container start slow when the whole
+# storage/ tree was bind-mounted and re-chowned recursively.
+chown -R www-data:www-data \
+    /var/www/html/storage/app/public \
+    /var/www/html/storage/logs \
+    /var/www/html/bootstrap/cache
 
 # public/ is a shared volume with the webserver container and starts empty,
 # so restore the assets built into the image on every start.
@@ -47,8 +54,11 @@ else
 fi
 
 # Re-fix ownership: the commands above ran as root and may have created new
-# files (caches, the ready marker) that php-fpm's www-data worker needs to
-# read or overwrite later.
-chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+# files (caches, the ready marker, log entries) that php-fpm's www-data
+# worker needs to read or overwrite later.
+chown -R www-data:www-data \
+    /var/www/html/storage/app/public \
+    /var/www/html/storage/logs \
+    /var/www/html/bootstrap/cache
 
 exec "$@"
