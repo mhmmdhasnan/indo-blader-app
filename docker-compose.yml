@@ -48,6 +48,13 @@ services:
       - "${APP_PORT:-8080}:80"
     volumes:
       - app_public:/var/www/html/public:ro
+      # `php artisan storage:link` (run by the app container) creates
+      # public/storage as a symlink to /var/www/html/storage/app/public.
+      # nginx serves static files straight off disk (no PHP involved), so it
+      # needs that same path mounted here too, or the symlink dangles from
+      # nginx's point of view and every uploaded file (banners, proofs,
+      # avatars) 404s even though the file exists on the host.
+      - ./storage/app/public:/var/www/html/storage/app/public:ro
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - app
