@@ -844,6 +844,9 @@
                                                         <span class="badge {{ $div->live_stage === 'FINAL' ? 'badge-lime' : 'badge-out' }}" style="font-size:9px;">
                                                             {{ $div->live_stage === 'FINAL' ? 'FINAL' : 'QUALIFIKASI' }}
                                                         </span>
+                                                        @if($div->best_trick_active)
+                                                            <span class="badge badge-lime" style="font-size:9px;">BEST TRICK AKTIF</span>
+                                                        @endif
                                                         @if($div->live_final_completed_at)
                                                             <span class="badge badge-lime" style="font-size:9px;">RANKING SELESAI</span>
                                                         @endif
@@ -855,8 +858,13 @@
                                                             @if(!$div->live_final_completed_at)
                                                                 <button wire:click="reopenQualification({{ $div->id }})" class="btn btn-sm btn-ghost" style="font-size:11px;"
                                                                     wire:confirm="Kembali ke fase kualifikasi?">↩ Kualifikasi</button>
+                                                                @if($div->best_trick_active)
+                                                                    <button wire:click="endBestTrickPhase({{ $div->id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">Selesai Best Trick</button>
+                                                                @else
+                                                                    <button wire:click="startBestTrickPhase({{ $div->id }})" class="btn btn-sm btn-lime" style="font-size:11px;">🎯 Mulai Best Trick</button>
+                                                                @endif
                                                                 <button wire:click="completeLiveFinal({{ $div->id }})" class="btn btn-sm btn-lime" style="font-size:11px;"
-                                                                    wire:confirm="Selesaikan final dan hitung ranking? Poin akan ditambahkan ke rider.">✓ Selesaikan &amp; Hitung Ranking</button>
+                                                                    wire:confirm="{{ $div->best_trick_active ? 'Fase Best Trick masih AKTIF. Yakin mau selesaikan final & hitung ranking sekarang?' : 'Selesaikan final dan hitung ranking? Poin akan ditambahkan ke rider.' }}">✓ Selesaikan &amp; Hitung Ranking</button>
                                                             @endif
                                                         @else
                                                             <button wire:click="openGroupManager({{ $div->id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">👥 Kelola Group</button>
@@ -942,7 +950,7 @@
                                                                             <input type="checkbox" wire:model="selectedFinalistRegIds" value="{{ $row['registration']->id }}" style="accent-color:var(--lime);">
                                                                             <span class="mono dim" style="font-size:11px;width:24px;">#{{ $i + 1 }}</span>
                                                                             <span class="label" style="font-size:13px;flex:1;">{{ $row['rider']->name }}</span>
-                                                                            <span class="mono tnum" style="font-size:12px;color:var(--lime);">{{ number_format($row['best'], 1) }}</span>
+                                                                            <span class="mono tnum" style="font-size:12px;color:var(--lime);">{{ number_format($row['total'], 1) }}</span>
                                                                         </label>
                                                                     @endforeach
                                                                 </div>

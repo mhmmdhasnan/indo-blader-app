@@ -12,6 +12,7 @@
          data-run="{{ $event?->live_run_number ?? '' }}"
          data-best="{{ $liveRiderBestScore !== null ? number_format($liveRiderBestScore, 1) : '' }}"
          data-division-label="{{ $liveDivisionLabel }}"
+         data-is-best-trick="{{ ($isBestTrickPhase ?? false) ? '1' : '' }}"
          style="display:none;">
     </div>
 
@@ -112,7 +113,7 @@
                         <div class="mono dim" style="font-size:14px;letter-spacing:0.12em;" x-text="eventTitle"></div>
                         <div class="mono" style="font-size:14px;letter-spacing:0.12em;color:var(--lime);">FRAMEBLADESCORE</div>
                         <div class="mono dim" style="font-size:14px;letter-spacing:0.1em;"
-                             x-text="runNumber ? divisionLabel + ' · RUN ' + runNumber : divisionLabel"></div>
+                             x-text="runNumber ? divisionLabel + ' · ' + (isBestTrick ? 'PERCOBAAN ' : 'RUN ') + runNumber : divisionLabel"></div>
                     </div>
                 </div>
 
@@ -122,7 +123,7 @@
 
                     {{-- NEXT --}}
                     <div x-show="phase === 'NEXT'" style="display:none;text-align:center;">
-                        <p class="kicker" style="margin-bottom:8px;font-size:11px;" x-text="'RUN ' + (runNumber || '—')"></p>
+                        <p class="kicker" style="margin-bottom:8px;font-size:11px;" x-text="(isBestTrick ? 'PERCOBAAN ' : 'RUN ') + (runNumber || '—')"></p>
                         <p class="mono dim" style="font-size:12px;letter-spacing:0.14em;" x-text="divisionLabel"></p>
                         <template x-if="bestScore">
                             <p class="mono dim" style="font-size:16px;letter-spacing:0.1em;margin-top:26px;">
@@ -132,12 +133,20 @@
                         </template>
                     </div>
 
-                    {{-- RUNNING --}}
-                    <div x-show="phase === 'RUNNING'" style="display:none;text-align:center;">
+                    {{-- RUNNING (run bertimer) --}}
+                    <div x-show="phase === 'RUNNING' && !isBestTrick" style="display:none;text-align:center;">
                         <p class="kicker" style="margin-bottom:8px;font-size:11px;">RUN TIMER</p>
                         <span class="display tnum text-glow-lime"
                               style="font-size:clamp(80px,11vw,180px);color:var(--lime);line-height:1;"
                               x-text="remainingFormatted"></span>
+                    </div>
+
+                    {{-- RUNNING (Best Trick — 1 percobaan, tanpa timer) --}}
+                    <div x-show="phase === 'RUNNING' && isBestTrick" style="display:none;text-align:center;">
+                        <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
+                            <span class="live-dot" style="width:14px;height:14px;"></span>
+                        </div>
+                        <p class="kicker" style="margin-top:16px;font-size:14px;">SEDANG MELAKUKAN TRICK</p>
                     </div>
 
                     {{-- JUDGING --}}
@@ -152,12 +161,12 @@
 
                     {{-- REVEALING --}}
                     <div x-show="phase === 'REVEALING'" style="display:none;text-align:center;position:relative;z-index:1;">
-                        <p class="kicker" style="margin-bottom:8px;font-size:11px;" x-text="'RUN ' + (runNumber || '—')"></p>
+                        <p class="kicker" style="margin-bottom:8px;font-size:11px;" x-text="(isBestTrick ? 'PERCOBAAN ' : 'RUN ') + (runNumber || '—')"></p>
                         <div class="score-reveal-anim" style="display:flex;align-items:baseline;justify-content:center;gap:10px;">
                             <span class="display tnum text-glow-lime"
                                   style="font-size:clamp(80px,11vw,180px);color:var(--lime);line-height:1;"
                                   x-text="score || '—'"></span>
-                            <span class="mono dim" style="font-size:16px;letter-spacing:0.1em;">/ 100</span>
+                            <span class="mono dim" style="font-size:16px;letter-spacing:0.1em;" x-text="isBestTrick ? '/ 20' : '/ 100'"></span>
                         </div>
                         <template x-if="bestScore">
                             <p class="mono dim" style="font-size:16px;letter-spacing:0.08em;margin-top:20px;">
@@ -223,7 +232,11 @@
                                     <span class="mono tnum" style="font-size:18px;text-align:right;color:{{ $isOnCourse ? 'var(--red)' : 'var(--ink-dim)' }};">
                                         {{ $isOnCourse ? '...' : ($row['run2'] !== null ? number_format($row['run2'], 1) : '—') }}
                                     </span>
-                                    <span class="display tnum" style="font-size:30px;text-align:right;color:{{ $i === 0 ? 'var(--lime)' : 'var(--ink)' }};">{{ (!$isOnCourse && $row['best'] > 0) ? number_format($row['best'], 1) : '—' }}</span>
+                                    @php $rowTotal = $row['total'] ?? $row['best']; @endphp
+                                    {{-- Nominal bonus Best Trick sengaja gak ditampilkan di sini — publik cuma
+                                         lihat total akhir; breakdown-nya cuma buat Head Judge/Operator (lihat
+                                         partials/judging-panel.blade.php). --}}
+                                    <span class="display tnum" style="font-size:30px;text-align:right;color:{{ $i === 0 ? 'var(--lime)' : 'var(--ink)' }};">{{ (!$isOnCourse && $rowTotal > 0) ? number_format($rowTotal, 1) : '—' }}</span>
                                 </div>
                             @endforeach
                         </div>
@@ -315,6 +328,7 @@ function livePhaseOverlay() {
         eventTitle: '',
         runNumber: '',
         divisionLabel: '',
+        isBestTrick: false,
         _timer: null,
         _observer: null,
 
@@ -341,10 +355,17 @@ function livePhaseOverlay() {
             this.eventTitle = el.dataset.event || '';
             this.runNumber  = el.dataset.run || '';
             this.divisionLabel = el.dataset.divisionLabel || '';
+            this.isBestTrick = !!el.dataset.isBestTrick;
 
             if (serverPhase === 'REVEALING') {
                 this.phase = 'REVEALING';
                 clearTimeout(this._timer);
+            } else if (serverPhase === 'RUNNING' && this.isBestTrick) {
+                // Best Trick itu cuma 1 trick per percobaan, bukan run bertimer —
+                // gak ada hitung mundur, dan gak auto-pindah ke JUDGING kayak
+                // _startCountdown; tetap di RUNNING sampai Head Judge klik Reveal.
+                clearTimeout(this._timer);
+                this.phase = 'RUNNING';
             } else if (serverPhase === 'RUNNING') {
                 this._startCountdown(startedAt, duration);
             } else if (serverPhase === 'NEXT') {

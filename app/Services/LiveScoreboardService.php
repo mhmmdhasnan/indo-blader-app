@@ -42,6 +42,26 @@ class LiveScoreboardService
     }
 
     /**
+     * Best Trick bonus: judges type one direct 0-20 score per attempt (no
+     * criteria breakdown), each attempt is averaged across judges, and the
+     * highest of the (up to 3) per-attempt averages is the bonus added to the
+     * rider's FINAL total. Returns 0 if the rider has no Best Trick scores yet.
+     */
+    private function bestTrickBonus(int $eventId, int $riderId): float
+    {
+        $attemptAverages = JudgeScore::where('event_id', $eventId)
+            ->where('rider_id', $riderId)
+            ->where('scoring_mode', 'BEST_TRICK')
+            ->where('live_stage', 'FINAL')
+            ->where('status', 'DONE')
+            ->get()
+            ->groupBy('run_number')
+            ->map(fn ($attempt) => $attempt->avg('total'));
+
+        return $attemptAverages->isEmpty() ? 0.0 : round($attemptAverages->max(), 1);
+    }
+
+    /**
      * Always returns one row per registered rider — even before any score is
      * submitted — so the public leaderboard can show the full roster (with
      * blank scores) instead of an empty state.
@@ -69,24 +89,27 @@ class LiveScoreboardService
             ->groupBy('rider_id');
 
         return $riderMap
-            ->map(function ($reg, $riderId) use ($riders, $scoresByRider) {
+            ->map(function ($reg, $riderId) use ($riders, $scoresByRider, $division, $stage) {
                 $rider       = $riders->get($riderId);
                 $riderScores = $scoresByRider->get($riderId, collect());
                 $run1avg     = $riderScores->where('run_number', 1)->avg('total');
                 $run2avg     = $riderScores->where('run_number', 2)->avg('total');
                 $best        = max($run1avg ?? 0, $run2avg ?? 0);
+                $bonus       = $stage === 'FINAL' ? $this->bestTrickBonus($division->event_id, $riderId) : 0.0;
 
                 return [
-                    'rider'        => $rider,
-                    'registration' => $reg,
-                    'run1'         => $run1avg !== null ? round($run1avg, 1) : null,
-                    'run2'         => $run2avg !== null ? round($run2avg, 1) : null,
-                    'best'         => round($best, 1),
+                    'rider'            => $rider,
+                    'registration'     => $reg,
+                    'run1'             => $run1avg !== null ? round($run1avg, 1) : null,
+                    'run2'             => $run2avg !== null ? round($run2avg, 1) : null,
+                    'best'             => round($best, 1),
+                    'best_trick_bonus' => $bonus,
+                    'total'            => round($best + $bonus, 1),
                 ];
             })
             ->filter(fn ($row) => $row['rider'] !== null)
             ->values()
-            ->sort(fn ($a, $b) => $b['best'] <=> $a['best'] ?: strcmp($a['rider']->name, $b['rider']->name))
+            ->sort(fn ($a, $b) => $b['total'] <=> $a['total'] ?: strcmp($a['rider']->name, $b['rider']->name))
             ->values();
     }
 

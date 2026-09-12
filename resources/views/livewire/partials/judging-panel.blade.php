@@ -40,7 +40,7 @@
                 <span class="live-dot"></span>
                 <span class="label" style="font-size:13px;">{{ $liveR?->name ?? 'Rider' }}</span>
                 <span class="mono dim" style="font-size:10px;">RUN {{ $activeEvent->live_run_number }}</span>
-                <span class="mono" style="font-size:10px;margin-left:auto;color:var(--lime);">{{ $activeEvent->run_duration }}s</span>
+                <span class="mono" style="font-size:10px;margin-left:auto;color:var(--lime);">{{ ($isBestTrickPhase ?? false) ? '1 TRICK' : $activeEvent->run_duration . 's' }}</span>
             </div>
 
             @if($totalJudges)
@@ -230,7 +230,8 @@
     @endif
 
     {{-- Operator: leaderboard divisi/group yang sedang aktif — tampil di semua fase --}}
-    @if($isOperator && $scoringMode === 'live' && $judgeDivisionId)
+    {{-- Leaderboard + breakdown bonus Best Trick cuma buat Operator & Head Judge — rider/publik gak lihat ini. --}}
+    @if(($isOperator || $isHeadJudge) && $scoringMode === 'live' && $judgeDivisionId)
     <div class="panel" style="overflow:hidden;">
         <div style="padding:14px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
             <span class="kicker">📊 LEADERBOARD — {{ strtoupper($activeDivName ?? '') }}{{ ($activeDiv ?? null)?->live_stage === 'FINAL' ? ' · FINAL' : ' · KUALIFIKASI' }}</span>
@@ -254,7 +255,12 @@
                         </div>
                         <span class="mono tnum score-hide" style="font-size:14px;text-align:right;color:var(--ink-dim);">{{ $row['run1'] !== null ? number_format($row['run1'], 1) : '—' }}</span>
                         <span class="mono tnum" style="font-size:14px;text-align:right;color:var(--ink-dim);">{{ $row['run2'] !== null ? number_format($row['run2'], 1) : '—' }}</span>
-                        <span class="display tnum" style="font-size:22px;text-align:right;color:{{ $i === 0 ? 'var(--lime)' : 'var(--ink)' }};">{{ $row['best'] > 0 ? number_format($row['best'], 1) : '—' }}</span>
+                        <span class="display tnum" style="font-size:22px;text-align:right;color:{{ $i === 0 ? 'var(--lime)' : 'var(--ink)' }};">
+                            {{ $row['total'] > 0 ? number_format($row['total'], 1) : '—' }}
+                            @if(($row['best_trick_bonus'] ?? 0) > 0)
+                                <span class="mono dim" style="font-size:10px;">(+{{ number_format($row['best_trick_bonus'], 1) }})</span>
+                            @endif
+                        </span>
                     </div>
                 @endforeach
             </div>
@@ -266,7 +272,7 @@
         $criteria  = $eventCriteria ?? collect();
         $critCount = $criteria->count() ?: 1;
         $totalLive = count($criteriaScores) > 0
-            ? round((array_sum($criteriaScores) / $critCount) * 10, 1)
+            ? round(array_sum($criteriaScores) / $critCount, 1)
             : 0;
     @endphp
 
@@ -303,25 +309,39 @@
                         <span class="mono" style="font-size:11px;color:{{ $isRunning ? 'var(--red)' : 'var(--ink-dim)' }};">
                             @if($isRunning)
                                 <span class="live-dot" style="width:8px;height:8px;display:inline-block;vertical-align:middle;margin-right:4px;"></span>
-                                RUN {{ $liveRunNumber }} — AKTIF
+                                {{ ($isBestTrickPhase ?? false) ? 'PERCOBAAN' : 'RUN' }} {{ $liveRunNumber }} — AKTIF
                             @else
-                                {{ $lockedRider?->division?->name ?? '' }} · RUN {{ $liveRunNumber }}
+                                {{ $lockedRider?->division?->name ?? '' }} · {{ ($isBestTrickPhase ?? false) ? 'PERCOBAAN' : 'RUN' }} {{ $liveRunNumber }}
                             @endif
                         </span>
                     </div>
                 </div>
 
-                @if($isRunning)
+                @if($isRunning && ($isBestTrickPhase ?? false))
+                    <div style="margin-bottom:18px;">
+                        <div class="between" style="margin-bottom:7px;">
+                            <span class="mono" style="font-size:11px;letter-spacing:0.12em;">SKOR BEST TRICK (0-20)</span>
+                        </div>
+                        <input type="number" min="0" max="20" step="0.1"
+                            wire:model.live.debounce.400ms="bestTrickScore"
+                            class="input-field" style="width:100%;font-size:28px;text-align:center;padding:14px;">
+                    </div>
+                @elseif($isRunning)
                     @forelse($criteria as $crit)
-                        @php $val = $criteriaScores[$crit->key] ?? 9.0; @endphp
+                        @php $val = $criteriaScores[$crit->key] ?? 90.0; @endphp
                         <div style="margin-bottom:18px;">
                             <div class="between" style="margin-bottom:7px;">
                                 <span class="mono" style="font-size:11px;letter-spacing:0.12em;">{{ strtoupper($crit->name) }}</span>
                                 <span class="display tnum" style="font-size:20px;color:var(--lime);">{{ number_format($val, 1) }}</span>
                             </div>
-                            <input type="range" min="0" max="10" step="0.1"
-                                wire:model.live="criteriaScores.{{ $crit->key }}"
-                                style="width:100%;accent-color:var(--lime);" />
+                            <div class="flex gap-s" style="align-items:center;">
+                                <input type="range" min="0" max="100" step="0.1"
+                                    wire:model.live="criteriaScores.{{ $crit->key }}"
+                                    style="flex:1;accent-color:var(--lime);" />
+                                <input type="number" min="0" max="100" step="0.1"
+                                    wire:model.live.debounce.400ms="criteriaScores.{{ $crit->key }}"
+                                    class="input-field" style="width:64px;text-align:center;font-size:12px;padding:6px;" />
+                            </div>
                         </div>
                     @empty
                         <p class="mono dim" style="font-size:12px;">Belum ada kriteria penilaian untuk event ini. Assign di Admin Panel.</p>
@@ -332,7 +352,19 @@
             </div>
 
             <div class="col" style="gap:14px;">
-                @if($isRunning)
+                @if($isRunning && ($isBestTrickPhase ?? false))
+                <div class="panel center col halftone" style="padding:22px;gap:8px;text-align:center;">
+                    <span class="kicker">BEST TRICK SCORE</span>
+                    <span class="display tnum text-glow-lime" style="font-size:clamp(70px,12vw,120px);color:var(--lime);line-height:0.8;">{{ number_format($bestTrickScore ?? 0, 1) }}</span>
+                    <span class="mono dim" style="font-size:12px;">/ 20 · PERCOBAAN {{ $liveRunNumber }}</span>
+                    @if($scoreSubmitted)
+                        <span class="badge badge-lime" style="margin-top:14px;">✓ SCORE SUBMITTED</span>
+                    @else
+                        <button wire:click="submitBestTrickScore" class="btn btn-lime" style="margin-top:14px;"
+                            @if(!$judgeEventId || !$liveRiderId || $bestTrickScore === null) disabled @endif>Submit Score →</button>
+                    @endif
+                </div>
+                @elseif($isRunning)
                 <div class="panel center col halftone" style="padding:22px;gap:8px;text-align:center;">
                     <span class="kicker">FINAL SCORE</span>
                     <span class="display tnum text-glow-lime" style="font-size:clamp(70px,12vw,120px);color:var(--lime);line-height:0.8;">{{ number_format($totalLive, 1) }}</span>
@@ -350,9 +382,12 @@
                 @if(isset($otherJudgeScores) && $otherJudgeScores->count())
                     @php
                         $myJudgeId   = auth()->id();
+                        // Di mode Best Trick, skor juri yang lagi diketik itu skala 0-20 langsung
+                        // (bukan rata-rata kriteria 0-100 kayak $totalLive) — jangan sampai ketuker.
+                        $currentJudgeValue = ($isBestTrickPhase ?? false) ? ($bestTrickScore ?? 0) : $totalLive;
                         $allTotals   = $otherJudgeScores->pluck('total')->map(fn($t) => (float)$t);
                         // Include current judge's live score in accumulation
-                        if ($totalLive > 0) $allTotals->push($totalLive);
+                        if ($currentJudgeValue > 0) $allTotals->push($currentJudgeValue);
                         $accumulated = $allTotals->count() > 0 ? round($allTotals->avg(), 1) : 0;
                     @endphp
                     <div class="panel" style="padding:16px;">
@@ -385,14 +420,14 @@
                         @endforeach
 
                         {{-- Current judge's live entry (not yet submitted) --}}
-                        @if($totalLive > 0 && !$otherJudgeScores->contains('judge_user_id', $myJudgeId))
+                        @if($currentJudgeValue > 0 && !$otherJudgeScores->contains('judge_user_id', $myJudgeId))
                             <div style="padding:8px 0;">
                                 <div class="between" style="margin-bottom:4px;">
                                     <div style="display:flex;align-items:center;gap:6px;">
                                         <span class="label" style="font-size:12px;">{{ auth()->user()->name }}</span>
                                         <span class="badge badge-lime" style="font-size:9px;padding:1px 5px;">KAMU (live)</span>
                                     </div>
-                                    <span class="display tnum" style="font-size:18px;color:var(--lime);">{{ number_format($totalLive, 1) }}</span>
+                                    <span class="display tnum" style="font-size:18px;color:var(--lime);">{{ number_format($currentJudgeValue, 1) }}</span>
                                 </div>
                             </div>
                         @endif
@@ -427,7 +462,7 @@
                     @php $readyRider = $liveRiderId ? $judgeRiders->find($liveRiderId) : null; @endphp
                     <p class="mono dim" style="font-size:11px;margin-bottom:12px;">
                         @if($readyRider)
-                            Rider siap: <strong>{{ $readyRider->name }}</strong> · Run {{ $liveRunNumber }}. Klik START RUN untuk mulai.
+                            Rider siap: <strong>{{ $readyRider->name }}</strong> · {{ ($isBestTrickPhase ?? false) ? 'Percobaan' : 'Run' }} {{ $liveRunNumber }}. Klik START RUN untuk mulai.
                         @else
                             Menunggu Operator memilih rider &amp; run.
                         @endif
@@ -460,7 +495,7 @@
                     <span class="live-dot"></span>
                     <span class="label" style="font-size:13px;">{{ $liveR?->name ?? 'Rider' }}</span>
                     <span class="mono dim" style="font-size:10px;">RUN {{ $activeEvent->live_run_number }}</span>
-                    <span class="mono" style="font-size:10px;margin-left:auto;color:var(--lime);">{{ $activeEvent->run_duration }}s</span>
+                    <span class="mono" style="font-size:10px;margin-left:auto;color:var(--lime);">{{ ($isBestTrickPhase ?? false) ? '1 TRICK' : $activeEvent->run_duration . 's' }}</span>
                 </div>
 
                 @if($totalJudges)
@@ -564,10 +599,10 @@
                     $riderB  = $koCurrentMatch->riderB;
                     $trick   = $koCurrentMatch->trick;
                     $totalA  = count($criteriaScores) > 0
-                        ? round((array_sum($criteriaScores) / $critCount) * 10, 1)
+                        ? round(array_sum($criteriaScores) / $critCount, 1)
                         : 0;
                     $totalB  = count($criteriaScoresB) > 0
-                        ? round((array_sum($criteriaScoresB) / $critCount) * 10, 1)
+                        ? round(array_sum($criteriaScoresB) / $critCount, 1)
                         : 0;
                     $subsA   = isset($koApprovedSubmissions)
                         ? $koApprovedSubmissions->where('registration_id', $koCurrentMatch->rider_a_registration_id)->values()
@@ -641,15 +676,20 @@
                             <span class="display tnum text-glow-lime" style="font-size:28px;color:var(--lime);">{{ number_format($totalA, 1) }}</span>
                         </div>
                         @forelse($criteria as $crit)
-                            @php $val = $criteriaScores[$crit->key] ?? 9.0; @endphp
+                            @php $val = $criteriaScores[$crit->key] ?? 90.0; @endphp
                             <div style="margin-bottom:12px;">
                                 <div class="between" style="margin-bottom:4px;">
                                     <span class="mono" style="font-size:10px;letter-spacing:0.1em;">{{ strtoupper($crit->name) }}</span>
                                     <span class="display tnum" style="font-size:15px;color:var(--lime);">{{ number_format($val, 1) }}</span>
                                 </div>
-                                <input type="range" min="0" max="10" step="0.1"
-                                    wire:model.live="criteriaScores.{{ $crit->key }}"
-                                    style="width:100%;accent-color:var(--lime);" />
+                                <div class="flex gap-s" style="align-items:center;">
+                                    <input type="range" min="0" max="100" step="0.1"
+                                        wire:model.live="criteriaScores.{{ $crit->key }}"
+                                        style="flex:1;accent-color:var(--lime);" />
+                                    <input type="number" min="0" max="100" step="0.1"
+                                        wire:model.live.debounce.400ms="criteriaScores.{{ $crit->key }}"
+                                        class="input-field" style="width:56px;text-align:center;font-size:11px;padding:5px;" />
+                                </div>
                             </div>
                         @empty
                             <p class="mono dim" style="font-size:11px;">Belum ada kriteria — assign di Admin.</p>
@@ -669,15 +709,20 @@
                             <span class="display tnum text-glow-lime" style="font-size:28px;color:var(--lime);">{{ number_format($totalB, 1) }}</span>
                         </div>
                         @forelse($criteria as $crit)
-                            @php $val = $criteriaScoresB[$crit->key] ?? 9.0; @endphp
+                            @php $val = $criteriaScoresB[$crit->key] ?? 90.0; @endphp
                             <div style="margin-bottom:12px;">
                                 <div class="between" style="margin-bottom:4px;">
                                     <span class="mono" style="font-size:10px;letter-spacing:0.1em;">{{ strtoupper($crit->name) }}</span>
                                     <span class="display tnum" style="font-size:15px;color:var(--lime);">{{ number_format($val, 1) }}</span>
                                 </div>
-                                <input type="range" min="0" max="10" step="0.1"
-                                    wire:model.live="criteriaScoresB.{{ $crit->key }}"
-                                    style="width:100%;accent-color:var(--lime);" />
+                                <div class="flex gap-s" style="align-items:center;">
+                                    <input type="range" min="0" max="100" step="0.1"
+                                        wire:model.live="criteriaScoresB.{{ $crit->key }}"
+                                        style="flex:1;accent-color:var(--lime);" />
+                                    <input type="number" min="0" max="100" step="0.1"
+                                        wire:model.live.debounce.400ms="criteriaScoresB.{{ $crit->key }}"
+                                        class="input-field" style="width:56px;text-align:center;font-size:11px;padding:5px;" />
+                                </div>
                             </div>
                         @empty
                             <p class="mono dim" style="font-size:11px;">Belum ada kriteria — assign di Admin.</p>

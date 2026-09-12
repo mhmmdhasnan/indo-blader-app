@@ -118,11 +118,11 @@ class RankingService
 
         foreach ($leaderboard as $row) {
             $index++;
-            if ($prevBest === null || $row['best'] < $prevBest) {
+            if ($prevBest === null || $row['total'] < $prevBest) {
                 $rank = $index; // standard "1224" competition ranking: ties share a rank
             }
             $placements[$rank][] = $row;
-            $prevBest = $row['best'];
+            $prevBest = $row['total'];
         }
 
         return $placements;

@@ -55,6 +55,7 @@ class Dashboard extends Component
     public int    $koMatchId        = 0;
     public int    $liveRiderId      = 0;
     public int    $liveRunNumber    = 1;
+    public ?float $bestTrickScore   = null; // typed 0-20 score for the Best Trick phase
 
     // Category review
     public int    $moveToCategoryId = 0;
@@ -288,6 +289,39 @@ class Dashboard extends Component
         $this->scoreSubmitted = true;
     }
 
+    public function submitBestTrickScore(): void
+    {
+        if (!$this->judgeEventId || !$this->liveRiderId) {
+            $this->addError('judgeEventId', 'Pilih event dan rider terlebih dahulu.');
+            return;
+        }
+
+        $this->validate([
+            'bestTrickScore' => 'required|numeric|min:0|max:20',
+        ], [], ['bestTrickScore' => 'skor best trick']);
+
+        $riderId = $this->resolveRiderIdFromRegistration($this->liveRiderId);
+        if (!$riderId) {
+            $this->addError('liveRiderId', 'Rider tidak ditemukan untuk peserta ini.');
+            return;
+        }
+
+        JudgeScore::updateOrCreate(
+            [
+                'judge_user_id' => auth()->id(),
+                'event_id'      => $this->judgeEventId,
+                'rider_id'      => $riderId,
+                'run_number'    => $this->liveRunNumber,
+                'scoring_mode'  => 'BEST_TRICK',
+                'live_stage'    => 'FINAL',
+            ],
+            ['total' => $this->bestTrickScore, 'status' => 'DONE']
+        );
+
+        $this->scoreSubmitted = true;
+        $this->bestTrickScore = null;
+    }
+
     private function resolveRiderIdFromRegistration(int $registrationId): ?int
     {
         $reg = Registration::find($registrationId);
@@ -336,6 +370,28 @@ class Dashboard extends Component
             ->first();
 
         return $reg?->division?->live_stage ?? 'QUALIFICATION';
+    }
+
+    private function currentIsBestTrick(Event $event): bool
+    {
+        if (!$event->live_rider_id) return false;
+
+        $liveRider = Rider::find($event->live_rider_id);
+        if (!$liveRider) return false;
+
+        $reg = Registration::where('event_id', $event->id)
+            ->where('status', 'APPROVED')
+            ->where(function ($q) use ($liveRider) {
+                if ($liveRider->user_id) {
+                    $q->where('user_id', $liveRider->user_id)
+                      ->orWhere('name', $liveRider->name);
+                } else {
+                    $q->where('name', $liveRider->name);
+                }
+            })
+            ->first();
+
+        return $reg?->division?->best_trick_active ?? false;
     }
 
     public function submitKnockoutScore(): void
@@ -392,6 +448,7 @@ class Dashboard extends Component
             $this->scoreSubmitted  = false;
             $this->criteriaScores  = [];
             $this->criteriaScoresB = [];
+            $this->bestTrickScore  = null;
         }
     }
 
@@ -1100,6 +1157,16 @@ class Dashboard extends Component
         EventDivision::findOrFail($divisionId)->update(['live_stage' => 'QUALIFICATION']);
     }
 
+    public function startBestTrickPhase(int $divisionId): void
+    {
+        EventDivision::findOrFail($divisionId)->update(['best_trick_active' => true]);
+    }
+
+    public function endBestTrickPhase(int $divisionId): void
+    {
+        EventDivision::findOrFail($divisionId)->update(['best_trick_active' => false]);
+    }
+
     public function completeLiveFinal(int $divisionId): void
     {
         $division = EventDivision::findOrFail($divisionId);
@@ -1662,8 +1729,8 @@ class Dashboard extends Component
 
             if (empty($this->criteriaScores)) {
                 foreach ($criteria as $c) {
-                    $this->criteriaScores[$c->key]  = 9.0;
-                    $this->criteriaScoresB[$c->key] = 9.0;
+                    $this->criteriaScores[$c->key]  = 90.0;
+                    $this->criteriaScoresB[$c->key] = 90.0;
                 }
             }
 
@@ -1738,12 +1805,13 @@ class Dashboard extends Component
                 ? $this->resolveRiderIdFromRegistration($this->liveRiderId)
                 : null;
             $selectedLiveStage = Registration::find($this->liveRiderId)?->division?->live_stage ?? 'QUALIFICATION';
+            $data['isBestTrickPhase'] = Registration::find($this->liveRiderId)?->division?->best_trick_active ?? false;
 
             if ($this->scoringMode === 'live' && $jeid && $resolvedLiveRiderId) {
                 $data['otherJudgeScores'] = JudgeScore::where('event_id', $jeid)
                     ->where('rider_id', $resolvedLiveRiderId)
                     ->where('run_number', $this->liveRunNumber)
-                    ->where('scoring_mode', 'LIVE')
+                    ->where('scoring_mode', $data['isBestTrickPhase'] ? 'BEST_TRICK' : 'LIVE')
                     ->where('live_stage', $selectedLiveStage)
                     ->with(['judge', 'scoreDetails'])
                     ->get();
@@ -1759,7 +1827,7 @@ class Dashboard extends Component
                     $data['liveJudgeScores'] = JudgeScore::where('event_id', $jeid)
                         ->where('rider_id', $liveEvent->live_rider_id)
                         ->where('run_number', $liveEvent->live_run_number)
-                        ->where('scoring_mode', 'LIVE')
+                        ->where('scoring_mode', $this->currentIsBestTrick($liveEvent) ? 'BEST_TRICK' : 'LIVE')
                         ->where('live_stage', $this->currentLiveStage($liveEvent))
                         ->with(['judge', 'scoreDetails'])
                         ->get();

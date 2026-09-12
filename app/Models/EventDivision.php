@@ -10,12 +10,13 @@ class EventDivision extends Model
 {
     protected $fillable = [
         'event_id', 'name', 'discipline', 'level', 'slots', 'filled', 'is_active',
-        'live_stage', 'live_final_completed_at',
+        'live_stage', 'live_final_completed_at', 'best_trick_active',
     ];
 
     protected $casts = [
         'is_active'                => 'boolean',
         'live_final_completed_at'  => 'datetime',
+        'best_trick_active'        => 'boolean',
     ];
 
     public function event(): BelongsTo

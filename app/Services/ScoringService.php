@@ -11,7 +11,7 @@ class ScoringService
     {
         $values = array_values(array_filter($scores, 'is_numeric'));
         if (empty($values)) return 0;
-        return round((array_sum($values) / count($values)) * 10, 1);
+        return round(array_sum($values) / count($values), 1);
     }
 
     public function submitScore(JudgeScore $score, array $criteria): void

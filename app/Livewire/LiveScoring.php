@@ -75,6 +75,7 @@ class LiveScoring extends Component
         $revealScore  = null;
         $liveRiderBestScore = null;
         $liveDivisionLabel = $event?->title ?? 'FRAMEBLADESCORE';
+        $isBestTrickPhase = false;
 
         if ($event) {
             if ($divisions->isNotEmpty() && $division) {
@@ -116,6 +117,8 @@ class LiveScoring extends Component
 
             $liveDivision = $liveRider ? $this->resolveLiveRiderDivision($event, $liveRider) : null;
             $liveStage    = $liveDivision?->live_stage ?? 'QUALIFICATION';
+            $isBestTrickPhase = $liveDivision?->best_trick_active ?? false;
+            $liveScoringMode  = $isBestTrickPhase ? 'BEST_TRICK' : 'LIVE';
             $liveDivisionLabel = $liveDivision
                 ? strtoupper($liveDivision->name) . ' · ' . ($liveDivision->live_stage === 'FINAL' ? 'FINAL' : 'KUALIFIKASI')
                 : strtoupper($event->title ?? 'FRAMEBLADESCORE');
@@ -124,7 +127,7 @@ class LiveScoring extends Component
                 $revealScore = JudgeScore::where('event_id', $event->id)
                     ->where('rider_id', $event->live_rider_id)
                     ->where('run_number', $event->live_run_number)
-                    ->where('scoring_mode', 'LIVE')
+                    ->where('scoring_mode', $liveScoringMode)
                     ->where('live_stage', $liveStage)
                     ->where('status', 'DONE')
                     ->avg('total');
@@ -134,7 +137,7 @@ class LiveScoring extends Component
                 $judgeScores = JudgeScore::with(['judge', 'scoreDetails.criterion'])
                     ->where('event_id', $event->id)
                     ->where('rider_id', $liveRider->id)
-                    ->where('scoring_mode', 'LIVE')
+                    ->where('scoring_mode', $liveScoringMode)
                     ->where('live_stage', $liveStage)
                     ->whereNotNull('judge_user_id')
                     ->get();
@@ -146,7 +149,7 @@ class LiveScoring extends Component
 
                 $liveRiderBestScore = JudgeScore::where('event_id', $event->id)
                     ->where('rider_id', $liveRider->id)
-                    ->where('scoring_mode', 'LIVE')
+                    ->where('scoring_mode', $liveScoringMode)
                     ->where('live_stage', $liveStage)
                     ->where('status', 'DONE')
                     ->when($excludeRunNumber, fn ($q) => $q->where('run_number', '!=', $excludeRunNumber))
@@ -161,7 +164,8 @@ class LiveScoring extends Component
 
         return view('livewire.live-scoring', compact(
             'event', 'divisions', 'division', 'stage', 'groups', 'selectedGroupId', 'scores', 'judgeScores',
-            'liveRider', 'displayPhase', 'liveStartedAt', 'runDuration', 'revealScore', 'liveRiderBestScore', 'liveDivisionLabel'
+            'liveRider', 'displayPhase', 'liveStartedAt', 'runDuration', 'revealScore', 'liveRiderBestScore',
+            'liveDivisionLabel', 'isBestTrickPhase'
         ));
     }
 }
