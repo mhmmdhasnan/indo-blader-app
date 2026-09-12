@@ -1,6 +1,6 @@
 <div>
     <div class="halftone" style="border-bottom:2px solid var(--ink);">
-        <div class="wrap" style="padding:48px 0 40px;">
+        <div class="wrap" style="padding-top:48px;padding-bottom:40px;">
             <div class="eyebrow-row" style="margin-bottom:12px;">
                 <span class="mono" style="font-size:11px;color:var(--lime);font-weight:700;">ABOUT /</span>
                 <span class="kicker">FRAMEBLADESCORE</span>
@@ -9,7 +9,7 @@
         </div>
     </div>
 
-    <div class="wrap section" style="display:grid;grid-template-columns:1.4fr 1fr;gap:60px;" class="prof-grid">
+    <div class="wrap section prof-grid" style="display:grid;grid-template-columns:1.4fr 1fr;gap:60px;">
         <div>
             <h2 class="display" style="font-size:clamp(34px,5vw,64px);margin-bottom:24px;">About FRAMEBLADESCORE</h2>
             <div class="col" style="gap:20px;font-size:16px;line-height:1.7;">
@@ -70,7 +70,7 @@
 
     <section style="border-top:2px solid var(--ink);background:var(--lime);color:#0a0a0b;position:relative;overflow:hidden;">
         <div style="position:absolute;inset:0;background-image:radial-gradient(circle,rgba(0,0,0,0.12) 1px,transparent 1px);background-size:16px 16px;pointer-events:none;"></div>
-        <div class="wrap center col" style="position:relative;padding:70px 0;text-align:center;gap:16px;">
+        <div class="wrap center col" style="position:relative;padding-block:70px;text-align:center;gap:16px;">
             <span class="mono" style="font-size:12px;letter-spacing:0.3em;">GET INVOLVED</span>
             <h2 class="display" style="font-size:clamp(44px,8vw,110px);margin:0;">Join The Circuit</h2>
             <div class="flex center gap-m" style="flex-wrap:wrap;margin-top:10px;">

@@ -7,7 +7,7 @@
             <div class="ph no-label scanlines" style="position:absolute;inset:0;"></div>
         @endif
         <div style="position:absolute;inset:0;background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 40%,transparent),var(--bg));"></div>
-        <div class="wrap" style="position:relative;padding:40px 0 34px;">
+        <div class="wrap" style="position:relative;padding-top:40px;padding-bottom:34px;">
             <a href="{{ route('events') }}" class="mono dim" style="font-size:11px;letter-spacing:0.14em;">← ALL EVENTS</a>
             <div style="margin-top:22px;">
                 <div class="flex gap-s" style="margin-bottom:14px;flex-wrap:wrap;align-items:center;">
@@ -31,7 +31,7 @@
 
     {{-- CTA strip --}}
     <div style="border-bottom:2px solid var(--ink);background:var(--bg-2);">
-        <div class="wrap between" style="padding:20px 0;gap:16px;flex-wrap:wrap;">
+        <div class="wrap between" style="padding-block:20px;gap:16px;flex-wrap:wrap;">
             <div class="flex gap-s" style="flex-wrap:wrap;align-items:center;">
                 <div style="height:6px;width:160px;background:var(--panel-2);border:1px solid var(--line);">
                     <div style="height:100%;width:{{ $event->fill_pct }}%;background:{{ $event->fill_pct > 85 ? 'var(--red)' : 'var(--lime)' }};"></div>
@@ -146,6 +146,22 @@
                                 <div class="col"><span class="display tnum" style="font-size:22px;">{{ $v }}</span><span class="mono dim" style="font-size:9px;">{{ $l }}</span></div>
                             @endforeach
                         </div>
+                        @if(($divisionsByCategory[$cat] ?? collect())->isNotEmpty())
+                            <div class="col" style="gap:8px;margin-top:16px;border-top:1px solid var(--line);padding-top:14px;">
+                                <span class="mono dim" style="font-size:9px;letter-spacing:0.12em;">DIVISIONS</span>
+                                @foreach($divisionsByCategory[$cat] as $div)
+                                    <div class="between" style="align-items:center;gap:10px;">
+                                        <div class="flex gap-s" style="align-items:center;flex-wrap:wrap;">
+                                            <span class="label" style="font-size:13px;">{{ $div->name }}</span>
+                                            @if($div->level)
+                                                <span class="mono" style="font-size:9px;padding:1px 5px;background:var(--bg-2);border:1px solid var(--line);">{{ $div->level }}</span>
+                                            @endif
+                                        </div>
+                                        <span class="mono dim" style="font-size:10px;white-space:nowrap;">{{ $div->slots === null ? $div->filled.' terdaftar' : $div->filled.'/'.$div->slots }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
                     </div>
                 @endforeach
             </div>

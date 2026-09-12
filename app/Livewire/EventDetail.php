@@ -45,7 +45,13 @@ class EventDetail extends Component
 
         $prizeSplit = [[1, 0.40], [2, 0.25], [3, 0.15], [4, 0.10], [5, 0.06], [6, 0.04]];
 
-        return view('livewire.event-detail', compact('riders', 'schedule', 'rules', 'prizeSplit'))
+        $divisionsByCategory = $this->event->divisions()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->groupBy(fn ($div) => $div->discipline ?: 'OTHER');
+
+        return view('livewire.event-detail', compact('riders', 'schedule', 'rules', 'prizeSplit', 'divisionsByCategory'))
             ->title($this->title);
     }
 

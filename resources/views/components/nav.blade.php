@@ -63,13 +63,13 @@ $current = Route::currentRouteName();
                     @elseif(auth()->user()->isJudge() || auth()->user()->isOperator())
                         <a href="{{ route('judge') }}" class="btn btn-lime btn-sm nav-reg">{{ auth()->user()->isOperator() ? 'OPERATOR' : 'JUDGE' }}</a>
                     @endif
-                    <form method="POST" action="{{ route('logout') }}" style="display:inline;">
+                    <form method="POST" action="{{ route('logout') }}" class="nav-reg" style="display:inline;">
                         @csrf
                         <button type="submit" class="btn btn-ghost btn-sm" style="font-size:11px;">LOGOUT</button>
                     </form>
                 @else
                     <a href="{{ route('register') }}" class="btn btn-lime btn-sm nav-reg">REGISTER</a>
-                    <a href="{{ route('login') }}" class="btn btn-ghost btn-sm" style="font-size:11px;">LOGIN</a>
+                    <a href="{{ route('login') }}" class="btn btn-ghost btn-sm nav-reg" style="font-size:11px;">LOGIN</a>
                 @endauth
             </div>
 

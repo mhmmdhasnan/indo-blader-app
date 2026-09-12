@@ -89,7 +89,7 @@
 
         {{-- Sponsor strip --}}
         <div style="position:relative;border-top:2px solid var(--ink);background:var(--bg);">
-            <div class="wrap flex" style="align-items:center;gap:28px;padding:16px 0;flex-wrap:wrap;">
+            <div class="wrap flex" style="align-items:center;gap:28px;padding-block:16px;flex-wrap:wrap;">
                 <span class="mono" style="font-size:10px;letter-spacing:0.2em;color:var(--ink-faint);white-space:nowrap;">PRESENTED BY</span>
                 @foreach($sponsors as $sp)
                     <span class="display dim" style="font-size:18px;letter-spacing:0.02em;opacity:0.55;">{{ $sp }}</span>
@@ -282,7 +282,7 @@
     {{-- ── CTA BANNER ── --}}
     <section style="border-top:2px solid var(--ink);background:var(--lime);color:#0a0a0b;position:relative;overflow:hidden;">
         <div style="position:absolute;inset:0;background-image:radial-gradient(circle,rgba(0,0,0,0.12) 1px,transparent 1px);background-size:16px 16px;pointer-events:none;"></div>
-        <div class="wrap center col" style="position:relative;padding:70px 0;text-align:center;gap:10px;">
+        <div class="wrap center col" style="position:relative;padding-block:70px;text-align:center;gap:10px;">
             <span class="mono" style="font-size:12px;letter-spacing:0.3em;">ONE WHEEL · ONE FAMILY</span>
             <h2 class="display" style="font-size:clamp(44px,8vw,110px);margin:14px 0 26px;">Drop In With Us</h2>
             <div class="flex center gap-m" style="flex-wrap:wrap;">

@@ -17,7 +17,7 @@
 
     {{-- Header --}}
     <div style="border-bottom:2px solid var(--ink);background:var(--bg-2);">
-        <div class="wrap between" style="padding:20px 0;flex-wrap:wrap;gap:12px;">
+        <div class="wrap between" style="padding-block:20px;flex-wrap:wrap;gap:12px;">
             <div class="col">
                 <div class="flex gap-s" style="margin-bottom:6px;">
                     @if($event && $event->status === 'LIVE')
@@ -172,7 +172,7 @@
     </div>
 
     @if(!$event)
-        <div class="wrap section center col" style="padding:80px 0;gap:16px;">
+        <div class="wrap section center col" style="padding-block:80px;gap:16px;">
             <span class="display" style="font-size:48px;color:var(--ink-faint);">—</span>
             <span class="kicker">PILIH EVENT</span>
             <p class="mono dim" style="font-size:13px;text-align:center;max-width:320px;">
@@ -180,7 +180,7 @@
             </p>
         </div>
     @elseif($scores->isEmpty())
-        <div class="wrap section center col" style="padding:80px 0;gap:16px;">
+        <div class="wrap section center col" style="padding-block:80px;gap:16px;">
             <span class="display" style="font-size:48px;color:var(--ink-faint);">—</span>
             <span class="kicker">BELUM ADA PESERTA</span>
             <p class="mono dim" style="font-size:13px;text-align:center;max-width:360px;">

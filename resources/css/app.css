@@ -89,7 +89,7 @@ img { display: block; max-width: 100%; }
 
 /* ── LAYOUT ─────────────────────────────────────────────────── */
 .wrap { max-width: 1220px; margin: 0 auto; padding: 0 clamp(16px, 3vw, 40px); }
-.section { padding: 64px 0; }
+.section { padding-block: 64px; }
 .flex { display: flex; align-items: center; }
 .col { display: flex; flex-direction: column; }
 .between { display: flex; align-items: center; justify-content: space-between; }
@@ -370,9 +370,27 @@ select.input-field option {
     min-height: 100vh;
     background: var(--bg);
 }
+.admin-burger { display: none !important; }
+.admin-overlay { display: none; }
 @media (max-width: 900px) {
     .admin-root { grid-template-columns: 1fr; }
-    .admin-side { position: static !important; height: auto !important; overflow: visible !important; }
+    .admin-side {
+        position: fixed !important;
+        top: 0; left: 0; height: 100vh !important;
+        width: min(280px, 82vw);
+        z-index: 300;
+        transform: translateX(-100%);
+        transition: transform 0.22s ease;
+        overflow-y: auto !important;
+    }
+    .admin-side.is-open { transform: translateX(0); }
+    .admin-burger { display: flex !important; }
+    .admin-overlay.is-open {
+        display: block;
+        position: fixed; inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 290;
+    }
 }
 
 /* ── RESPONSIVE GRID HELPERS ────────────────────────────────── */
@@ -387,7 +405,7 @@ select.input-field option {
 }
 @media (max-width: 640px) {
     .events-grid, .riders-grid, .feat-grid { grid-template-columns: 1fr !important; }
-    .section { padding: 40px 0; }
+    .section { padding-block: 40px; }
     .footer-grid { grid-template-columns: 1fr !important; }
     .adm-stats { grid-template-columns: 1fr 1fr !important; }
 }

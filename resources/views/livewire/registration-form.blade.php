@@ -3,7 +3,7 @@
         {{-- Confirmation --}}
         <div style="border-bottom:2px solid var(--ink);background:var(--lime);color:#0a0a0b;position:relative;overflow:hidden;">
             <div style="position:absolute;inset:0;background-image:radial-gradient(circle,rgba(0,0,0,0.12) 1px,transparent 1px);background-size:16px 16px;pointer-events:none;"></div>
-            <div class="wrap center col" style="position:relative;padding:70px 0;text-align:center;gap:10px;">
+            <div class="wrap center col" style="position:relative;padding-block:70px;text-align:center;gap:10px;">
                 <span class="sticker" style="--rot:-4deg;background:#0a0a0b;color:var(--lime);font-size:13px;">ENTRY CONFIRMED</span>
                 <h1 class="display" style="font-size:clamp(44px,8vw,96px);margin:10px 0 0;">You're In.</h1>
                 <p style="font-size:17px;max-width:460px;">
@@ -46,7 +46,7 @@
     @else
         {{-- Registration form --}}
         <div class="halftone" style="border-bottom:2px solid var(--ink);">
-            <div class="wrap" style="padding:48px 0 40px;">
+            <div class="wrap" style="padding-top:48px;padding-bottom:40px;">
                 <div class="eyebrow-row" style="margin-bottom:12px;">
                     <span class="mono" style="font-size:11px;color:var(--lime);font-weight:700;">ENTRY /</span>
                     <span class="kicker">COMPETITOR REGISTRATION</span>

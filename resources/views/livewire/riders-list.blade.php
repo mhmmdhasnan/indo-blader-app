@@ -1,6 +1,6 @@
 <div>
     <div class="halftone" style="border-bottom:2px solid var(--ink);">
-        <div class="wrap" style="padding:48px 0 40px;">
+        <div class="wrap" style="padding-top:48px;padding-bottom:40px;">
             <div class="eyebrow-row" style="margin-bottom:12px;">
                 <span class="mono" style="font-size:11px;color:var(--lime);font-weight:700;">ROSTER /</span>
                 <span class="kicker">THE NATIONAL ROSTER</span>

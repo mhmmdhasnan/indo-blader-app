@@ -3,7 +3,7 @@
     <div style="border-bottom:2px solid var(--ink);position:relative;overflow:hidden;">
         <div class="ph no-label scanlines" style="position:absolute;inset:0;"></div>
         <div style="position:absolute;inset:0;background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 40%,transparent),var(--bg));"></div>
-        <div class="wrap" style="position:relative;padding:40px 0 34px;">
+        <div class="wrap" style="position:relative;padding-top:40px;padding-bottom:34px;">
             <a href="{{ route('riders') }}" class="mono dim" style="font-size:11px;letter-spacing:0.14em;">← ALL RIDERS</a>
             <div class="flex" style="gap:28px;margin-top:22px;align-items:flex-end;flex-wrap:wrap;">
                 <div class="ph" data-ph="Portrait" style="width:210px;height:250px;flex-shrink:0;border:2px solid var(--ink);"></div>

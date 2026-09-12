@@ -1,6 +1,8 @@
-<div class="admin-root">
+<div class="admin-root" x-data="{ sidebarOpen: false }">
+    <div class="admin-overlay" :class="{ 'is-open': sidebarOpen }" @click="sidebarOpen = false"></div>
+
     {{-- ── SIDEBAR ── --}}
-    <aside class="admin-side" style="border-right:2px solid var(--ink);background:var(--bg-2);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;">
+    <aside class="admin-side" :class="{ 'is-open': sidebarOpen }" style="border-right:2px solid var(--ink);background:var(--bg-2);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;">
         <div style="padding:20px 18px;border-bottom:2px solid var(--ink);">
             <div style="display:flex;align-items:center;gap:10px;">
                 <img src="{{ asset('images/logo-dark.png') }}" alt="FRAMEBLADESCORE" style="width:36px;height:36px;flex-shrink:0;">
@@ -74,7 +76,7 @@
                         color:var(--ink-dim);opacity:0.55;
                     ">{{ $groupLabel }}</span>
                     @foreach($items as [$k, $ic, $lbl])
-                        <button wire:click="$set('view','{{ $k }}')" class="flex label" style="
+                        <button wire:click="$set('view','{{ $k }}')" @click="sidebarOpen = false" class="flex label" style="
                             align-items:center;gap:10px;padding:9px 10px;border-radius:3px;
                             font-size:12.5px;text-align:left;width:100%;
                             background:{{ $view === $k ? 'var(--ink)' : 'transparent' }};
@@ -91,6 +93,10 @@
             @endforeach
         </nav>
         <div style="padding:14px;border-top:2px solid var(--ink);">
+            <form method="POST" action="{{ route('logout') }}" style="margin-bottom:8px;">
+                @csrf
+                <button type="submit" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;">Logout</button>
+            </form>
             <a href="{{ route('home') }}" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;">← Back to Site</a>
         </div>
     </aside>
@@ -99,16 +105,25 @@
     <div style="min-width:0;display:flex;flex-direction:column;">
         {{-- Top bar --}}
         <header class="between admin-topbar" style="padding:16px 26px;border-bottom:2px solid var(--ink);position:sticky;top:0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);z-index:20;">
-            <div class="col">
-                <span class="kicker">{{ isset($activeEvent) && $activeEvent ? strtoupper($activeEvent->title) : 'FRAMEBLADESCORE' }}</span>
-                <h1 class="display" style="font-size:26px;">
-                    {{ collect([
-                        'overview' => 'Overview', 'registrations' => 'Registrations', 'payments' => 'Payments',
-                        'riders_all' => 'Semua Rider', 'riders' => 'Riders', 'events' => 'Events', 'judging' => 'Judge Panel', 'brackets' => 'Brackets',
-                        'categories' => 'Categories', 'qualification' => 'Qualification', 'tricks' => 'Tricks',
-                        'submissions' => 'Submissions', 'ranking_admin' => 'Rankings', 'users' => 'Users',
-                    ])->get($view, 'Overview') }}
-                </h1>
+            <div class="flex" style="align-items:center;gap:14px;">
+                <button class="admin-burger center" @click="sidebarOpen = !sidebarOpen" style="width:38px;height:38px;border:2px solid var(--ink);border-radius:3px;flex-shrink:0;" aria-label="Menu">
+                    <div class="col" style="gap:4px;">
+                        <span style="width:16px;height:2px;background:var(--ink);display:block;"></span>
+                        <span style="width:16px;height:2px;background:var(--ink);display:block;"></span>
+                        <span style="width:16px;height:2px;background:var(--ink);display:block;"></span>
+                    </div>
+                </button>
+                <div class="col">
+                    <span class="kicker">{{ isset($activeEvent) && $activeEvent ? strtoupper($activeEvent->title) : 'FRAMEBLADESCORE' }}</span>
+                    <h1 class="display" style="font-size:26px;">
+                        {{ collect([
+                            'overview' => 'Overview', 'registrations' => 'Registrations', 'payments' => 'Payments',
+                            'riders_all' => 'Semua Rider', 'riders' => 'Riders', 'events' => 'Events', 'judging' => 'Judge Panel', 'brackets' => 'Brackets',
+                            'categories' => 'Categories', 'qualification' => 'Qualification', 'tricks' => 'Tricks',
+                            'submissions' => 'Submissions', 'ranking_admin' => 'Rankings', 'users' => 'Users',
+                        ])->get($view, 'Overview') }}
+                    </h1>
+                </div>
             </div>
             <div class="flex" style="align-items:center;gap:14px;">
                 <span class="badge badge-out"><span class="live-dot"></span>SYSTEM LIVE</span>

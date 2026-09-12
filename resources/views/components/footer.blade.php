@@ -11,7 +11,7 @@ $navLinks = [
 @endphp
 <footer style="border-top:2px solid var(--ink);background:var(--bg-2);margin-top:0;">
     <div class="halftone" style="border-bottom:2px solid var(--ink);">
-        <div class="wrap section" style="padding:64px 0;">
+        <div class="wrap section" style="padding-block:64px;">
             <div class="footer-grid" style="display:grid;grid-template-columns:1.6fr 1fr 1fr 1.4fr;gap:40px 24px;">
                 <div>
                     <x-logo :size="46" />
@@ -59,8 +59,7 @@ $navLinks = [
         </div>
     </div>
 
-    <div class="wrap between" style="padding:20px 0;flex-wrap:wrap;gap:10px;">
+    <div class="wrap" style="padding-block:20px;">
         <span class="mono dim" style="font-size:11px;">© 2026 FRAMEBLADESCORE — ONE WHEEL ONE FAMILY</span>
-        <span class="mono dim" style="font-size:11px;">BUILT WITH LARAVEL 12 + LIVEWIRE</span>
     </div>
 </footer>
