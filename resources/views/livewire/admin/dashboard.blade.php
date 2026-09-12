@@ -564,7 +564,7 @@
                                         <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">LOKASI VENUE (KLIK PETA / GESER PIN)</span>
                                         <div wire:ignore wire:key="event-map-{{ $evId }}"
                                             x-data="leafletPicker({{ $evLat ?? 'null' }}, {{ $evLng ?? 'null' }})"
-                                            x-init="init($wire)"
+                                            x-init="mount($wire)"
                                             style="height:220px;border:2px solid var(--ink);border-radius:3px;overflow:hidden;"></div>
                                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;">
                                             <div>

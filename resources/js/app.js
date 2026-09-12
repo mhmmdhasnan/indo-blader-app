@@ -16,10 +16,15 @@ const DEFAULT_LNG = 106.8456;
 
 document.addEventListener('alpine:init', () => {
     // Editable map used in the admin event form: click or drag the marker to set coordinates.
+    // NOTE: this must NOT be named `init` — Alpine auto-calls a component's
+    // own `init()` with no arguments as soon as x-data is processed, on top
+    // of whatever x-init="..." calls explicitly. Naming it `init` here made
+    // it run twice (once with $wire undefined, once with $wire), which threw
+    // and left Leaflet with a map already bound to the element.
     Alpine.data('leafletPicker', (lat, lng) => ({
         map: null,
         marker: null,
-        init($wire) {
+        mount($wire) {
             const startLat = lat || DEFAULT_LAT;
             const startLng = lng || DEFAULT_LNG;
 
@@ -59,8 +64,9 @@ document.addEventListener('alpine:init', () => {
     }));
 
     // Read-only map used on the public event page to show the venue location.
+    // Same reason as leafletPicker above: don't name this `init`.
     Alpine.data('leafletView', (lat, lng, label) => ({
-        init() {
+        mount() {
             const map = L.map(this.$el, {
                 zoomControl: true,
                 scrollWheelZoom: false,

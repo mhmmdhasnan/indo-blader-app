@@ -192,7 +192,7 @@
                 @if($event->latitude && $event->longitude)
                     <div
                         x-data="leafletView({{ $event->latitude }}, {{ $event->longitude }}, @js($event->venue))"
-                        x-init="init()"
+                        x-init="mount()"
                         style="min-height:360px;border:2px solid var(--ink);border-radius:3px;"></div>
                 @else
                     <div class="ph halftone" data-ph="Venue map" style="min-height:360px;border:2px solid var(--ink);border-radius:3px;position:relative;">

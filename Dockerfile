@@ -1,8 +1,13 @@
 # ---- Stage 1: build frontend assets ----
 FROM node:22-alpine AS assets
 WORKDIR /app
+# Install deps from the lockfile alone first, so this (slow, network-bound)
+# layer is only invalidated when package*.json actually change — not on
+# every source edit, which is what COPY . . before npm ci used to do.
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
 COPY . .
-RUN npm ci --ignore-scripts && npm run build
+RUN npm run build
 
 # ---- Stage 2: PHP application ----
 FROM php:8.3-fpm-alpine AS app
@@ -17,12 +22,20 @@ RUN apk add --no-cache \
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
+# Same reasoning as the npm layer above: install PHP deps from just the
+# lockfile so this layer only re-downloads packages when composer.json/.lock
+# actually change, not on every source edit. --no-scripts because
+# post-autoload-dump runs `artisan package:discover`, which needs the full
+# app (below) to exist first.
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-scripts --no-autoloader --no-interaction
+
 COPY . .
 COPY --from=assets /app/public/build ./public/build
 
 RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views \
         storage/framework/testing storage/logs storage/app/public bootstrap/cache \
-    && composer install --no-dev --optimize-autoloader --no-interaction \
+    && composer dump-autoload --no-dev --optimize --no-interaction \
     && cp -r public public-src \
     && chown -R www-data:www-data storage bootstrap/cache
 
