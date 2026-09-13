@@ -89,6 +89,10 @@ img { display: block; max-width: 100%; }
 
 /* ── LAYOUT ─────────────────────────────────────────────────── */
 .wrap { max-width: 1220px; margin: 0 auto; padding: 0 clamp(16px, 3vw, 40px); }
+/* Live Score punya beberapa tabel group berdampingan yang butuh lebih banyak
+   ruang daripada lebar baca normal 1220px — dipakai khusus di halaman itu
+   supaya halaman lain (yang didesain buat lebar 1220px) gak ikut berubah. */
+.wrap-wide { max-width: 1800px; }
 .section { padding-block: 64px; }
 .flex { display: flex; align-items: center; }
 .col { display: flex; flex-direction: column; }
@@ -461,7 +465,11 @@ select.input-field option {
 }
 
 /* ── LIVE SCORE TABLE ───────────────────────────────────────── */
-.score-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+/* container-type lets the header/row grid react to the width of the table's
+   own box (e.g. when several group tables sit side by side and each one is
+   narrower than the viewport) instead of only the viewport — see the
+   @container rules below. */
+.score-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; container-type: inline-size; container-name: scorecard; }
 .score-header {
     display: grid;
     grid-template-columns: 64px 1fr 110px 110px 140px;
@@ -479,6 +487,14 @@ select.input-field option {
 @media (max-width: 580px) {
     .score-header, .score-row { grid-template-columns: 54px 1fr 100px 120px; min-width: 0; }
     .score-hide { display: none !important; }
+}
+@container scorecard (max-width: 560px) {
+    .score-header, .score-row { grid-template-columns: 54px 1fr 100px 120px; min-width: 0; }
+    .score-hide { display: none !important; }
+}
+@container scorecard (max-width: 360px) {
+    .score-header, .score-row { grid-template-columns: 46px 1fr 100px; min-width: 0; }
+    .score-hide, .score-hide-2 { display: none !important; }
 }
 
 /* ── RIDER STAT STRIP ───────────────────────────────────────── */

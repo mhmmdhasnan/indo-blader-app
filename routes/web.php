@@ -44,7 +44,7 @@ Route::get('/events/{slug}/qualification', QualificationPage::class)->name('even
 Route::get('/rankings',  Rankings::class)->name('rankings');
 Route::get('/riders',    RidersList::class)->name('riders');
 Route::get('/riders/{slug}', RiderProfile::class)->name('riders.show');
-Route::get('/live',      LiveScoring::class)->name('live');
+Route::get('/live',      LiveScoring::class)->name('live')->middleware('role:admin,judge,head_judge,operator');
 Route::get('/bracket/{slug?}', BracketPage::class)->name('bracket');
 Route::get('/register',  RegistrationForm::class)->name('register');
 Route::get('/gallery',   Gallery::class)->name('gallery');

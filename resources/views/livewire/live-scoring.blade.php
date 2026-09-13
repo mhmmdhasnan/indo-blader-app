@@ -5,6 +5,7 @@
          data-started="{{ $liveStartedAt ?? 0 }}"
          data-duration="{{ $runDuration }}"
          data-score="{{ $revealScore ? number_format($revealScore, 1) : '' }}"
+         data-accumulated="{{ ($revealAccumulatedTotal ?? null) !== null ? number_format($revealAccumulatedTotal, 1) : '' }}"
          data-rider="{{ $liveRider?->name ?? '' }}"
          data-initials="{{ $liveRider ? collect(explode(' ', $liveRider->name))->map(fn($w) => strtoupper($w[0]))->take(2)->join('') : '' }}"
          data-avatar="{{ $liveRider?->avatar ? asset('storage/' . $liveRider->avatar) : '' }}"
@@ -16,9 +17,21 @@
          style="display:none;">
     </div>
 
+    @if($idleScreen ?? false)
+        {{-- Idle screen: dipaksa Operator (misal pas jeda antar sesi / sebelum event
+             mulai) — cuma nampilin logo + nama FRAMEBLADESCORE gede di tengah layar,
+             gak ada header/footer/nav situs maupun leaderboard sama sekali. --}}
+        <style>
+            body > header, body > footer { display: none !important; }
+        </style>
+        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);">
+            <x-logo :size="180" />
+        </div>
+    @else
+
     {{-- Header --}}
     <div style="border-bottom:2px solid var(--ink);background:var(--bg-2);">
-        <div class="wrap between" style="padding-block:20px;flex-wrap:wrap;gap:12px;">
+        <div class="wrap {{ $scoreSections->isNotEmpty() ? 'wrap-wide' : '' }} between" style="padding-block:20px;flex-wrap:wrap;gap:12px;">
             <div class="col">
                 <div class="flex gap-s" style="margin-bottom:6px;">
                     @if($event && $event->status === 'LIVE')
@@ -165,9 +178,12 @@
                         <div class="score-reveal-anim" style="display:flex;align-items:baseline;justify-content:center;gap:10px;">
                             <span class="display tnum text-glow-lime"
                                   style="font-size:clamp(80px,11vw,180px);color:var(--lime);line-height:1;"
-                                  x-text="score || '—'"></span>
-                            <span class="mono dim" style="font-size:16px;letter-spacing:0.1em;" x-text="isBestTrick ? '/ 20' : '/ 100'"></span>
+                                  x-text="(accumulated || score) || '—'"></span>
+                            <span class="mono dim" style="font-size:16px;letter-spacing:0.1em;" x-text="isBestTrick ? '/ 10' : '/ 100'"></span>
                         </div>
+                        <p class="mono dim" style="font-size:12px;letter-spacing:0.1em;margin-top:10px;" x-show="accumulated">
+                            TOTAL AKUMULASI RIDER — skor run ini: <span x-text="score || '—'"></span>
+                        </p>
                         <template x-if="bestScore">
                             <p class="mono dim" style="font-size:16px;letter-spacing:0.08em;margin-top:20px;">
                                 SKOR TERTINGGI SEBELUMNYA<br>
@@ -188,7 +204,7 @@
                 Pilih event di atas untuk melihat live score.
             </p>
         </div>
-    @elseif($scores->isEmpty())
+    @elseif($scores->isEmpty() && $scoreSections->isEmpty())
         <div class="wrap section center col" style="padding-block:80px;gap:16px;">
             <span class="display" style="font-size:48px;color:var(--ink-faint);">—</span>
             <span class="kicker">BELUM ADA PESERTA</span>
@@ -197,50 +213,80 @@
             </p>
         </div>
     @else
-        <div class="wrap section" style="padding-top:30px;">
+        <div class="wrap {{ $scoreSections->isNotEmpty() ? 'wrap-wide' : '' }} section" style="padding-top:30px;">
             <div class="col" style="gap:20px;">
                     @if(!$displayPhase)
-                    <div class="panel" style="overflow:hidden;">
-                        <div style="padding:16px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
-                            <span class="kicker">LIVE LEADERBOARD</span>
-                        </div>
-                        <div class="score-scroll">
-                            <div class="score-header">
-                                @foreach(['#','RIDER','RUN 1','RUN 2','BEST'] as $i => $h)
-                                    <span class="mono {{ $h === 'RUN 1' ? 'score-hide' : '' }}"
-                                        style="font-size:13px;letter-spacing:0.12em;color:var(--ink-dim);text-align:{{ $i >= 2 ? 'right' : 'left' }};">{{ $h }}</span>
-                                @endforeach
-                            </div>
-                            @foreach($scores as $i => $row)
-                                @php $isOnCourse = $displayPhase === 'RUNNING' && $event?->live_rider_id && ($row['rider']->id === $event->live_rider_id); @endphp
-                                <div class="score-row" style="
-                                    border-bottom:{{ !$loop->last ? '1px solid var(--line)' : 'none' }};
-                                    background:{{ $isOnCourse ? 'color-mix(in srgb,var(--red) 8%,transparent)' : 'transparent' }};
-                                    border-left:{{ $isOnCourse ? '3px solid var(--red)' : '3px solid transparent' }};
-                                ">
-                                    <span class="display tnum" style="font-size:34px;color:{{ $i === 0 ? 'var(--lime)' : ($i < 3 ? 'var(--ink)' : 'var(--ink-faint)') }};">{{ str_pad($i+1,2,'0',STR_PAD_LEFT) }}</span>
-                                    <div class="flex" style="align-items:center;gap:14px;">
-                                        <x-avatar :initials="$row['rider']->initials" :size="48" :ring="$i === 0" />
-                                        <div class="col">
-                                            <span class="label" style="font-size:18px;">{{ $row['rider']->name }}</span>
-                                            <span class="mono dim" style="font-size:12px;">
-                                                {{ $isOnCourse ? '🔴 ON COURSE' : ($row['rider']->city ?? '—') }}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <span class="mono tnum score-hide" style="font-size:18px;text-align:right;color:var(--ink-dim);">{{ (!$isOnCourse && $row['run1'] !== null) ? number_format($row['run1'], 1) : '—' }}</span>
-                                    <span class="mono tnum" style="font-size:18px;text-align:right;color:{{ $isOnCourse ? 'var(--red)' : 'var(--ink-dim)' }};">
-                                        {{ $isOnCourse ? '...' : ($row['run2'] !== null ? number_format($row['run2'], 1) : '—') }}
-                                    </span>
-                                    @php $rowTotal = $row['total'] ?? $row['best']; @endphp
-                                    {{-- Nominal bonus Best Trick sengaja gak ditampilkan di sini — publik cuma
-                                         lihat total akhir; breakdown-nya cuma buat Head Judge/Operator (lihat
-                                         partials/judging-panel.blade.php). --}}
-                                    <span class="display tnum" style="font-size:30px;text-align:right;color:{{ $i === 0 ? 'var(--lime)' : 'var(--ink)' }};">{{ (!$isOnCourse && $rowTotal > 0) ? number_format($rowTotal, 1) : '—' }}</span>
+
+                    {{-- Dua banner ini SENGAJA gak digantung ke $stage saat ini — begitu
+                         admin pilih finalis, live_stage divisi langsung pindah ke FINAL,
+                         jadi kalau pengumuman kualifikasi cuma tampil selagi $stage masih
+                         QUALIFICATION, operator gak akan pernah sempat lihat banner ini
+                         (keburu ganti ke leaderboard FINAL). Keduanya independen dan bisa
+                         tampil bersamaan sesuai tombol yang dipencet Operator. --}}
+                    @if(($finalAnnounced ?? false) && ($podium ?? collect())->isNotEmpty())
+                    <div class="panel halftone" style="padding:24px;text-align:center;border:2px solid var(--lime);">
+                        <span class="kicker" style="display:block;margin-bottom:14px;">🏆 PEMENANG FINAL — {{ strtoupper($division?->name ?? '') }}</span>
+                        <div style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap;">
+                            @foreach($podium as $i => $row)
+                                <div class="col center" style="gap:6px;">
+                                    <span class="display tnum" style="font-size:{{ $i === 0 ? '40px' : '28px' }};color:{{ $i === 0 ? 'var(--lime)' : 'var(--ink)' }};">#{{ $i + 1 }}</span>
+                                    <x-avatar :initials="$row['rider']->initials" :size="$i === 0 ? 56 : 44" :ring="$i === 0" />
+                                    <span class="label" style="font-size:14px;">{{ $row['rider']->name }}</span>
+                                    <span class="mono dim tnum" style="font-size:12px;">{{ number_format($row['total'], 1) }}</span>
                                 </div>
                             @endforeach
                         </div>
                     </div>
+                    @endif
+                    {{-- Kalau tabel di bawah lagi nampilin recap skor kualifikasi para
+                         finalis (lihat $showingQualRecap), judul tabelnya sendiri sudah
+                         cukup menjelaskan ("LANJUT KE FINAL") — banner ini cuma perlu
+                         tampil kalau tabelnya BUKAN recap tsb (misal masih di fase
+                         kualifikasi, atau final-nya udah beneran mulai jalan). --}}
+                    @if(($qualificationAnnounced ?? false) && !($showingQualRecap ?? false) && ($finalistRegIds ?? collect())->isNotEmpty())
+                    <div class="panel" style="padding:16px 20px;border:2px solid var(--lime);">
+                        <span class="mono" style="font-size:12px;color:var(--lime);display:block;margin-bottom:6px;">✅ HASIL KUALIFIKASI DIUMUMKAN — {{ $finalistRegIds->count() }} rider lolos ke FINAL</span>
+                        <span class="mono dim" style="font-size:12px;">{{ ($finalistNames ?? collect())->implode(', ') }}</span>
+                    </div>
+                    @endif
+
+                    @if($scoreSections->isNotEmpty())
+                        {{-- "Semua" group dipilih & divisi ini punya group — 1 group = 1 tabel,
+                             ditampilkan berdampingan (kiri-kanan), maksimal 4 kolom per baris
+                             (mis. 8 group = 4 di atas, 4 di bawah; 6 group = 3 di atas, 3 di
+                             bawah). Pakai flexbox + flex-grow supaya baris terakhir yang gak
+                             penuh tetap melebar mengisi ruang — gak pernah nyisa kosong di
+                             kanan/kiri. Tabelnya sendiri pakai container query (lihat
+                             .score-scroll di app.css) supaya kalau kolomnya jadi sempit,
+                             tabel otomatis ciutkan kolom RUN alih-alih nampilin scrollbar. --}}
+                        @php
+                            $sectionCount = $scoreSections->count();
+                            $sectionRows  = (int) ceil($sectionCount / 4);
+                            $sectionCols  = $sectionRows > 0 ? (int) ceil($sectionCount / $sectionRows) : 1;
+                            $sectionGap   = 20;
+                        @endphp
+                        <div style="display:flex;flex-wrap:wrap;gap:{{ $sectionGap }}px;align-items:flex-start;">
+                            @foreach($scoreSections as $section)
+                                <div class="panel" style="overflow:hidden;flex:1 1 calc((100% - {{ ($sectionCols - 1) * $sectionGap }}px)/{{ $sectionCols }});min-width:260px;">
+                                    <div style="padding:16px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
+                                        <span class="kicker">LIVE LEADERBOARD · {{ strtoupper($section['group']?->name ?? 'BELUM ADA GROUP') }}</span>
+                                    </div>
+                                    @if($section['leaderboard']->isEmpty())
+                                        <p class="mono dim" style="font-size:12px;padding:18px;">Belum ada skor masuk untuk group ini.</p>
+                                    @else
+                                        @include('livewire.partials.live-score-table', ['rows' => $section['leaderboard'], 'compact' => true])
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                    <div class="panel" style="overflow:hidden;">
+                        <div style="padding:16px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
+                            <span class="kicker">{{ ($showingQualRecap ?? false) ? 'LANJUT KE FINAL' : 'LIVE LEADERBOARD' }}</span>
+                        </div>
+                        @include('livewire.partials.live-score-table', ['rows' => $scores])
+                    </div>
+                    @endif
                     @endif {{-- !$displayPhase --}}
 
                     {{-- Judge Scores — hanya tampil setelah REVEAL --}}
@@ -290,6 +336,7 @@
             </div>
         </div>
     @endif
+    @endif {{-- idleScreen --}}
 </div>
 
 <script>
@@ -323,6 +370,7 @@ function livePhaseOverlay() {
         riderName: '',
         initials: '',
         score: '',
+        accumulated: '',
         bestScore: '',
         avatarSrc: '',
         eventTitle: '',
@@ -350,6 +398,7 @@ function livePhaseOverlay() {
             this.riderName  = el.dataset.rider || '';
             this.initials   = el.dataset.initials || '';
             this.score      = el.dataset.score || '';
+            this.accumulated = el.dataset.accumulated || '';
             this.bestScore  = el.dataset.best || '';
             this.avatarSrc  = el.dataset.avatar || '';
             this.eventTitle = el.dataset.event || '';
@@ -393,7 +442,10 @@ function livePhaseOverlay() {
         },
 
         get remainingFormatted() {
-            return String(this.remaining).padStart(2, '0');
+            const h = Math.floor(this.remaining / 3600);
+            const m = Math.floor((this.remaining % 3600) / 60);
+            const s = this.remaining % 60;
+            return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
         }
     };
 }

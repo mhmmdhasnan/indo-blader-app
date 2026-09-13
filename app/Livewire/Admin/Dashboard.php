@@ -144,6 +144,7 @@ class Dashboard extends Component
     // Live Score finalist picker
     public int   $finalistPickerDivisionId = 0;
     public array $selectedFinalistRegIds   = [];
+    public int   $finalistTopN             = 8;
 
     // Live Score qualification groups
     public int    $groupManageDivisionId = 0;
@@ -1123,6 +1124,20 @@ class Dashboard extends Component
         $this->selectedFinalistRegIds   = [];
     }
 
+    public function autoSelectTopFinalists(int $divisionId): void
+    {
+        $division = EventDivision::findOrFail($divisionId);
+        $n        = max(1, $this->finalistTopN);
+
+        // groupId null = combined ranking across every group in this division —
+        // finalists are picked by highest score overall, not top-N within each group.
+        $this->selectedFinalistRegIds = app(LiveScoreboardService::class)
+            ->buildLeaderboard($division, 'QUALIFICATION', null)
+            ->take($n)
+            ->map(fn ($row) => $row['registration']->id)
+            ->all();
+    }
+
     public function openFinalPhase(int $divisionId): void
     {
         if (empty($this->selectedFinalistRegIds)) {
@@ -1693,6 +1708,11 @@ class Dashboard extends Component
         $data['finalistSections'] = $this->finalistPickerDivisionId
             ? app(LiveScoreboardService::class)->buildQualificationSections(
                 EventDivision::findOrFail($this->finalistPickerDivisionId)
+              )
+            : collect();
+        $data['finalistCombined'] = $this->finalistPickerDivisionId
+            ? app(LiveScoreboardService::class)->buildLeaderboard(
+                EventDivision::findOrFail($this->finalistPickerDivisionId), 'QUALIFICATION', null
               )
             : collect();
 

@@ -936,6 +936,35 @@
                                                     <span class="mono dim" style="font-size:10px;letter-spacing:0.1em;display:block;margin-bottom:10px;">
                                                         PILIH FINALIS — {{ strtoupper($div->name) }} (DARI LEADERBOARD KUALIFIKASI)
                                                     </span>
+
+                                                    {{-- Ranking gabungan semua group — finalis dipilih dari skor tertinggi lintas group --}}
+                                                    <div style="margin-bottom:18px;padding:12px;background:var(--bg);border:2px solid var(--lime);border-radius:4px;">
+                                                        <div class="between" style="margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+                                                            <span class="mono" style="font-size:10px;color:var(--lime);">🎯 RANKING GABUNGAN (SEMUA GROUP)</span>
+                                                            <div class="flex gap-s" style="align-items:center;">
+                                                                <span class="mono dim" style="font-size:10px;">TOP</span>
+                                                                <input type="number" min="1" wire:model="finalistTopN" class="input-field" style="width:60px;font-size:12px;padding:4px 8px;">
+                                                                <button wire:click="autoSelectTopFinalists({{ $div->id }})" class="btn btn-sm btn-lime">Auto-pilih Top N</button>
+                                                            </div>
+                                                        </div>
+                                                        @if(($finalistCombined ?? collect())->isEmpty())
+                                                            <p class="mono dim" style="font-size:11px;">Belum ada skor kualifikasi.</p>
+                                                        @else
+                                                            <div class="col" style="gap:6px;max-height:220px;overflow-y:auto;">
+                                                                @foreach($finalistCombined as $i => $row)
+                                                                    <label class="flex gap-s" style="align-items:center;padding:6px 10px;background:var(--bg-2);border-radius:3px;cursor:pointer;">
+                                                                        <input type="checkbox" wire:model="selectedFinalistRegIds" value="{{ $row['registration']->id }}" style="accent-color:var(--lime);">
+                                                                        <span class="mono dim" style="font-size:11px;width:24px;">#{{ $i + 1 }}</span>
+                                                                        <span class="label" style="font-size:13px;flex:1;">{{ $row['rider']->name }}</span>
+                                                                        <span class="mono dim" style="font-size:10px;">{{ $row['registration']->division_group_id ? optional(\App\Models\DivisionGroup::find($row['registration']->division_group_id))->name : '—' }}</span>
+                                                                        <span class="mono tnum" style="font-size:12px;color:var(--lime);">{{ number_format($row['total'], 1) }}</span>
+                                                                    </label>
+                                                                @endforeach
+                                                            </div>
+                                                        @endif
+                                                    </div>
+
+                                                    <span class="mono dim" style="font-size:10px;letter-spacing:0.1em;display:block;margin-bottom:10px;">BREAKDOWN PER GROUP (REFERENSI)</span>
                                                     @forelse($finalistSections as $section)
                                                         <div style="margin-bottom:16px;">
                                                             <span class="mono" style="font-size:10px;color:var(--lime);display:block;margin-bottom:6px;">

@@ -45,7 +45,8 @@ class Dashboard extends Component
     public int    $liveRunNumber   = 1;
     public int    $judgeDivisionId = 0;
     public int    $judgeGroupId    = 0;
-    public ?float $bestTrickScore  = null; // typed 0-20 score for the Best Trick phase
+    public ?float $bestTrickScore  = null; // typed 0-10 score for the Best Trick phase
+    public bool   $scoreReopened   = false; // true when Head Judge reopened this judge's DONE score for revision
 
     // Category review
     public int    $moveToCategoryId = 0;
@@ -122,7 +123,7 @@ class Dashboard extends Component
     {
         $this->judgeGroupId = 0;
 
-        if ($this->judgeEventId && $this->canControlLiveSession()) {
+        if ($this->judgeEventId && auth()->user()->isOperator()) {
             Event::whereKey($this->judgeEventId)->update([
                 'active_division_id' => $this->judgeDivisionId ?: null,
                 'active_group_id'    => null,
@@ -132,7 +133,7 @@ class Dashboard extends Component
 
     public function updatedJudgeGroupId(): void
     {
-        if ($this->judgeEventId && $this->canControlLiveSession()) {
+        if ($this->judgeEventId && auth()->user()->isOperator()) {
             Event::whereKey($this->judgeEventId)->update([
                 'active_group_id' => $this->judgeGroupId ?: null,
             ]);
@@ -209,6 +210,7 @@ class Dashboard extends Component
         app(ScoringService::class)->submitScore($score, $this->criteriaScores);
 
         $this->scoreSubmitted = true;
+        $this->scoreReopened  = false;
     }
 
     public function submitBestTrickScore(): void
@@ -221,7 +223,7 @@ class Dashboard extends Component
         }
 
         $this->validate([
-            'bestTrickScore' => 'required|numeric|min:0|max:20',
+            'bestTrickScore' => 'required|numeric|min:0|max:10',
         ], [], ['bestTrickScore' => 'skor best trick']);
 
         $riderId = $this->resolveRiderIdFromRegistration($this->liveRiderId);
@@ -243,6 +245,7 @@ class Dashboard extends Component
         );
 
         $this->scoreSubmitted  = true;
+        $this->scoreReopened   = false;
         $this->bestTrickScore  = null;
     }
 
@@ -365,6 +368,72 @@ class Dashboard extends Component
         $this->initCriteria();
     }
 
+    // ─── Head Judge: annul/reopen a judge's already-submitted score ───────────
+
+    public function reopenJudgeScore(int $scoreId): void
+    {
+        if (!auth()->user()->isHeadJudge()) {
+            $this->addError('judgeEventId', 'Hanya Head Judge yang dapat membuka ulang skor judge.');
+            return;
+        }
+
+        JudgeScore::whereKey($scoreId)->update(['status' => 'WAITING']);
+    }
+
+    // ─── Operator: public announcements ────────────────────────────────────────
+
+    public function announceQualificationResults(int $divisionId): void
+    {
+        if (!auth()->user()->isOperator()) return;
+
+        $division = \App\Models\EventDivision::findOrFail($divisionId);
+        if (!\App\Models\DivisionFinalist::where('event_division_id', $divisionId)->exists()) {
+            $this->addError('judgeEventId', 'Pilih finalis dulu di Admin Panel sebelum mengumumkan hasil kualifikasi.');
+            return;
+        }
+
+        $division->update(['qualification_announced_at' => now()]);
+    }
+
+    public function unannounceQualificationResults(int $divisionId): void
+    {
+        if (!auth()->user()->isOperator()) return;
+        \App\Models\EventDivision::whereKey($divisionId)->update(['qualification_announced_at' => null]);
+    }
+
+    public function announceFinalResults(int $divisionId): void
+    {
+        if (!auth()->user()->isOperator()) return;
+
+        $division = \App\Models\EventDivision::findOrFail($divisionId);
+        if (!$division->live_final_completed_at) {
+            $this->addError('judgeEventId', 'Selesaikan Final (Complete Live Final) dulu di Admin Panel sebelum mengumumkan pemenang.');
+            return;
+        }
+
+        $division->update(['final_announced_at' => now()]);
+    }
+
+    public function unannounceFinalResults(int $divisionId): void
+    {
+        if (!auth()->user()->isOperator()) return;
+        \App\Models\EventDivision::whereKey($divisionId)->update(['final_announced_at' => null]);
+    }
+
+    // ─── Operator: idle screen (tampilkan logo FRAMEBLADESCORE di /live) ──────
+
+    public function showIdleScreen(): void
+    {
+        if (!auth()->user()->isOperator() || !$this->judgeEventId) return;
+        Event::whereKey($this->judgeEventId)->update(['idle_screen' => true]);
+    }
+
+    public function hideIdleScreen(): void
+    {
+        if (!auth()->user()->isOperator() || !$this->judgeEventId) return;
+        Event::whereKey($this->judgeEventId)->update(['idle_screen' => false]);
+    }
+
     // ─── Live Session Sync (everyone except Operator, who sets the state) ─────
 
     public function syncLiveState(): void
@@ -388,6 +457,20 @@ class Dashboard extends Component
         }
 
         $event = $this->judgeEventId ? Event::find($this->judgeEventId) : null;
+
+        // Judge/Head Judge never drive the division/group filter themselves — always
+        // mirror whatever the Operator has set as active, on every poll tick, not just
+        // when the active event changes.
+        if ($event) {
+            $mirroredDivisionId = $event->active_division_id ?? 0;
+            $mirroredGroupId    = $event->active_group_id ?? 0;
+            if ($this->judgeDivisionId !== $mirroredDivisionId || $this->judgeGroupId !== $mirroredGroupId) {
+                $this->judgeDivisionId = $mirroredDivisionId;
+                $this->judgeGroupId    = $mirroredGroupId;
+                $this->initCriteria();
+            }
+        }
+
         if (!$event || !in_array($event->live_phase, ['NEXT', 'RUNNING'], true)) {
             return;
         }
@@ -417,6 +500,7 @@ class Dashboard extends Component
             $this->liveRiderId   = $reg->id;
             $this->liveRunNumber = $eventRunNumber;
             $this->bestTrickScore = null;
+            $this->scoreReopened = false;
             $this->initCriteria();
         }
 
@@ -437,7 +521,32 @@ class Dashboard extends Component
                 ->exists();
 
             if ($wasSubmitted && !$this->scoreSubmitted) {
-                $this->initCriteria();
+                // Either the run was cancelled & restarted (row deleted — plain reset),
+                // or the Head Judge reopened this exact score for revision (row still
+                // there, just flipped back to WAITING) — in that case prefill the
+                // judge's previous values instead of blanking them back to defaults.
+                $existing = JudgeScore::where('event_id', $event->id)
+                    ->where('rider_id', $event->live_rider_id)
+                    ->where('run_number', $eventRunNumber)
+                    ->where('scoring_mode', $isBestTrick ? 'BEST_TRICK' : 'LIVE')
+                    ->where('live_stage', $this->currentLiveStage($event))
+                    ->where('judge_user_id', auth()->id())
+                    ->with('scoreDetails')
+                    ->first();
+
+                if ($existing) {
+                    $this->scoreReopened = true;
+                    if ($isBestTrick) {
+                        $this->bestTrickScore = $existing->total;
+                    } else {
+                        $this->initCriteria();
+                        foreach ($existing->scoreDetails as $detail) {
+                            $this->criteriaScores[$detail->criteria] = $detail->score;
+                        }
+                    }
+                } else {
+                    $this->initCriteria();
+                }
             }
         }
     }
@@ -479,6 +588,7 @@ class Dashboard extends Component
         ]);
 
         $this->scoreSubmitted = false;
+        $this->scoreReopened  = false;
         $this->bestTrickScore = null;
         $this->initCriteria();
     }
@@ -812,13 +922,23 @@ class Dashboard extends Component
                 ? \App\Models\DivisionGroup::where('event_division_id', $this->judgeDivisionId)->orderBy('name')->get()
                 : collect();
 
-            $data['operatorLeaderboard'] = ($selectedDivision && $this->scoringMode === 'live')
-                ? app(\App\Services\LiveScoreboardService::class)->buildLeaderboard(
-                    $selectedDivision,
-                    $selectedDivision->live_stage,
-                    ($selectedDivision->live_stage !== 'FINAL' && $this->judgeGroupId) ? $this->judgeGroupId : null
-                  )
-                : collect();
+            $data['operatorLeaderboard']         = collect();
+            $data['operatorLeaderboardSections']  = collect();
+            if ($selectedDivision && $this->scoringMode === 'live') {
+                $scoreboardSvc = app(\App\Services\LiveScoreboardService::class);
+
+                if ($selectedDivision->live_stage !== 'FINAL' && !$this->judgeGroupId && $data['judgeGroups']->isNotEmpty()) {
+                    // "Semua" group selected and this division has groups — show one
+                    // leaderboard table per group instead of one combined table.
+                    $data['operatorLeaderboardSections'] = $scoreboardSvc->buildQualificationSections($selectedDivision);
+                } else {
+                    $data['operatorLeaderboard'] = $scoreboardSvc->buildLeaderboard(
+                        $selectedDivision,
+                        $selectedDivision->live_stage,
+                        ($selectedDivision->live_stage !== 'FINAL' && $this->judgeGroupId) ? $this->judgeGroupId : null
+                    );
+                }
+            }
 
             // Use Registration records directly so all approved participants appear,
             // regardless of whether they have a Rider profile yet.

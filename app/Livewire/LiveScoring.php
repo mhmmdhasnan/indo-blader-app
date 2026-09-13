@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\DivisionFinalist;
 use App\Models\DivisionGroup;
 use App\Models\Event;
 use App\Models\EventDivision;
@@ -50,8 +51,9 @@ class LiveScoring extends Component
 
     public function render()
     {
-        $event     = $this->resolveActiveEvent();
-        $divisions = $event ? EventDivision::where('event_id', $event->id)->where('is_active', true)->orderBy('name')->get() : collect();
+        $event      = $this->resolveActiveEvent();
+        $idleScreen = (bool) $event?->idle_screen;
+        $divisions  = $event ? EventDivision::where('event_id', $event->id)->where('is_active', true)->orderBy('name')->get() : collect();
 
         // Leaderboard selalu mengikuti divisi/group yang sedang aktif dipilih Head Judge.
         $division = $event?->active_division_id
@@ -65,7 +67,8 @@ class LiveScoring extends Component
 
         $selectedGroupId = $event?->active_group_id ?? 0;
 
-        $scores       = collect();
+        $scores        = collect();
+        $scoreSections = collect();
         $judgeScores  = collect();
         $liveRider    = null;
         $liveStage    = 'QUALIFICATION';
@@ -73,16 +76,56 @@ class LiveScoring extends Component
         $liveStartedAt = null;
         $runDuration  = $event?->run_duration ?? 60;
         $revealScore  = null;
+        $revealAccumulatedTotal = null;
         $liveRiderBestScore = null;
         $liveDivisionLabel = $event?->title ?? 'FRAMEBLADESCORE';
         $isBestTrickPhase = false;
+        $showingQualRecap = false;
+
+        // Pengumuman kualifikasi & final ini SENGAJA independen dari $stage saat ini —
+        // begitu admin pilih finalis, live_stage divisi langsung pindah ke FINAL, jadi
+        // banner "siapa yang lolos" harus tetap tampil terus meski leaderboard yang
+        // ditampilkan sekarang sudah leaderboard FINAL, bukan cuma saat $stage masih
+        // QUALIFICATION (yang mana udah kepakai duluan sebelum operator sempat klik
+        // tombol umumkan).
+        $qualificationAnnounced = (bool) $division?->qualification_announced_at;
+        $finalAnnounced         = (bool) $division?->final_announced_at;
+        $finalistRegIds         = ($division && $qualificationAnnounced)
+            ? DivisionFinalist::where('event_division_id', $division->id)->pluck('registration_id')
+            : collect();
+        $finalistNames = $finalistRegIds->isNotEmpty()
+            ? Registration::whereIn('id', $finalistRegIds)->orderBy('name')->pluck('name')
+            : collect();
+        $podium = ($division && $finalAnnounced)
+            ? app(LiveScoreboardService::class)->buildLeaderboard($division, 'FINAL')->take(3)->values()
+            : collect();
 
         if ($event) {
             if ($divisions->isNotEmpty() && $division) {
                 $groupId = ($stage === 'QUALIFICATION' && $groups->contains('id', $selectedGroupId))
                     ? $selectedGroupId
                     : null;
-                $scores = app(LiveScoreboardService::class)->buildLeaderboard($division, $stage, $groupId);
+
+                if ($stage === 'QUALIFICATION' && $groupId === null && $groups->isNotEmpty()) {
+                    // "Semua" group dipilih & divisi ini punya group — 1 group = 1 tabel,
+                    // sama seperti tampilan leaderboard di Judge Panel Operator.
+                    $scoreSections = app(LiveScoreboardService::class)->buildQualificationSections($division);
+                } else {
+                    $scores = app(LiveScoreboardService::class)->buildLeaderboard($division, $stage, $groupId);
+                }
+
+                // Begitu admin pindah ke FINAL, leaderboard yang tampil ke publik berubah
+                // jadi leaderboard FINAL (skor final, bukan kualifikasi lagi). Tapi kalau
+                // Operator sudah mengumumkan hasil kualifikasi, yang mau ditampilkan di
+                // panel resting-state ini adalah rekap "siapa yang lanjut ke final beserta
+                // skor kualifikasi mereka" — bukan progres skor final (progres final tetap
+                // kelihatan lewat overlay saat run-nya aktif/di-reveal).
+                if ($stage === 'FINAL' && $qualificationAnnounced && $finalistRegIds->isNotEmpty()) {
+                    $scores = app(LiveScoreboardService::class)->buildLeaderboard($division, 'QUALIFICATION', null)
+                        ->filter(fn ($row) => $finalistRegIds->contains($row['registration']->id))
+                        ->values();
+                    $showingQualRecap = true;
+                }
             } elseif ($divisions->isEmpty()) {
                 // Backward-compat: LIVE_SCORE events with no EventDivision rows yet
                 // keep the original flat, whole-event, stage-less leaderboard.
@@ -131,6 +174,15 @@ class LiveScoring extends Component
                     ->where('live_stage', $liveStage)
                     ->where('status', 'DONE')
                     ->avg('total');
+
+                // The number that lands on the leaderboard is the rider's accumulated
+                // total (best-of-runs + best-trick bonus), not just this one run's raw
+                // judged average — show that as the headline reveal number.
+                if ($liveDivision) {
+                    $revealAccumulatedTotal = app(LiveScoreboardService::class)
+                        ->buildLeaderboard($liveDivision, $liveStage)
+                        ->first(fn ($row) => $row['rider']->id === $liveRider->id)['total'] ?? null;
+                }
             }
 
             if ($liveRider) {
@@ -163,9 +215,10 @@ class LiveScoring extends Component
         }
 
         return view('livewire.live-scoring', compact(
-            'event', 'divisions', 'division', 'stage', 'groups', 'selectedGroupId', 'scores', 'judgeScores',
-            'liveRider', 'displayPhase', 'liveStartedAt', 'runDuration', 'revealScore', 'liveRiderBestScore',
-            'liveDivisionLabel', 'isBestTrickPhase'
+            'event', 'idleScreen', 'divisions', 'division', 'stage', 'groups', 'selectedGroupId', 'scores', 'scoreSections', 'judgeScores',
+            'liveRider', 'displayPhase', 'liveStartedAt', 'runDuration', 'revealScore', 'revealAccumulatedTotal',
+            'liveRiderBestScore', 'liveDivisionLabel', 'isBestTrickPhase', 'showingQualRecap',
+            'qualificationAnnounced', 'finalAnnounced', 'finalistRegIds', 'finalistNames', 'podium'
         ));
     }
 }
