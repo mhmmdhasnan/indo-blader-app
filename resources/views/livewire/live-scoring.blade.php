@@ -282,7 +282,7 @@
                     @else
                     <div class="panel" style="overflow:hidden;">
                         <div style="padding:16px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
-                            <span class="kicker">{{ ($showingQualRecap ?? false) ? 'LANJUT KE FINAL' : 'LIVE LEADERBOARD' }}</span>
+                            <span class="kicker">{{ ($showingQualRecap ?? false) ? 'ADVANCING TO FINAL' : 'LIVE LEADERBOARD' }}</span>
                         </div>
                         @include('livewire.partials.live-score-table', ['rows' => $scores])
                     </div>
