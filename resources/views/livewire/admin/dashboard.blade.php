@@ -263,6 +263,23 @@
                                 {{-- Inline edit form --}}
                                 @if($isEditingReg)
                                 <div style="padding:14px 18px 16px;background:var(--bg-2);border-top:1px solid var(--line);">
+                                    <div class="flex gap-m" style="flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;">
+                                        <div class="col" style="gap:4px;">
+                                            <span class="mono dim" style="font-size:10px;">FOTO RIDER</span>
+                                            <div class="flex gap-s" style="align-items:center;">
+                                                @if($regEditPhoto)
+                                                    <img src="{{ $regEditPhoto->temporaryUrl() }}" style="width:48px;height:48px;object-fit:cover;border-radius:50%;border:2px solid var(--lime);">
+                                                @elseif($regEditAvatarUrl)
+                                                    <img src="{{ $regEditAvatarUrl }}" style="width:48px;height:48px;object-fit:cover;border-radius:50%;border:2px solid var(--line);">
+                                                @else
+                                                    <x-avatar :initials="collect(explode(' ',$reg->name))->map(fn($w)=>$w[0])->take(2)->implode('')" :size="48" />
+                                                @endif
+                                                <input type="file" wire:model="regEditPhoto" accept="image/*" class="input-field" style="font-size:11px;max-width:220px;">
+                                            </div>
+                                            <span class="mono dim" style="font-size:9px;">JPG/PNG, maks 2MB. Otomatis buat profil Rider kalau belum ada.</span>
+                                            @error('regEditPhoto') <span style="font-size:10px;color:var(--red);">{{ $message }}</span> @enderror
+                                        </div>
+                                    </div>
                                     <div class="flex gap-m" style="flex-wrap:wrap;align-items:flex-end;">
                                         <div class="col" style="gap:4px;min-width:150px;flex:1;">
                                             <span class="mono dim" style="font-size:10px;">NAMA</span>

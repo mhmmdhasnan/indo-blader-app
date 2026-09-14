@@ -159,12 +159,14 @@ class Dashboard extends Component
     public bool   $clIsActive    = true;
 
     // Registration edit
-    public int    $regEditId         = 0;
-    public string $regEditName       = '';
-    public string $regEditEmail      = '';
-    public string $regEditPhone      = '';
-    public string $regEditCity       = '';
-    public int    $regEditDivisionId = 0;
+    public int     $regEditId         = 0;
+    public string  $regEditName       = '';
+    public string  $regEditEmail      = '';
+    public string  $regEditPhone      = '';
+    public string  $regEditCity       = '';
+    public int     $regEditDivisionId = 0;
+    public $regEditPhoto              = null; // new photo upload for this registrant's Rider profile
+    public ?string $regEditAvatarUrl  = null;  // current photo (if a Rider profile already exists)
 
     // Payment edit
     public int    $payEditId     = 0;
@@ -745,6 +747,15 @@ class Dashboard extends Component
         $this->regEditPhone      = $reg->phone;
         $this->regEditCity       = $reg->city;
         $this->regEditDivisionId = $reg->division_id ?? 0;
+        $this->regEditPhoto      = null;
+
+        // Look up an existing Rider profile without creating one — a Rider only
+        // gets auto-created (see resolveRiderIdFromRegistration) once a photo is
+        // actually uploaded or the rider gets scored, not just from opening Edit.
+        $existingRider = $reg->user_id
+            ? Rider::where('user_id', $reg->user_id)->first()
+            : Rider::where('name', $reg->name)->first();
+        $this->regEditAvatarUrl = $existingRider?->avatar ? asset('storage/' . $existingRider->avatar) : null;
     }
 
     public function saveRegistration(): void
@@ -757,7 +768,19 @@ class Dashboard extends Component
             'city'        => $this->regEditCity,
             'division_id' => $this->regEditDivisionId ?: null,
         ]);
-        $this->regEditId = 0;
+
+        if ($this->regEditPhoto) {
+            $this->validate(['regEditPhoto' => 'image|max:2048'], [], ['regEditPhoto' => 'foto rider']);
+
+            $riderId = $this->resolveRiderIdFromRegistration($reg->id);
+            if ($riderId) {
+                $path = $this->regEditPhoto->store('avatars', 'public');
+                Rider::whereKey($riderId)->update(['avatar' => $path]);
+            }
+        }
+
+        $this->regEditId    = 0;
+        $this->regEditPhoto = null;
     }
 
     public function deleteRegistration(int $id): void
