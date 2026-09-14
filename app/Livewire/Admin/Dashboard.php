@@ -19,6 +19,8 @@ use App\Models\Registration;
 use App\Models\Rider;
 use App\Models\RiderCategory;
 use App\Models\ScoringCriterion;
+use App\Models\Sponsor;
+use App\Models\SponsorPlacement;
 use App\Models\Trick;
 use App\Models\User;
 use App\Services\BracketService;
@@ -131,6 +133,15 @@ class Dashboard extends Component
     public int    $evRunDuration = 60;
     public array  $evRules      = [];
     public array  $evSchedule   = [];
+
+    // Sponsor CRUD
+    public bool   $spEditing    = false;
+    public int    $spId         = 0;
+    public string $spName       = '';
+    public        $spLogoFile   = null;
+    public string $spLogoPath   = '';
+    public int    $spSortOrder  = 0;
+    public bool   $spActive     = true;
 
     // Division CRUD
     public int    $divManageEventId = 0;
@@ -622,6 +633,109 @@ class Dashboard extends Component
         $this->evId         = 0;
         $this->evBannerFile = null;
         $this->evBannerPath = '';
+    }
+
+    // ─── Sponsor CRUD ─────────────────────────────────────────────────────────
+
+    public function openCreateSponsor(): void
+    {
+        $this->spEditing   = true;
+        $this->spId        = 0;
+        $this->spName      = '';
+        $this->spLogoFile  = null;
+        $this->spLogoPath  = '';
+        $this->spSortOrder = (int) (Sponsor::max('sort_order') + 1);
+        $this->spActive    = true;
+    }
+
+    public function openEditSponsor(int $id): void
+    {
+        $sp = Sponsor::findOrFail($id);
+        $this->spId        = $sp->id;
+        $this->spName      = $sp->name;
+        $this->spLogoFile  = null;
+        $this->spLogoPath  = $sp->logo ?? '';
+        $this->spSortOrder = $sp->sort_order;
+        $this->spActive    = (bool) $sp->is_active;
+        $this->spEditing   = true;
+    }
+
+    public function saveSponsor(): void
+    {
+        $this->validate([
+            'spName'      => 'required|string|max:120',
+            'spLogoFile'  => 'nullable|image|max:2048',
+            'spSortOrder' => 'required|integer|min:0',
+        ], [], [
+            'spName'     => 'nama sponsor',
+            'spLogoFile' => 'logo',
+        ]);
+
+        $logoPath = $this->spLogoPath;
+        if ($this->spLogoFile) {
+            $logoPath = $this->spLogoFile->store('sponsors', 'public');
+        }
+
+        $data = [
+            'name'       => $this->spName,
+            'logo'       => $logoPath ?: null,
+            'sort_order' => $this->spSortOrder,
+            'is_active'  => $this->spActive,
+        ];
+
+        if ($this->spId) {
+            Sponsor::findOrFail($this->spId)->update($data);
+        } else {
+            Sponsor::create($data);
+        }
+
+        $this->spLogoFile = null;
+        $this->spEditing  = false;
+        $this->spId       = 0;
+    }
+
+    public function toggleSponsorActive(int $id): void
+    {
+        $sp = Sponsor::findOrFail($id);
+        $sp->update(['is_active' => ! $sp->is_active]);
+    }
+
+    public function deleteSponsor(int $id): void
+    {
+        Sponsor::findOrFail($id)->delete();
+    }
+
+    public function cancelSponsor(): void
+    {
+        $this->spEditing   = false;
+        $this->spId        = 0;
+        $this->spLogoFile  = null;
+        $this->spLogoPath  = '';
+    }
+
+    // ─── Sponsor placement (drag-and-drop on idle / next-up screens) ───────────
+
+    public function placeSponsor(int $sponsorId, string $screen, float $x, float $y): void
+    {
+        if (!in_array($screen, ['idle', 'nextup', 'leaderboard'], true)) {
+            return;
+        }
+
+        SponsorPlacement::updateOrCreate(
+            ['sponsor_id' => $sponsorId, 'screen' => $screen],
+            ['x' => max(0, min(100, $x)), 'y' => max(0, min(100, $y))]
+        );
+    }
+
+    public function unplaceSponsor(int $sponsorId, string $screen): void
+    {
+        SponsorPlacement::where('sponsor_id', $sponsorId)->where('screen', $screen)->delete();
+    }
+
+    public function resizeSponsor(int $sponsorId, string $screen, int $size): void
+    {
+        SponsorPlacement::where('sponsor_id', $sponsorId)->where('screen', $screen)
+            ->update(['size' => max(40, min(250, $size))]);
     }
 
     // ─── User CRUD ────────────────────────────────────────────────────────────
@@ -1954,6 +2068,10 @@ class Dashboard extends Component
             $data['users']  = User::when($search, fn ($q) => $q->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%"))
                 ->orderBy('role')->orderBy('name')->get();
+        }
+
+        if ($this->view === 'sponsors') {
+            $data['sponsors'] = Sponsor::with('placements')->orderBy('sort_order')->orderBy('name')->get();
         }
 
         if ($this->view === 'riders_all') {

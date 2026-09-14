@@ -19,13 +19,25 @@
 
     @if($idleScreen ?? false)
         {{-- Idle screen: dipaksa Operator (misal pas jeda antar sesi / sebelum event
-             mulai) — cuma nampilin logo + nama FRAMEBLADESCORE gede di tengah layar,
-             gak ada header/footer/nav situs maupun leaderboard sama sekali. --}}
+             mulai) — gak ada header/footer/nav situs maupun leaderboard sama sekali,
+             cuma layar kosong buat sponsor. --}}
         <style>
             body > header, body > footer { display: none !important; }
         </style>
-        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);">
-            <x-logo :size="180" />
+        <div style="position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);overflow:hidden;">
+            {{-- Sponsor banners — freely positioned by the Operator (drag & drop
+                 in Admin → Sponsors). Absolute, percentage-based so it holds up
+                 across screen sizes. --}}
+            @foreach($idlePlacements as $p)
+                <div style="position:absolute;left:{{ $p->x }}%;top:{{ $p->y }}%;transform:translate(-50%,-50%);
+                    width:{{ round(200 * $p->size / 100) }}px;height:{{ round(100 * $p->size / 100) }}px;display:flex;align-items:center;justify-content:center;padding:14px;">
+                    @if($p->sponsor->logo)
+                        <img src="{{ $p->sponsor->logo_url }}" alt="{{ $p->sponsor->name }}" style="max-width:100%;max-height:100%;object-fit:contain;">
+                    @else
+                        <span class="display dim" style="font-size:15px;text-align:center;">{{ $p->sponsor->name }}</span>
+                    @endif
+                </div>
+            @endforeach
         </div>
     @else
 
@@ -67,7 +79,6 @@
                     </div>
                 @endif
                 <div class="mono dim" style="font-size:11px;letter-spacing:0.12em;text-align:right;">
-                    AUTO-REFRESH 3s<br>
                     <span style="color:var(--red);">● SYSTEM LIVE</span>
                 </div>
                 <button @click="toggle()" x-show="!isFullscreen"
@@ -84,7 +95,7 @@
          style="border-bottom:2px solid var(--ink);background:var(--bg);padding:0 32px;">
 
             {{-- ── ESPORTS CARD ── --}}
-            <div style="display:grid;grid-template-columns:3fr 3fr 6fr;height:calc(100vh - 130px);overflow:hidden;border-left:2px solid var(--ink);border-right:2px solid var(--ink);">
+            <div style="position:relative;display:grid;grid-template-columns:3fr 3fr 6fr;height:calc(100vh - 130px);overflow:hidden;border-left:2px solid var(--ink);border-right:2px solid var(--ink);">
 
                 {{-- COL 1: foto --}}
                 <div style="display:flex;overflow:hidden;position:relative;border-right:1px solid var(--line);">
@@ -193,6 +204,22 @@
                     </div>
                 </div>
 
+                {{-- Sponsor banners — freely positioned by the Operator (drag & drop
+                     in Admin → Sponsors). Only shown in the NEXT phase (before a run
+                     starts) — the card is otherwise busy with the timer/reveal
+                     animation, so a banner here would fight for attention with them. --}}
+                <div x-show="phase === 'NEXT'" style="position:absolute;inset:0;pointer-events:none;display:none;">
+                    @foreach($nextupPlacements as $p)
+                        <div style="position:absolute;left:{{ $p->x }}%;top:{{ $p->y }}%;transform:translate(-50%,-50%);
+                            width:{{ round(180 * $p->size / 100) }}px;height:{{ round(88 * $p->size / 100) }}px;display:flex;align-items:center;justify-content:center;padding:12px;z-index:2;">
+                            @if($p->sponsor->logo)
+                                <img src="{{ $p->sponsor->logo_url }}" alt="{{ $p->sponsor->name }}" style="max-width:100%;max-height:100%;object-fit:contain;">
+                            @else
+                                <span class="display dim" style="font-size:13px;text-align:center;">{{ $p->sponsor->name }}</span>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
             </div>
     </div>
 
@@ -216,6 +243,27 @@
         <div class="wrap {{ $scoreSections->isNotEmpty() ? 'wrap-wide' : '' }} section" style="padding-top:30px;">
             <div class="col" style="gap:20px;">
                     @if(!$displayPhase)
+
+                    {{-- Fixed-height freeform zone — selalu dapat ruang di atas
+                         leaderboard/"ADVANCING TO FINAL" biar Operator punya tempat naruh
+                         sponsor (Admin → Sponsors, drag logo ke canvas "leaderboard"),
+                         gak perlu nunggu ada placement dulu baru ruangnya muncul.
+                         Kalau belum ada sponsor yang dipasang, cuma jadi spacer polos
+                         (gak ada background/border) biar gak keliatan kotak kosong aneh
+                         buat penonton. --}}
+                    <div class="{{ $leaderboardPlacements->isNotEmpty() ? 'panel' : '' }}" style="position:relative;height:110px;overflow:hidden;">
+                        @foreach($leaderboardPlacements as $p)
+                            <div style="position:absolute;left:{{ $p->x }}%;top:{{ $p->y }}%;transform:translate(-50%,-50%);
+                                width:{{ round(160 * $p->size / 100) }}px;height:{{ round(80 * $p->size / 100) }}px;
+                                display:flex;align-items:center;justify-content:center;padding:10px;">
+                                @if($p->sponsor->logo)
+                                    <img src="{{ $p->sponsor->logo_url }}" alt="{{ $p->sponsor->name }}" style="max-width:100%;max-height:100%;object-fit:contain;">
+                                @else
+                                    <span class="display dim" style="font-size:14px;text-align:center;">{{ $p->sponsor->name }}</span>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
 
                     {{-- Dua banner ini SENGAJA gak digantung ke $stage saat ini — begitu
                          admin pilih finalis, live_stage divisi langsung pindah ke FINAL,

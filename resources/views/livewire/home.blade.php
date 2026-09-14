@@ -88,14 +88,23 @@
         </div>
 
         {{-- Sponsor strip --}}
+        @if($sponsors->isNotEmpty())
         <div style="position:relative;border-top:2px solid var(--ink);background:var(--bg);">
-            <div class="wrap flex" style="align-items:center;gap:28px;padding-block:16px;flex-wrap:wrap;">
+            <div class="wrap flex" style="align-items:center;gap:32px;padding-block:18px;flex-wrap:wrap;">
                 <span class="mono" style="font-size:10px;letter-spacing:0.2em;color:var(--ink-faint);white-space:nowrap;">PRESENTED BY</span>
                 @foreach($sponsors as $sp)
-                    <span class="display dim" style="font-size:18px;letter-spacing:0.02em;opacity:0.55;">{{ $sp }}</span>
+                    @if($sp->logo)
+                        <img src="{{ $sp->logo_url }}" alt="{{ $sp->name }}" title="{{ $sp->name }}"
+                            style="height:34px;max-width:150px;object-fit:contain;opacity:0.65;filter:grayscale(1);transition:opacity .15s,filter .15s;"
+                            onmouseover="this.style.opacity=1;this.style.filter='grayscale(0)'"
+                            onmouseout="this.style.opacity=0.65;this.style.filter='grayscale(1)'">
+                    @else
+                        <span class="display dim" style="font-size:18px;letter-spacing:0.02em;opacity:0.55;">{{ $sp->name }}</span>
+                    @endif
                 @endforeach
             </div>
         </div>
+        @endif
     </section>
     @endif
 

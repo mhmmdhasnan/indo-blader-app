@@ -62,6 +62,7 @@
                     ['tricks',        '◈', 'Tricks'],
                     ['scoring',       '⊙', 'Scoring Setup'],
                     ['ranking_admin', '▲', 'Rankings'],
+                    ['sponsors',      '🏳', 'Sponsors'],
                     ['riders_all',    '👤', 'Semua Rider'],
                     ['users',         '👤', 'Users'],
                 ],
@@ -120,7 +121,7 @@
                             'overview' => 'Overview', 'registrations' => 'Registrations', 'payments' => 'Payments',
                             'riders_all' => 'Semua Rider', 'riders' => 'Riders', 'events' => 'Events', 'judging' => 'Judge Panel', 'brackets' => 'Brackets',
                             'categories' => 'Categories', 'qualification' => 'Qualification', 'tricks' => 'Tricks',
-                            'submissions' => 'Submissions', 'ranking_admin' => 'Rankings', 'users' => 'Users',
+                            'submissions' => 'Submissions', 'ranking_admin' => 'Rankings', 'sponsors' => 'Sponsors', 'users' => 'Users',
                         ])->get($view, 'Overview') }}
                     </h1>
                 </div>
@@ -1025,6 +1026,153 @@
                             @endif
                         </div>
                     @endforeach
+                </div>
+            @endif
+
+            {{-- ── SPONSORS ── --}}
+            @if($view === 'sponsors')
+                <div class="col" style="gap:16px;">
+                    @if($spEditing)
+                        <div class="panel" style="padding:22px;border-left:3px solid var(--lime);">
+                            <span class="kicker" style="display:block;margin-bottom:16px;">{{ $spId ? 'EDIT SPONSOR' : 'TAMBAH SPONSOR' }}</span>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;" class="prof-grid">
+                                <div class="col" style="gap:12px;">
+                                    <div>
+                                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">NAMA SPONSOR *</span>
+                                        <input wire:model="spName" type="text" class="input-field" style="width:100%;" placeholder="GRIND HOUSE">
+                                        @error('spName') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
+                                    </div>
+                                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                                        <div>
+                                            <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">URUTAN TAMPIL</span>
+                                            <input wire:model="spSortOrder" type="number" min="0" class="input-field" style="width:100%;">
+                                            @error('spSortOrder') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
+                                            <span class="mono dim" style="font-size:9px;display:block;margin-top:4px;">Angka lebih kecil tampil lebih dulu.</span>
+                                        </div>
+                                        <div>
+                                            <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">STATUS</span>
+                                            <label class="flex label" style="gap:8px;align-items:center;font-size:12px;cursor:pointer;height:36px;">
+                                                <input type="checkbox" wire:model="spActive" style="accent-color:var(--lime);">
+                                                Tampilkan di publik
+                                            </label>
+                                            <span class="mono dim" style="font-size:9px;display:block;margin-top:4px;">Homepage, idle screen &amp; live score.</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col" style="gap:8px;">
+                                    <span class="mono dim" style="font-size:10px;display:block;">LOGO / BANNER SPONSOR</span>
+                                    <div
+                                        x-on:dragover.prevent="$el.style.borderColor='var(--lime)'; $el.style.background='color-mix(in srgb,var(--lime) 10%,var(--bg))';"
+                                        x-on:dragleave.prevent="$el.style.borderColor='var(--line)'; $el.style.background='var(--bg)';"
+                                        x-on:drop.prevent="$el.style.borderColor='var(--line)'; $el.style.background='var(--bg)';"
+                                        style="
+                                            position:relative;border:2px dashed var(--line);border-radius:4px;padding:16px;
+                                            background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;
+                                            gap:8px;min-height:150px;cursor:pointer;transition:border-color .15s,background .15s;
+                                        "
+                                    >
+                                        @if($spLogoFile)
+                                            <img src="{{ $spLogoFile->temporaryUrl() }}" style="max-width:100%;max-height:120px;object-fit:contain;border:1px solid var(--lime);pointer-events:none;">
+                                        @elseif($spLogoPath)
+                                            <img src="{{ Storage::url($spLogoPath) }}" style="max-width:100%;max-height:120px;object-fit:contain;border:1px solid var(--line);pointer-events:none;">
+                                        @else
+                                            <span style="font-size:26px;opacity:0.4;pointer-events:none;">📁</span>
+                                            <span class="mono dim" style="font-size:11px;text-align:center;pointer-events:none;">Tarik &amp; taruh gambar di sini,<br>atau klik untuk pilih file</span>
+                                        @endif
+                                        <input type="file" wire:model="spLogoFile" accept="image/*"
+                                            style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;">
+                                    </div>
+                                    @error('spLogoFile') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
+                                    <span wire:loading wire:target="spLogoFile" class="mono dim" style="font-size:9px;">Mengunggah…</span>
+                                    <span class="mono dim" style="font-size:9px;">Maks. 2MB. Format: JPG, PNG, WebP. Disarankan rasio landscape / transparan (PNG).</span>
+                                </div>
+                            </div>
+
+                            <div class="flex gap-s" style="margin-top:18px;">
+                                <button wire:click="saveSponsor" class="btn btn-lime">{{ $spId ? '✓ Update Sponsor' : '+ Simpan Sponsor' }}</button>
+                                <button wire:click="cancelSponsor" class="btn btn-ghost">Cancel</button>
+                            </div>
+                        </div>
+                    @else
+                        <div class="between">
+                            <span class="kicker">{{ $sponsors->count() }} SPONSOR</span>
+                            <button wire:click="openCreateSponsor" class="btn btn-lime btn-sm">+ Tambah Sponsor</button>
+                        </div>
+                    @endif
+
+                    {{-- Sponsor grid --}}
+                    @if($sponsors->isEmpty() && ! $spEditing)
+                        <div class="panel center" style="padding:40px;">
+                            <span class="mono dim" style="font-size:12px;">Belum ada sponsor. Klik "+ Tambah Sponsor" untuk menambah banner pertama.</span>
+                        </div>
+                    @else
+                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;">
+                            @foreach($sponsors as $sp)
+                                <div class="panel" style="overflow:hidden;opacity:{{ $sp->is_active ? '1' : '0.5' }};">
+                                    <div style="
+                                        height:110px;background:var(--bg-2);border-bottom:2px solid var(--ink);
+                                        display:flex;align-items:center;justify-content:center;padding:12px;
+                                    ">
+                                        @if($sp->logo)
+                                            <img src="{{ $sp->logo_url }}" alt="{{ $sp->name }}" style="max-width:100%;max-height:100%;object-fit:contain;">
+                                        @else
+                                            <span class="display dim" style="font-size:15px;text-align:center;">{{ $sp->name }}</span>
+                                        @endif
+                                    </div>
+                                    <div class="col" style="padding:12px;gap:8px;">
+                                        <div class="between" style="align-items:flex-start;">
+                                            <span class="label" style="font-size:13px;">{{ $sp->name }}</span>
+                                            @if($sp->is_active)
+                                                <span class="badge badge-lime" style="font-size:8px;">AKTIF</span>
+                                            @else
+                                                <span class="badge badge-out" style="font-size:8px;">OFF</span>
+                                            @endif
+                                        </div>
+                                        <span class="mono dim" style="font-size:9px;">Urutan: {{ $sp->sort_order }}</span>
+                                        <div class="flex gap-s">
+                                            <button wire:click="openEditSponsor({{ $sp->id }})" class="btn btn-sm btn-ghost" style="flex:1;">Edit</button>
+                                            <button wire:click="deleteSponsor({{ $sp->id }})" class="btn btn-sm btn-ghost"
+                                                wire:confirm="Yakin hapus sponsor '{{ $sp->name }}'?"
+                                                style="color:var(--red);flex-shrink:0;width:34px;">✕</button>
+                                        </div>
+                                        <button wire:click="toggleSponsorActive({{ $sp->id }})" class="btn btn-sm btn-ghost" style="width:100%;">
+                                            {{ $sp->is_active ? 'Sembunyikan dari publik' : 'Aktifkan di publik' }}
+                                        </button>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    {{-- Posisi banner di layar live (idle screen & rider preview) --}}
+                    @php $placeableSponsors = $sponsors->where('is_active', true)->values(); @endphp
+                    @if($placeableSponsors->isNotEmpty())
+                        <div style="margin-top:8px;">
+                            <span class="kicker" style="display:block;margin-bottom:4px;">POSISI DI LAYAR LIVE SCORE</span>
+                            <span class="mono dim" style="font-size:10px;display:block;margin-bottom:14px;">Seret logo sponsor aktif ke posisi manapun di layar idle, leaderboard &amp; rider preview. Kosong = tidak tampil di layar itu.</span>
+                            <div class="col" style="gap:16px;">
+                                @include('livewire.partials.sponsor-placement-canvas', [
+                                    'sponsors' => $placeableSponsors,
+                                    'screen' => 'idle',
+                                    'label' => 'IDLE SCREEN',
+                                    'previewLabel' => 'LOGO FRAMEBLADESCORE DI TENGAH',
+                                ])
+                                @include('livewire.partials.sponsor-placement-canvas', [
+                                    'sponsors' => $placeableSponsors,
+                                    'screen' => 'leaderboard',
+                                    'label' => 'LEADERBOARD',
+                                    'previewLabel' => 'STRIP DI ATAS TABEL SKOR',
+                                    'aspectRatio' => '16/4',
+                                ])
+                                @include('livewire.partials.sponsor-placement-canvas', [
+                                    'sponsors' => $placeableSponsors,
+                                    'screen' => 'nextup',
+                                    'label' => 'RIDER PREVIEW (NEXT UP)',
+                                    'previewLabel' => 'KARTU FOTO · PROFIL · TIMER',
+                                ])
+                            </div>
+                        </div>
+                    @endif
                 </div>
             @endif
 

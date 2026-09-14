@@ -10,6 +10,7 @@ use App\Models\JudgeScore;
 use App\Models\Registration;
 use App\Models\Rider;
 use App\Models\Setting;
+use App\Models\SponsorPlacement;
 use App\Services\LiveScoreboardService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -53,6 +54,12 @@ class LiveScoring extends Component
     {
         $event      = $this->resolveActiveEvent();
         $idleScreen = (bool) $event?->idle_screen;
+        $idlePlacements   = SponsorPlacement::with('sponsor')->where('screen', 'idle')
+            ->whereHas('sponsor', fn ($q) => $q->where('is_active', true))->get();
+        $nextupPlacements = SponsorPlacement::with('sponsor')->where('screen', 'nextup')
+            ->whereHas('sponsor', fn ($q) => $q->where('is_active', true))->get();
+        $leaderboardPlacements = SponsorPlacement::with('sponsor')->where('screen', 'leaderboard')
+            ->whereHas('sponsor', fn ($q) => $q->where('is_active', true))->get();
         $divisions  = $event ? EventDivision::where('event_id', $event->id)->where('is_active', true)->orderBy('name')->get() : collect();
 
         // Leaderboard selalu mengikuti divisi/group yang sedang aktif dipilih Head Judge.
@@ -215,7 +222,7 @@ class LiveScoring extends Component
         }
 
         return view('livewire.live-scoring', compact(
-            'event', 'idleScreen', 'divisions', 'division', 'stage', 'groups', 'selectedGroupId', 'scores', 'scoreSections', 'judgeScores',
+            'event', 'idleScreen', 'idlePlacements', 'nextupPlacements', 'leaderboardPlacements', 'divisions', 'division', 'stage', 'groups', 'selectedGroupId', 'scores', 'scoreSections', 'judgeScores',
             'liveRider', 'displayPhase', 'liveStartedAt', 'runDuration', 'revealScore', 'revealAccumulatedTotal',
             'liveRiderBestScore', 'liveDivisionLabel', 'isBestTrickPhase', 'showingQualRecap',
             'qualificationAnnounced', 'finalAnnounced', 'finalistRegIds', 'finalistNames', 'podium'
