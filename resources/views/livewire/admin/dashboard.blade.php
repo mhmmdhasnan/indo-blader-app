@@ -865,6 +865,9 @@
                                                                 @endif
                                                                 <button wire:click="completeLiveFinal({{ $div->id }})" class="btn btn-sm btn-lime" style="font-size:11px;"
                                                                     wire:confirm="{{ $div->best_trick_active ? 'Fase Best Trick masih AKTIF. Yakin mau selesaikan final & hitung ranking sekarang?' : 'Selesaikan final dan hitung ranking? Poin akan ditambahkan ke rider.' }}">✓ Selesaikan &amp; Hitung Ranking</button>
+                                                            @else
+                                                                <button wire:click="reopenCompletedFinal({{ $div->id }})" class="btn btn-sm btn-ghost" style="color:var(--red);font-size:11px;"
+                                                                    wire:confirm="Divisi ini sudah SELESAI — poin/wins/podium yang sudah ditambahkan ke rider akan DIBATALKAN, lalu divisi kembali ke fase kualifikasi. Yakin?">↩ Buka Ulang (Batalkan Poin)</button>
                                                             @endif
                                                         @else
                                                             <button wire:click="openGroupManager({{ $div->id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">👥 Kelola Group</button>

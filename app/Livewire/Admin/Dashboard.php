@@ -1172,6 +1172,21 @@ class Dashboard extends Component
         EventDivision::findOrFail($divisionId)->update(['live_stage' => 'QUALIFICATION']);
     }
 
+    public function reopenCompletedFinal(int $divisionId): void
+    {
+        $division = EventDivision::findOrFail($divisionId);
+        if (!$division->live_final_completed_at) {
+            return;
+        }
+
+        // Membatalkan poin/wins/podium yang sudah ditambahkan ke rider dulu (persis
+        // sebesar yang tercatat di RankingHistory), baru balik ke kualifikasi —
+        // supaya kalau final ini diselesaikan lagi nanti, poinnya gak dobel.
+        app(RankingService::class)->revertLiveFinal($division);
+
+        $division->update(['live_stage' => 'QUALIFICATION']);
+    }
+
     public function startBestTrickPhase(int $divisionId): void
     {
         EventDivision::findOrFail($divisionId)->update(['best_trick_active' => true]);

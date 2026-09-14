@@ -10,6 +10,7 @@ use App\Models\RankingHistory;
 use App\Models\Registration;
 use App\Models\Rider;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class RankingService
 {
@@ -105,6 +106,54 @@ class RankingService
         }
 
         $division->update(['live_final_completed_at' => now()]);
+
+        $this->rebuildRankingsTable();
+    }
+
+    /**
+     * Undo calculateForLiveFinal() for a division that was already completed —
+     * reverses every point/win/podium it awarded (using the stored RankingHistory
+     * rows, not a recalculation, so it exactly cancels what was actually given)
+     * and deletes those history rows, then clears live_final_completed_at /
+     * final_announced_at so the division can safely go back to QUALIFICATION and
+     * be completed again later without double-counting.
+     */
+    public function revertLiveFinal(EventDivision $division): void
+    {
+        if (!$division->live_final_completed_at) {
+            return;
+        }
+
+        $event    = $division->event;
+        $riderIds = app(LiveScoreboardService::class)->buildLeaderboard($division, 'FINAL')
+            ->pluck('rider.id')
+            ->filter()
+            ->values();
+
+        DB::transaction(function () use ($event, $riderIds, $division) {
+            $histories = RankingHistory::where('event_id', $event->id)
+                ->whereIn('rider_id', $riderIds)
+                ->get();
+
+            foreach ($histories as $history) {
+                $rider = Rider::find($history->rider_id);
+                if ($rider) {
+                    $rider->decrement('points', $history->points_earned);
+                    if ($history->placement === 1) {
+                        $rider->decrement('wins');
+                    }
+                    if ($history->placement <= 3) {
+                        $rider->decrement('podiums');
+                    }
+                }
+                $history->delete();
+            }
+
+            $division->update([
+                'live_final_completed_at' => null,
+                'final_announced_at'      => null,
+            ]);
+        });
 
         $this->rebuildRankingsTable();
     }
