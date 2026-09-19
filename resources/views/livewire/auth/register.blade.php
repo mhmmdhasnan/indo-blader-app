@@ -1,7 +1,7 @@
 <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px 20px;">
     <div style="width:100%;max-width:420px;">
         <div style="text-align:center;margin-bottom:32px;">
-            <x-logo :size="48" />
+            <x-logo :size="16" />
             <h1 class="display" style="font-size:36px;margin-top:16px;">DAFTAR AKUN</h1>
             <p class="label" style="color:var(--ink-dim);margin-top:4px;">Buat akun rider FRAMEBLADESCORE</p>
         </div>

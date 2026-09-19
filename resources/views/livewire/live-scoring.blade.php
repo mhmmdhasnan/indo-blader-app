@@ -1,4 +1,4 @@
-<div wire:poll.3s x-data="liveFullscreen()">
+<div wire:poll.30s x-data="liveFullscreen()">
     {{-- Hidden data bridge: Livewire updates these attrs; Alpine reads them via MutationObserver --}}
     <div id="live-data"
          data-phase="{{ $displayPhase ?? '' }}"
@@ -427,14 +427,44 @@ function livePhaseOverlay() {
         isBestTrick: false,
         _timer: null,
         _observer: null,
+        _lastStartedAt: null,
+        _sounds: null,
 
         boot() {
+            this._sounds = {
+                start: new Audio('{{ asset('sounds/start.wav') }}'),
+                tick: new Audio('{{ asset('sounds/tick.wav') }}'),
+                end: new Audio('{{ asset('sounds/end.wav') }}'),
+            };
+            Object.values(this._sounds).forEach(a => { a.preload = 'auto'; a.load(); });
+
+            // Browsers block audio.play() until the page has received a real user
+            // gesture. This screen is usually left open unattended (scoreboard/TV),
+            // so the very first RUNNING phase can fire before any click happens —
+            // prime (play+immediately pause) all sounds on the first interaction so
+            // later autoplay-triggered plays are allowed.
+            const unlock = () => {
+                Object.values(this._sounds).forEach(a => {
+                    a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+                });
+            };
+            ['click', 'touchstart', 'keydown'].forEach(evt => {
+                document.addEventListener(evt, unlock, { once: true });
+            });
+
             this.readData();
             const el = document.getElementById('live-data');
             if (el) {
                 this._observer = new MutationObserver(() => this.readData());
                 this._observer.observe(el, { attributes: true });
             }
+        },
+
+        _playSound(name) {
+            const audio = this._sounds?.[name];
+            if (!audio) return;
+            audio.currentTime = 0;
+            audio.play().catch(err => console.warn('[live-scoring] sound blocked:', name, err));
         },
 
         readData() {
@@ -475,15 +505,33 @@ function livePhaseOverlay() {
         },
 
         _startCountdown(startedAt, duration) {
+            // readData() re-runs on every broadcast for this event — including
+            // ones unrelated to this run, like a judge submitting their score
+            // while this run is still counting down. If it's the same run and
+            // the tick loop is already going, leave it alone: restarting it
+            // would replay the last-10-seconds beep (or "start") for no reason.
+            if (startedAt === this._lastStartedAt && this._timer !== null) {
+                return;
+            }
             clearTimeout(this._timer);
+            if (startedAt !== this._lastStartedAt) {
+                this._lastStartedAt = startedAt;
+                this._playSound('start');
+            }
+            let lastBeepedSecond = null;
             const tick = () => {
                 const elapsed = Math.floor(Date.now() / 1000) - startedAt;
                 this.remaining = Math.max(0, duration - elapsed);
                 if (this.remaining > 0) {
                     this.phase = 'RUNNING';
+                    if (this.remaining <= 10 && this.remaining !== lastBeepedSecond) {
+                        lastBeepedSecond = this.remaining;
+                        this._playSound('tick');
+                    }
                     this._timer = setTimeout(tick, 1000);
                 } else {
                     this.phase = 'JUDGING';
+                    this._playSound('end');
                 }
             };
             tick();

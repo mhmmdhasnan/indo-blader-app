@@ -1,9 +1,5 @@
-@props(['size' => 38])
-<a href="{{ route('home') }}" class="flex" style="align-items:center;gap:12px;text-decoration:none;">
-    <img src="{{ asset('images/logo-light.png') }}" alt="FRAMEBLADESCORE" class="logo-light" style="width:{{ $size }}px;height:{{ $size }}px;flex-shrink:0;">
-    <img src="{{ asset('images/logo-dark.png') }}" alt="FRAMEBLADESCORE" class="logo-dark" style="width:{{ $size }}px;height:{{ $size }}px;flex-shrink:0;">
-    <div class="col" style="line-height:0.92;">
-        <span class="display" style="font-size:{{ $size * 0.46 }}px;letter-spacing:0.02em;">FRAMEBLADESCORE</span>
-        <span class="mono" style="font-size:{{ $size * 0.18 }}px;letter-spacing:0.24em;color:var(--ink-dim);">AGGRESSIVE INLINE · ID</span>
-    </div>
+@props(['size' => 13])
+<a href="{{ route('home') }}" class="flex" style="align-items:center;text-decoration:none;padding-left:10px;">
+    <img src="{{ asset('images/logo-wordmark-light.png') }}" alt="FRAMEBLADESCORE" class="logo-light" style="height:{{ $size }}px;width:auto;flex-shrink:0;">
+    <img src="{{ asset('images/logo-wordmark-dark.png') }}" alt="FRAMEBLADESCORE" class="logo-dark" style="height:{{ $size }}px;width:auto;flex-shrink:0;">
 </a>

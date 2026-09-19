@@ -124,7 +124,7 @@ class Dashboard extends Component
         $this->judgeGroupId = 0;
 
         if ($this->judgeEventId && auth()->user()->isOperator()) {
-            Event::whereKey($this->judgeEventId)->update([
+            Event::find($this->judgeEventId)?->update([
                 'active_division_id' => $this->judgeDivisionId ?: null,
                 'active_group_id'    => null,
             ]);
@@ -134,7 +134,7 @@ class Dashboard extends Component
     public function updatedJudgeGroupId(): void
     {
         if ($this->judgeEventId && auth()->user()->isOperator()) {
-            Event::whereKey($this->judgeEventId)->update([
+            Event::find($this->judgeEventId)?->update([
                 'active_group_id' => $this->judgeGroupId ?: null,
             ]);
         }
@@ -377,7 +377,7 @@ class Dashboard extends Component
             return;
         }
 
-        JudgeScore::whereKey($scoreId)->update(['status' => 'WAITING']);
+        JudgeScore::findOrFail($scoreId)->update(['status' => 'WAITING']);
     }
 
     // ─── Operator: public announcements ────────────────────────────────────────
@@ -398,7 +398,7 @@ class Dashboard extends Component
     public function unannounceQualificationResults(int $divisionId): void
     {
         if (!auth()->user()->isOperator()) return;
-        \App\Models\EventDivision::whereKey($divisionId)->update(['qualification_announced_at' => null]);
+        \App\Models\EventDivision::findOrFail($divisionId)->update(['qualification_announced_at' => null]);
     }
 
     public function announceFinalResults(int $divisionId): void
@@ -417,7 +417,7 @@ class Dashboard extends Component
     public function unannounceFinalResults(int $divisionId): void
     {
         if (!auth()->user()->isOperator()) return;
-        \App\Models\EventDivision::whereKey($divisionId)->update(['final_announced_at' => null]);
+        \App\Models\EventDivision::findOrFail($divisionId)->update(['final_announced_at' => null]);
     }
 
     // ─── Operator: idle screen (tampilkan logo FRAMEBLADESCORE di /live) ──────
@@ -425,13 +425,13 @@ class Dashboard extends Component
     public function showIdleScreen(): void
     {
         if (!auth()->user()->isOperator() || !$this->judgeEventId) return;
-        Event::whereKey($this->judgeEventId)->update(['idle_screen' => true]);
+        Event::findOrFail($this->judgeEventId)->update(['idle_screen' => true]);
     }
 
     public function hideIdleScreen(): void
     {
         if (!auth()->user()->isOperator() || !$this->judgeEventId) return;
-        Event::whereKey($this->judgeEventId)->update(['idle_screen' => false]);
+        Event::findOrFail($this->judgeEventId)->update(['idle_screen' => false]);
     }
 
     // ─── Live Session Sync (everyone except Operator, who sets the state) ─────

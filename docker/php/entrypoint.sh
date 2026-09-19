@@ -23,8 +23,8 @@ fi
 
 READY_FILE=/var/www/html/storage/.docker-ready
 
-if [ "$CONTAINER_ROLE" = "queue" ]; then
-    # Let the app container own migrations/caching so both containers don't race.
+if [ "$CONTAINER_ROLE" = "queue" ] || [ "$CONTAINER_ROLE" = "reverb" ]; then
+    # Let the app container own migrations/caching so containers don't race.
     echo "Waiting for app container to finish setup..."
     until [ -f "$READY_FILE" ]; do
         sleep 2

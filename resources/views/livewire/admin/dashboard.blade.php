@@ -4,13 +4,7 @@
     {{-- ── SIDEBAR ── --}}
     <aside class="admin-side" :class="{ 'is-open': sidebarOpen }" style="border-right:2px solid var(--ink);background:var(--bg-2);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;">
         <div style="padding:20px 18px;border-bottom:2px solid var(--ink);">
-            <div style="display:flex;align-items:center;gap:10px;">
-                <img src="{{ asset('images/logo-dark.png') }}" alt="FRAMEBLADESCORE" style="width:36px;height:36px;flex-shrink:0;">
-                <div class="col" style="line-height:0.9;">
-                    <span class="display" style="font-size:16px;">FRAMEBLADESCORE</span>
-                    <span class="mono" style="font-size:9px;letter-spacing:0.2em;color:var(--ink-dim);">AGGRESSIVE INLINE · ID</span>
-                </div>
-            </div>
+            <x-logo :size="9" />
             <span class="badge badge-lime" style="margin-top:12px;font-size:9px;">ADMIN CONSOLE</span>
         </div>
 
@@ -891,6 +885,8 @@
                                                             <button wire:click="openGroupManager({{ $div->id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">👥 Kelola Group</button>
                                                             <button wire:click="openFinalistPicker({{ $div->id }})" class="btn btn-sm btn-lime" style="font-size:11px;">🏆 Pilih Finalis</button>
                                                         @endif
+                                                        <button wire:click="resetDivisionScores({{ $div->id }})" class="btn btn-sm btn-ghost" style="color:var(--red);font-size:11px;"
+                                                            wire:confirm="Reset SEMUA nilai rider di divisi '{{ $div->name }}'? Skor kualifikasi & final akan dihapus, finalis & pengumuman dibatalkan, divisi balik ke fase kualifikasi. Kalau final-nya sudah selesai, poin/wins/podium yang sudah dikasih ke rider juga ikut dibatalkan. Tindakan ini tidak bisa dibatalkan.">♻ Reset Nilai</button>
                                                     @endif
                                                     <button wire:click="openEditDivision({{ $div->id }})" class="btn btn-sm btn-ghost" style="font-size:11px;">Edit</button>
                                                     <button wire:click="deleteDivision({{ $div->id }})" class="btn btn-sm btn-ghost" style="color:var(--red);font-size:11px;"

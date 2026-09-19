@@ -29,6 +29,7 @@ use App\Services\NotificationService;
 use App\Services\QualificationService;
 use App\Services\RankingService;
 use App\Services\ScoringService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -253,7 +254,7 @@ class Dashboard extends Component
         $this->criteriaScores = [];
 
         if ($this->judgeEventId) {
-            Event::whereKey($this->judgeEventId)->update([
+            Event::find($this->judgeEventId)?->update([
                 'active_division_id' => $this->judgeDivisionId ?: null,
                 'active_group_id'    => null,
             ]);
@@ -263,7 +264,7 @@ class Dashboard extends Component
     public function updatedJudgeGroupId(): void
     {
         if ($this->judgeEventId) {
-            Event::whereKey($this->judgeEventId)->update([
+            Event::find($this->judgeEventId)?->update([
                 'active_group_id' => $this->judgeGroupId ?: null,
             ]);
         }
@@ -1341,6 +1342,39 @@ class Dashboard extends Component
             return;
         }
         app(RankingService::class)->calculateForLiveFinal($division);
+    }
+
+    /**
+     * Wipe every judged score for every rider in this division (both stages)
+     * and put the division back to a fresh QUALIFICATION state — finalists,
+     * announcements, and best-trick phase all cleared. If a live final was
+     * already completed here, its points/wins/podiums are reverted first
+     * (same as reopenCompletedFinal()) so nothing stale is left on the riders.
+     */
+    public function resetDivisionScores(int $divisionId): void
+    {
+        $division = EventDivision::findOrFail($divisionId);
+
+        app(RankingService::class)->revertLiveFinal($division);
+
+        $riderIds = Rider::whereIn('name', Registration::where('division_id', $divisionId)->pluck('name'))
+            ->pluck('id');
+
+        DB::transaction(function () use ($division, $riderIds) {
+            JudgeScore::where('event_id', $division->event_id)
+                ->whereIn('rider_id', $riderIds)
+                ->delete();
+
+            DivisionFinalist::where('event_division_id', $division->id)->delete();
+
+            $division->update([
+                'live_stage'                 => 'QUALIFICATION',
+                'live_final_completed_at'    => null,
+                'best_trick_active'          => false,
+                'qualification_announced_at' => null,
+                'final_announced_at'         => null,
+            ]);
+        });
     }
 
     // ─── Live Score: Qualification Groups ───────────────────────────────────────

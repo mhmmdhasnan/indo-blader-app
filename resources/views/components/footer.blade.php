@@ -14,7 +14,7 @@ $navLinks = [
         <div class="wrap section" style="padding-block:64px;">
             <div class="footer-grid" style="display:grid;grid-template-columns:1.6fr 1fr 1fr 1.4fr;gap:40px 24px;">
                 <div>
-                    <x-logo :size="46" />
+                    <x-logo :size="13" />
                     <p class="dim" style="margin-top:18px;max-width:280px;font-size:14px;line-height:1.5;">
                         One wheel, one family. The national home of aggressive inline skating in Indonesia.
                     </p>

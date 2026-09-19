@@ -21,7 +21,7 @@ $current = Route::currentRouteName();
         backdrop-filter: blur(10px);
     " :style="scrolled ? 'background:color-mix(in srgb,var(--bg) 86%,transparent)' : 'background:var(--bg)'">
 
-        <x-logo :size="44" />
+        <x-logo :size="13" />
 
         {{-- Desktop Nav --}}
         <nav class="nav-links nav-fs-hide flex" style="gap:6px;align-items:center;">

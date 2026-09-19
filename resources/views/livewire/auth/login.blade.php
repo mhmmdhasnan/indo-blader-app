@@ -8,7 +8,7 @@
         @endif
 
         <div style="text-align:center;margin-bottom:32px;">
-            <x-logo :size="48" />
+            <x-logo :size="16" />
             <h1 class="display" style="font-size:36px;margin-top:16px;">LOGIN</h1>
             <p class="label" style="color:var(--ink-dim);margin-top:4px;">Masuk ke akun FRAMEBLADESCORE kamu</p>
         </div>

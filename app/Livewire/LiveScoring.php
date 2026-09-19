@@ -13,6 +13,7 @@ use App\Models\Setting;
 use App\Models\SponsorPlacement;
 use App\Services\LiveScoreboardService;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -20,6 +21,31 @@ use Livewire\Component;
 #[Title('Live Scoring — FRAMEBLADESCORE')]
 class LiveScoring extends Component
 {
+    /**
+     * Bound at mount() so the #[On] echo listener below can subscribe to the
+     * right public channel — the rest of the component still recomputes the
+     * active event fresh on every render(), this is only for the channel name.
+     */
+    public int $eventId = 0;
+
+    public function mount(): void
+    {
+        $this->eventId = $this->resolveActiveEvent()?->id ?? 0;
+    }
+
+    /**
+     * Fired by LiveScoreUpdated (see App\Observers) whenever the run phase,
+     * timer, active division/group, or a judge score actually changes —
+     * replaces polling every viewer's browser on a fixed timer regardless of
+     * whether anything moved. No body needed: Livewire re-renders (calling
+     * render() below) any time a listened-for event fires.
+     */
+    #[On('echo:live-scoring.{eventId},.updated')]
+    public function onLiveScoreUpdated(): void
+    {
+        //
+    }
+
     private function resolveActiveEvent(): ?Event
     {
         $settingId = Setting::get('active_event_id');
