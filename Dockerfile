@@ -25,7 +25,7 @@ RUN apk add --no-cache \
         libzip-dev icu-dev oniguruma-dev sqlite-dev curl-dev \
         mysql-client \
     && docker-php-ext-configure gd --with-jpeg --with-freetype \
-    && docker-php-ext-install -j"$(nproc)" pdo pdo_mysql pdo_sqlite mbstring bcmath zip gd intl opcache curl
+    && docker-php-ext-install -j"$(nproc)" pdo pdo_mysql pdo_sqlite mbstring bcmath zip gd intl opcache curl pcntl
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
