@@ -33,6 +33,7 @@ class Login extends Component
             'admin'      => route('admin'),
             'judge'      => route('judge'),
             'head_judge' => route('judge'),
+            'operator'   => route('judge'),
             default      => route('rider.dashboard'),
         };
 

@@ -25,6 +25,13 @@
             body > header, body > footer { display: none !important; }
         </style>
         <div style="position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);overflow:hidden;">
+            {{-- Bumper logo loop — plays behind the sponsor banners while the
+                 screen is idle (jeda antar sesi / sebelum event mulai). --}}
+            <video autoplay loop muted playsinline
+                style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
+                <source src="{{ asset('motion/bumper-logo.mp4') }}" type="video/mp4">
+            </video>
+
             {{-- Sponsor banners — freely positioned by the Operator (drag & drop
                  in Admin → Sponsors). Absolute, percentage-based so it holds up
                  across screen sizes. --}}

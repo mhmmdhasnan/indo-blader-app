@@ -137,7 +137,7 @@
                 <div class="rise" style="animation-delay:{{ $loop->index * 70 }}ms;">
                     <a href="{{ route('events.show', $ev->slug) }}" class="panel" style="display:block;overflow:hidden;height:100%;transition:transform .15s;"
                         onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'">
-                        <div class="{{ $ev->banner ? '' : 'ph scanlines' }}" data-ph="{{ $ev->title }}" style="height:200px;border-bottom:2px solid var(--ink);position:relative;{{ $ev->banner ? 'background:url(\''.Storage::url($ev->banner).'\') center/cover no-repeat;' : '' }}">
+                        <div class="{{ $ev->banner ? '' : 'ph scanlines' }}" data-ph="{{ $ev->title }}" style="height:400px;border-bottom:2px solid var(--ink);position:relative;{{ $ev->banner ? 'background:url(\''.Storage::url($ev->banner).'\') center/cover no-repeat;' : '' }}">
                             <div style="position:absolute;top:12px;left:12px;"><x-status-badge :status="$ev->status" /></div>
                             <div style="position:absolute;bottom:12px;right:12px;">
                                 <span class="sticker" style="--rot:-4deg;font-size:13px;">{{ $ev->prize_formatted }}</span>
