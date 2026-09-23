@@ -137,6 +137,58 @@
 
     {{-- ── PROFIL ── --}}
     @if($view === 'profile')
+        @if(!$rider)
+            <div class="panel" style="padding:22px;max-width:480px;">
+                <span class="kicker" style="display:block;margin-bottom:4px;">BUAT PROFIL RIDER</span>
+                <p class="mono dim" style="font-size:11px;margin-bottom:16px;">Lengkapi data di bawah untuk membuat profil rider kamu.</p>
+
+                @if($createProfileError)
+                    <div style="padding:12px 16px;background:var(--bg-2);border-left:3px solid var(--red);border-radius:2px;margin-bottom:16px;">
+                        <span class="label" style="font-size:13px;color:var(--red);">{{ $createProfileError }}</span>
+                    </div>
+                @endif
+
+                <div class="col" style="gap:14px;">
+                    <div>
+                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:6px;">NAMA PANGGILAN</span>
+                        <input wire:model="profileNick" type="text" class="input-field" style="width:100%;">
+                        @error('profileNick') <p style="color:var(--red);font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:6px;">KOTA</span>
+                        <input wire:model="profileCity" type="text" class="input-field" style="width:100%;">
+                        @error('profileCity') <p style="color:var(--red);font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:6px;">USIA</span>
+                        <input wire:model="profileAge" type="number" min="5" max="80" class="input-field" style="width:100%;">
+                        @error('profileAge') <p style="color:var(--red);font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:6px;">KATEGORI</span>
+                        <select wire:model="profileCategory" class="input-field" style="width:100%;">
+                            <option value="STREET">Street</option>
+                            <option value="PARK">Park</option>
+                            <option value="VERT">Vert</option>
+                            <option value="FLAT">Flatland</option>
+                            <option value="MINIRAMP">Miniramp</option>
+                        </select>
+                    </div>
+                    <div>
+                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:6px;">STANCE</span>
+                        <select wire:model="profileStance" class="input-field" style="width:100%;">
+                            <option value="Regular">Regular</option>
+                            <option value="Goofy">Goofy</option>
+                        </select>
+                    </div>
+
+                    <button wire:click="createProfile" class="btn btn-lime" wire:loading.attr="disabled">
+                        <span wire:loading.remove wire:target="createProfile">+ Buat Profil</span>
+                        <span wire:loading wire:target="createProfile">Menyimpan...</span>
+                    </button>
+                </div>
+            </div>
+        @else
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;" class="prof-grid">
             {{-- Current Photo --}}
             <div class="panel" style="padding:22px;">
@@ -197,6 +249,7 @@
                 </div>
             </div>
         </div>
+        @endif
     @endif
 
     {{-- ── UPLOAD VIDEO ── --}}

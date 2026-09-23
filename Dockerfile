@@ -49,6 +49,7 @@ RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framewor
 
 COPY docker/php/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/uploads.ini
 
 EXPOSE 9000
 ENTRYPOINT ["entrypoint.sh"]

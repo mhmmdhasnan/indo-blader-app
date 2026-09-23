@@ -8,6 +8,7 @@ use App\Models\Notification;
 use App\Models\QualificationMatch;
 use App\Models\Registration;
 use App\Models\Rider;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -32,6 +33,55 @@ class Dashboard extends Component
     public $avatarFile        = null;
     public bool $avatarSaved  = false;
     public string $avatarError = '';
+
+    // Create profile
+    public string $profileNick     = '';
+    public string $profileCity     = '';
+    public ?int   $profileAge      = null;
+    public string $profileCategory = 'STREET';
+    public string $profileStance   = 'Regular';
+    public string $createProfileError = '';
+
+    public function mount(): void
+    {
+        $this->profileNick = auth()->user()->name;
+    }
+
+    public function createProfile(): void
+    {
+        $this->createProfileError = '';
+
+        if (Rider::where('user_id', auth()->id())->exists()) {
+            $this->createProfileError = 'Profil rider sudah ada.';
+            return;
+        }
+
+        $this->validate([
+            'profileNick'     => 'required|string|min:2|max:100',
+            'profileCity'     => 'required|string|max:100',
+            'profileAge'      => 'required|integer|min:5|max:80',
+            'profileCategory' => 'required|in:STREET,PARK,VERT,FLAT,MINIRAMP',
+            'profileStance'   => 'required|in:Regular,Goofy',
+        ], [
+            'profileNick.required' => 'Nama panggilan wajib diisi.',
+            'profileCity.required' => 'Kota wajib diisi.',
+            'profileAge.required'  => 'Usia wajib diisi.',
+        ]);
+
+        $user = auth()->user();
+        $slug = Str::slug($user->name . '-' . $user->id);
+
+        Rider::create([
+            'user_id'  => $user->id,
+            'name'     => $user->name,
+            'nick'     => $this->profileNick,
+            'city'     => $this->profileCity,
+            'age'      => $this->profileAge,
+            'category' => $this->profileCategory,
+            'stance'   => $this->profileStance,
+            'slug'     => $slug,
+        ]);
+    }
 
     public function uploadAvatar(): void
     {
