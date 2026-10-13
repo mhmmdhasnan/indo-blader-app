@@ -56,6 +56,23 @@ class Registration extends Model
         return $this->hasMany(BattleSubmission::class);
     }
 
+    /** Uploaded proofs live on the public disk; imported ones are external (Google Drive) links. */
+    public function getPaymentProofUrlAttribute(): ?string
+    {
+        if (!$this->payment_proof) {
+            return null;
+        }
+
+        return str_starts_with($this->payment_proof, 'http')
+            ? $this->payment_proof
+            : asset('storage/' . $this->payment_proof);
+    }
+
+    public function getPaymentProofIsExternalAttribute(): bool
+    {
+        return (bool) $this->payment_proof && str_starts_with($this->payment_proof, 'http');
+    }
+
     public function getStatusVariantAttribute(): string
     {
         return match ($this->status) {

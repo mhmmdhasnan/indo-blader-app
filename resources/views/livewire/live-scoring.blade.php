@@ -327,7 +327,7 @@
                                         <span class="kicker">LIVE LEADERBOARD · {{ strtoupper($section['group']?->name ?? 'BELUM ADA GROUP') }}</span>
                                     </div>
                                     @if($section['leaderboard']->isEmpty())
-                                        <p class="mono dim" style="font-size:12px;padding:18px;">Belum ada skor masuk untuk group ini.</p>
+                                        <p class="mono dim" style="font-size:12px;padding:18px;">Belum ada rider (approved) di group ini.</p>
                                     @else
                                         @include('livewire.partials.live-score-table', ['rows' => $section['leaderboard'], 'compact' => true])
                                     @endif

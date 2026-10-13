@@ -484,17 +484,23 @@ select.input-field option {
     padding: 20px 22px;
     min-width: 520px;
 }
+/* Live (public) leaderboard: wide = RUN 1 + RUN 2, narrow = a single "latest run" column. */
+.lsc-latest { display: none; }
 @media (max-width: 580px) {
     .score-header, .score-row { grid-template-columns: 54px 1fr 100px 120px; min-width: 0; }
     .score-hide { display: none !important; }
+    .lsc-run1, .lsc-run2 { display: none !important; }
+    .lsc-latest { display: block !important; }
 }
 @container scorecard (max-width: 560px) {
     .score-header, .score-row { grid-template-columns: 54px 1fr 100px 120px; min-width: 0; }
     .score-hide { display: none !important; }
+    .lsc-run1, .lsc-run2 { display: none !important; }
+    .lsc-latest { display: block !important; }
 }
 @container scorecard (max-width: 360px) {
     .score-header, .score-row { grid-template-columns: 46px 1fr 100px; min-width: 0; }
-    .score-hide, .score-hide-2 { display: none !important; }
+    .score-hide, .score-hide-2, .lsc-run1, .lsc-run2, .lsc-latest { display: none !important; }
 }
 
 /* ── RIDER STAT STRIP ───────────────────────────────────────── */

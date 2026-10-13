@@ -199,6 +199,76 @@
             {{-- ── REGISTRATIONS ── --}}
             @if($view === 'registrations')
                 <div class="col" style="gap:16px;">
+                    <div class="flex gap-s" style="align-items:center;">
+                        <button wire:click="openImport" class="btn btn-sm btn-lime" @if(!$activeEventId) disabled title="Pilih event dulu" @endif>⬆ Import dari Excel</button>
+                        <button wire:click="approveAllRegistrations"
+                            wire:confirm="Approve semua registrasi PENDING yang payment-nya sudah VERIFIED?"
+                            class="btn btn-sm btn-lime" @if(!$activeEventId) disabled @endif>✓ Approve Semua</button>
+                        <button wire:click="deleteAllRegistrations"
+                            wire:confirm="HAPUS SEMUA {{ $registrations->count() }} registrasi di event ini? Tidak bisa dibatalkan."
+                            class="btn btn-sm btn-ghost" style="color:var(--red);" @if(!$activeEventId || $registrations->isEmpty()) disabled @endif>🗑 Hapus Semua</button>
+                        @if(!$activeEventId)<span class="mono dim" style="font-size:10px;">pilih event aktif untuk import / aksi massal</span>@endif
+                    </div>
+                    @if(session('bulkRegistration'))
+                        <span class="mono" style="font-size:11px;color:var(--lime);">{{ session('bulkRegistration') }}</span>
+                    @endif
+                    @error('bulkRegistration') <span style="font-size:11px;color:var(--red);">{{ $message }}</span> @enderror
+                    @if($importOpen)
+                    <div class="panel" style="padding:16px 18px;border:2px solid var(--ink);">
+                        <div class="between" style="margin-bottom:12px;">
+                            <span class="label" style="font-size:13px;">Import Registrasi — {{ $activeEvent?->title }}</span>
+                            <button wire:click="closeImport" class="btn btn-sm btn-ghost" style="font-size:11px;">✕ Tutup</button>
+                        </div>
+
+                        @if($importResult)
+                            <div class="col" style="gap:8px;">
+                                <span style="color:var(--lime);font-size:13px;">✓ {{ $importResult['created'] }} registrasi dibuat (status PENDING) · {{ $importResult['divisions_created'] }} divisi baru · {{ $importResult['heats_created'] }} heat dibuat.</span>
+                                @if(count($importResult['skipped']))
+                                    <span class="mono dim" style="font-size:11px;">{{ count($importResult['skipped']) }} dilewati:</span>
+                                    @foreach($importResult['skipped'] as $sk)
+                                        <span class="mono dim" style="font-size:11px;">· {{ $sk['name'] }} — {{ $sk['reason'] }}</span>
+                                    @endforeach
+                                @endif
+                            </div>
+                        @elseif(empty($importRows))
+                            <div class="col" style="gap:6px;">
+                                <span class="dim" style="font-size:12px;">Upload file .xlsx (sheet pertama). Kolom dibaca dari nama header: Nama (wajib), Usia, Domisili, Kategori, Kategori Usia. Opsional: Heat (nama heat), Gender, No Handphone, Bukti Transfer.</span>
+                                <input type="file" wire:model="importFile" accept=".xlsx" class="input-field" style="font-size:11px;max-width:320px;">
+                                <span wire:loading wire:target="importFile" class="mono dim" style="font-size:11px;">membaca file…</span>
+                                @error('importFile') <span style="font-size:11px;color:var(--red);">{{ $message }}</span> @enderror
+                            </div>
+                        @else
+                            @php $unmapped = collect($importRows)->filter(fn($r) => empty($r['division_id']) && !($importAutoDivisions && !empty($r['new_division'])))->count(); @endphp
+                            <div class="flex gap-m" style="flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:12px;">
+                                <label class="flex gap-s" style="align-items:center;"><input type="checkbox" wire:model.live="importSplitGender"> Pisah divisi Men / Women</label>
+                                <label class="flex gap-s" style="align-items:center;"><input type="checkbox" wire:model.live="importAutoDivisions"> Buat divisi otomatis kalau belum ada</label>
+                                <label class="flex gap-s" style="align-items:center;">Heat otomatis, rider per heat:
+                                    <input type="number" min="0" max="20" wire:model.live="importHeatSize" class="input-field" style="width:60px;font-size:12px;"> <span class="mono dim" style="font-size:10px;">(0 = tanpa heat)</span>
+                                </label>
+                            </div>
+                            <div class="between" style="margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+                                <span class="mono dim" style="font-size:11px;">{{ count($importRows) }} rider ditemukan · <span style="color:{{ $unmapped ? 'var(--red)' : 'var(--lime)' }};">{{ $unmapped }} belum ada divisi (akan dilewati)</span></span>
+                                <button wire:click="confirmImport" wire:confirm="Import {{ count($importRows) - $unmapped }} registrasi?" class="btn btn-sm btn-lime">Import {{ count($importRows) - $unmapped }} rider</button>
+                            </div>
+                            <div style="max-height:420px;overflow:auto;border:1px solid var(--line);">
+                                @foreach($importRows as $i => $r)
+                                    <div style="display:grid;grid-template-columns:1.4fr 40px 1fr 1.2fr 1.2fr;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);min-width:700px;">
+                                        <span class="label" style="font-size:12px;">{{ $r['name'] }}</span>
+                                        <span class="mono dim" style="font-size:11px;">{{ $r['age'] }}</span>
+                                        <span class="dim" style="font-size:11px;">{{ $r['city'] }}</span>
+                                        <span class="mono dim" style="font-size:10px;">{{ $r['kategori_usia'] ?: '—' }}@if(!empty($r['heat'])) · <b>{{ strtoupper($r['heat']) }}</b>@endif</span>
+                                        <select wire:model="importRows.{{ $i }}.division_id" class="input-field" style="font-size:11px;">
+                                            <option value="">{{ ($importAutoDivisions && !empty($r['new_division'])) ? '+ buat: ' . $r['new_division'] : '— lewati —' }}</option>
+                                            @foreach($activeEvent?->divisions ?? [] as $div)
+                                                <option value="{{ $div->id }}">{{ $div->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                    @endif
                     <div class="flex gap-m" style="flex-wrap:wrap;">
                         @foreach([['PENDING','var(--red)'],['APPROVED','var(--lime)'],['REJECTED','var(--ink-dim)']] as [$s,$c])
                             <div class="panel flex" style="padding:12px 18px;gap:12px;align-items:center;">
@@ -318,6 +388,13 @@
 
             {{-- ── PAYMENTS ── --}}
             @if($view === 'payments')
+                <div class="flex gap-s" style="align-items:center;margin-bottom:12px;">
+                    <button wire:click="verifyAllPayments"
+                        wire:confirm="Verify semua payment PENDING di event ini?"
+                        class="btn btn-sm btn-lime" @if(!$activeEventId) disabled title="Pilih event dulu" @endif>✓ Verify Semua</button>
+                    @if(session('bulkPayment'))<span class="mono" style="font-size:11px;color:var(--lime);">{{ session('bulkPayment') }}</span>@endif
+                    @error('bulkPayment')<span style="font-size:11px;color:var(--red);">{{ $message }}</span>@enderror
+                </div>
                 <div class="panel" style="overflow:hidden;overflow-x:auto;">
                     <div style="display:grid;grid-template-columns:1.4fr 110px 120px 120px 1fr;padding:12px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);min-width:700px;">
                         @foreach(['RIDER','AMOUNT','METHOD','STATUS','ACTION'] as $h)
@@ -335,13 +412,15 @@
                             <span class="badge badge-{{ $reg->payment_status_variant }}">{{ $reg->payment_status }}</span>
                             <div class="flex gap-s" style="align-items:center;flex-wrap:wrap;">
                                 @if($reg->payment_proof)
-                                    <a href="{{ asset('storage/' . $reg->payment_proof) }}"
+                                    <a href="{{ $reg->payment_proof_url }}"
                                        target="_blank"
+                                       @if(!$reg->payment_proof_is_external)
                                        x-data
                                        @click.prevent="
                                            const m = document.getElementById('proof-modal-{{ $reg->id }}');
                                            m.style.display = 'flex';
                                        "
+                                       @endif
                                        class="btn btn-sm btn-ghost" style="font-size:11px;">📷 Lihat Transfer</a>
 
                                     {{-- Proof modal --}}
@@ -352,12 +431,12 @@
                                             <div class="between" style="padding:12px 16px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
                                                 <span class="label" style="font-size:13px;">Bukti Transfer — {{ $reg->name }}</span>
                                                 <div class="flex gap-s">
-                                                    <a href="{{ asset('storage/' . $reg->payment_proof) }}" target="_blank" class="btn btn-sm btn-ghost" style="font-size:11px;">Buka ↗</a>
+                                                    <a href="{{ $reg->payment_proof_url }}" target="_blank" class="btn btn-sm btn-ghost" style="font-size:11px;">Buka ↗</a>
                                                     <button @click="document.getElementById('proof-modal-{{ $reg->id }}').style.display='none'" class="btn btn-sm btn-ghost" style="font-size:11px;">✕ Tutup</button>
                                                 </div>
                                             </div>
                                             <div style="padding:16px;overflow:auto;max-height:75vh;text-align:center;">
-                                                <img src="{{ asset('storage/' . $reg->payment_proof) }}"
+                                                <img src="{{ $reg->payment_proof_url }}"
                                                      alt="Bukti transfer"
                                                      style="max-width:100%;max-height:65vh;object-fit:contain;border-radius:2px;">
                                             </div>

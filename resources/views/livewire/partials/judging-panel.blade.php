@@ -280,7 +280,7 @@
                             <span class="kicker">📊 LEADERBOARD — {{ strtoupper($activeDivName ?? '') }} · KUALIFIKASI · {{ strtoupper($section['group']?->name ?? 'BELUM ADA GROUP') }}</span>
                         </div>
                         @if($section['leaderboard']->isEmpty())
-                            <p class="mono dim" style="font-size:12px;padding:18px;">Belum ada skor masuk untuk group ini.</p>
+                            <p class="mono dim" style="font-size:12px;padding:18px;">Belum ada rider (approved) di group ini.</p>
                         @else
                             @include('livewire.partials.score-table', ['rows' => $section['leaderboard']])
                         @endif
@@ -293,7 +293,7 @@
                 <span class="kicker">📊 LEADERBOARD — {{ strtoupper($activeDivName ?? '') }}{{ ($activeDiv ?? null)?->live_stage === 'FINAL' ? ' · FINAL' : ' · KUALIFIKASI' }}</span>
             </div>
             @if(($operatorLeaderboard ?? collect())->isEmpty())
-                <p class="mono dim" style="font-size:12px;padding:18px;">Belum ada skor masuk untuk divisi/group ini.</p>
+                <p class="mono dim" style="font-size:12px;padding:18px;">Belum ada rider (approved) di divisi/group ini.</p>
             @else
                 @include('livewire.partials.score-table', ['rows' => $operatorLeaderboard])
             @endif

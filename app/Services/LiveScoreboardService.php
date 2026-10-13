@@ -70,32 +70,38 @@ class LiveScoreboardService
     {
         $registrations = $this->registrationsForStage($division, $stage, $groupId);
 
-        $riderMap = $registrations
-            ->mapWithKeys(fn ($reg) => [$this->resolveExistingRiderId($reg) => $reg])
-            ->filter(fn ($reg, $riderId) => $riderId !== null);
-
-        if ($riderMap->isEmpty()) {
+        if ($registrations->isEmpty()) {
             return collect();
         }
 
-        $riders = Rider::whereIn('id', $riderMap->keys())->get()->keyBy('id');
+        // Registration id => existing Rider id (null while no Rider row exists yet —
+        // e.g. freshly imported registrations, which only get a Rider once scored).
+        $riderIdByReg = $registrations->mapWithKeys(fn ($reg) => [$reg->id => $this->resolveExistingRiderId($reg)]);
+        $riderMap = $registrations->keyBy('id');
+
+        $riders = Rider::whereIn('id', $riderIdByReg->filter()->values())->get()->keyBy('id');
 
         $scoresByRider = JudgeScore::where('event_id', $division->event_id)
             ->where('scoring_mode', 'LIVE')
             ->where('status', 'DONE')
             ->where('live_stage', $stage)
-            ->whereIn('rider_id', $riderMap->keys())
+            ->whereIn('rider_id', $riderIdByReg->filter()->values())
             ->get()
             ->groupBy('rider_id');
 
         return $riderMap
-            ->map(function ($reg, $riderId) use ($riders, $scoresByRider, $division, $stage) {
-                $rider       = $riders->get($riderId);
-                $riderScores = $scoresByRider->get($riderId, collect());
+            ->map(function ($reg, $regId) use ($riders, $riderIdByReg, $scoresByRider, $division, $stage) {
+                $riderId     = $riderIdByReg->get($regId);
+                // No Rider row yet: show the registrant by name with no scores,
+                // via an unsaved model so the views' $row['rider']->name/initials keep working.
+                $rider       = $riderId
+                    ? $riders->get($riderId)
+                    : new Rider(['name' => $reg->name, 'nick' => $reg->name, 'city' => $reg->city]);
+                $riderScores = $riderId ? $scoresByRider->get($riderId, collect()) : collect();
                 $run1avg     = $riderScores->where('run_number', 1)->avg('total');
                 $run2avg     = $riderScores->where('run_number', 2)->avg('total');
                 $best        = max($run1avg ?? 0, $run2avg ?? 0);
-                $bonus       = $stage === 'FINAL' ? $this->bestTrickBonus($division->event_id, $riderId) : 0.0;
+                $bonus       = ($stage === 'FINAL' && $riderId) ? $this->bestTrickBonus($division->event_id, $riderId) : 0.0;
 
                 return [
                     'rider'            => $rider,

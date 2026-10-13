@@ -9,11 +9,14 @@
     $nameSize    = $compact ? 14 : 18;
     $valSize     = $compact ? 14 : 18;
     $totalSize   = $compact ? 22 : 30;
+    // Narrow cards only have room for one RUN column: show the latest run that has scores
+    // (RUN 1 until anyone in the table has a RUN 2), instead of always RUN 2.
+    $latestLabel = collect($rows)->contains(fn ($r) => $r['run2'] !== null) ? 'RUN 2' : 'RUN 1';
 @endphp
 <div class="score-scroll">
     <div class="score-header">
-        @foreach(['#','RIDER','RUN 1','RUN 2','BEST'] as $i => $h)
-            <span class="mono {{ $h === 'RUN 1' ? 'score-hide' : ($h === 'RUN 2' ? 'score-hide-2' : '') }}"
+        @foreach([['#',''],['RIDER',''],['RUN 1','lsc-run1'],['RUN 2','lsc-run2'],[$latestLabel,'lsc-latest'],['BEST','']] as $i => [$h, $cls])
+            <span class="mono {{ $cls }}"
                 style="font-size:{{ $compact ? 10 : 13 }}px;letter-spacing:0.12em;color:var(--ink-dim);text-align:{{ $i >= 2 ? 'right' : 'left' }};">{{ $h }}</span>
         @endforeach
     </div>
@@ -39,9 +42,13 @@
                     </span>
                 </div>
             </div>
-            <span class="mono tnum score-hide" style="font-size:{{ $valSize }}px;text-align:right;color:var(--ink-dim);">{{ (!$isOnCourse && $row['run1'] !== null) ? number_format($row['run1'], 1) : '—' }}</span>
-            <span class="mono tnum score-hide-2" style="font-size:{{ $valSize }}px;text-align:right;color:{{ $isOnCourse ? 'var(--red)' : 'var(--ink-dim)' }};">
+            <span class="mono tnum lsc-run1" style="font-size:{{ $valSize }}px;text-align:right;color:var(--ink-dim);">{{ (!$isOnCourse && $row['run1'] !== null) ? number_format($row['run1'], 1) : '—' }}</span>
+            <span class="mono tnum lsc-run2" style="font-size:{{ $valSize }}px;text-align:right;color:{{ $isOnCourse ? 'var(--red)' : 'var(--ink-dim)' }};">
                 {{ $isOnCourse ? '...' : ($row['run2'] !== null ? number_format($row['run2'], 1) : '—') }}
+            </span>
+            @php $latest = $row['run2'] ?? $row['run1']; @endphp
+            <span class="mono tnum lsc-latest" style="font-size:{{ $valSize }}px;text-align:right;color:{{ $isOnCourse ? 'var(--red)' : 'var(--ink-dim)' }};">
+                {{ $isOnCourse ? '...' : ($latest !== null ? number_format($latest, 1) : '—') }}
             </span>
             @php $rowTotal = $row['total'] ?? $row['best']; @endphp
             {{-- Nominal bonus Best Trick sengaja gak ditampilkan di sini — publik cuma

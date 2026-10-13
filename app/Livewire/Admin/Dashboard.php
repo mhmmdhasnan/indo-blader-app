@@ -27,6 +27,7 @@ use App\Services\BracketService;
 use App\Services\LiveScoreboardService;
 use App\Services\NotificationService;
 use App\Services\QualificationService;
+use App\Services\RegistrationImportService;
 use App\Services\RankingService;
 use App\Services\ScoringService;
 use Illuminate\Support\Facades\DB;
@@ -179,6 +180,15 @@ class Dashboard extends Component
     public int     $regEditDivisionId = 0;
     public $regEditPhoto              = null; // new photo upload for this registrant's Rider profile
     public ?string $regEditAvatarUrl  = null;  // current photo (if a Rider profile already exists)
+
+    // Import registrations from the Google Form responses .xlsx
+    public bool   $importOpen   = false;
+    public $importFile          = null;
+    public array  $importRows   = [];
+    public ?array $importResult = null;
+    public bool   $importSplitGender   = true;
+    public bool   $importAutoDivisions = true;
+    public int    $importHeatSize      = 3; // 0 = don't create heats
 
     // Payment edit
     public int    $payEditId     = 0;
@@ -898,6 +908,91 @@ class Dashboard extends Component
         $this->regEditPhoto = null;
     }
 
+    /** Approve every PENDING registration of the active event whose payment is VERIFIED (same rule as approveRegistration). */
+    public function approveAllRegistrations(): void
+    {
+        if (!$this->activeEventId) {
+            $this->addError('bulkRegistration', 'Pilih event aktif dulu.');
+            return;
+        }
+
+        $pending = Registration::with('event')
+            ->where('event_id', $this->activeEventId)->where('status', 'PENDING')->get();
+
+        $approved = 0;
+        foreach ($pending->where('payment_status', 'VERIFIED') as $reg) {
+            $reg->update(['status' => 'APPROVED']);
+            NotificationService::send($reg, 'registration_approved', 'Registration Approved',
+                "Your registration for {$reg->event->title} has been approved. Entry: {$reg->entry_code}.");
+            $approved++;
+        }
+
+        $blocked = $pending->count() - $approved;
+        session()->flash('bulkRegistration', "{$approved} registrasi di-approve" . ($blocked ? ", {$blocked} dilewati (payment belum VERIFIED)." : '.'));
+    }
+
+    /** Delete every registration of the active event and resync the divisions' filled counters. */
+    public function deleteAllRegistrations(): void
+    {
+        if (!$this->activeEventId) {
+            $this->addError('bulkRegistration', 'Pilih event aktif dulu.');
+            return;
+        }
+
+        $count = DB::transaction(function () {
+            $deleted = Registration::where('event_id', $this->activeEventId)->delete();
+            EventDivision::where('event_id', $this->activeEventId)->update(['filled' => 0]);
+
+            return $deleted;
+        });
+
+        session()->flash('bulkRegistration', "{$count} registrasi dihapus.");
+    }
+
+    public function openImport(): void
+    {
+        $this->reset('importFile', 'importRows', 'importResult');
+        $this->resetErrorBag('importFile');
+        $this->importOpen = true;
+    }
+
+    public function closeImport(): void
+    {
+        $this->reset('importOpen', 'importFile', 'importRows', 'importResult');
+    }
+
+    public function updatedImportFile(): void
+    {
+        $this->importRows = [];
+        $this->importResult = null;
+
+        $event = $this->activeEventId ? Event::find($this->activeEventId) : null;
+        if (!$event) {
+            $this->addError('importFile', 'Pilih event aktif dulu sebelum import.');
+            return;
+        }
+
+        $this->validate(['importFile' => 'required|file|extensions:xlsx|max:10240'], [], ['importFile' => 'file import']);
+
+        try {
+            $this->importRows = app(RegistrationImportService::class)->parse($this->importFile->getRealPath(), $event);
+        } catch (\Throwable $e) {
+            $this->addError('importFile', 'Gagal membaca file: ' . $e->getMessage());
+        }
+    }
+
+    public function confirmImport(): void
+    {
+        $event = Event::findOrFail($this->activeEventId);
+        $this->importResult = app(RegistrationImportService::class)->import($event, $this->importRows, [
+            'split_gender'   => $this->importSplitGender,
+            'auto_divisions' => $this->importAutoDivisions,
+            'heat_size'      => max(0, $this->importHeatSize),
+        ]);
+        $this->importRows = [];
+        $this->importFile = null;
+    }
+
     public function deleteRegistration(int $id): void
     {
         Registration::findOrFail($id)->delete();
@@ -1029,6 +1124,26 @@ class Dashboard extends Component
         $reg->update(['payment_status' => 'VERIFIED']);
         NotificationService::send($reg, 'payment_verified', 'Payment Verified',
             "Pembayaran kamu untuk {$reg->event->title} sudah terverifikasi. Registrasi sedang diproses.");
+    }
+
+    /** Verify every PENDING payment of the active event. */
+    public function verifyAllPayments(): void
+    {
+        if (!$this->activeEventId) {
+            $this->addError('bulkPayment', 'Pilih event aktif dulu.');
+            return;
+        }
+
+        $pending = Registration::with('event')
+            ->where('event_id', $this->activeEventId)->where('payment_status', 'PENDING')->get();
+
+        foreach ($pending as $reg) {
+            $reg->update(['payment_status' => 'VERIFIED']);
+            NotificationService::send($reg, 'payment_verified', 'Payment Verified',
+                "Pembayaran kamu untuk {$reg->event->title} sudah terverifikasi. Registrasi sedang diproses.");
+        }
+
+        session()->flash('bulkPayment', "{$pending->count()} payment diverifikasi.");
     }
 
     public function rejectPayment(int $id): void
