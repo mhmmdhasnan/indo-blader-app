@@ -21,6 +21,28 @@ class Registration extends Model
         'dob' => 'date',
     ];
 
+    /**
+     * The event only stores which Rider is live, not which registration, and one
+     * rider can be registered in several divisions — prefer the registration in
+     * the event's active division so stage/label/scores land in the right one.
+     */
+    public static function forLiveRider(Event $event, Rider $rider): ?self
+    {
+        return static::where('event_id', $event->id)
+            ->where('status', 'APPROVED')
+            ->where(function ($q) use ($rider) {
+                if ($rider->user_id) {
+                    $q->where('user_id', $rider->user_id)->orWhere('name', $rider->name);
+                } else {
+                    $q->where('name', $rider->name);
+                }
+            })
+            ->with('division')
+            ->when($event->active_division_id, fn ($q) => $q->orderByRaw('division_id = ? desc', [$event->active_division_id]))
+            ->orderBy('id')
+            ->first();
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

@@ -60,18 +60,7 @@ class LiveScoring extends Component
 
     private function resolveLiveRiderDivision(Event $event, Rider $liveRider): ?EventDivision
     {
-        $reg = Registration::where('event_id', $event->id)
-            ->where('status', 'APPROVED')
-            ->where(function ($q) use ($liveRider) {
-                if ($liveRider->user_id) {
-                    $q->where('user_id', $liveRider->user_id)
-                      ->orWhere('name', $liveRider->name);
-                } else {
-                    $q->where('name', $liveRider->name);
-                }
-            })
-            ->with('division')
-            ->first();
+        $reg = Registration::forLiveRider($event, $liveRider);
 
         return $reg?->division;
     }

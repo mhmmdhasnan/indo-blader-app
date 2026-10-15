@@ -382,17 +382,7 @@ class Dashboard extends Component
         $liveRider = Rider::find($event->live_rider_id);
         if (!$liveRider) return 'QUALIFICATION';
 
-        $reg = Registration::where('event_id', $event->id)
-            ->where('status', 'APPROVED')
-            ->where(function ($q) use ($liveRider) {
-                if ($liveRider->user_id) {
-                    $q->where('user_id', $liveRider->user_id)
-                      ->orWhere('name', $liveRider->name);
-                } else {
-                    $q->where('name', $liveRider->name);
-                }
-            })
-            ->first();
+        $reg = Registration::forLiveRider($event, $liveRider);
 
         return $reg?->division?->live_stage ?? 'QUALIFICATION';
     }
@@ -404,17 +394,7 @@ class Dashboard extends Component
         $liveRider = Rider::find($event->live_rider_id);
         if (!$liveRider) return false;
 
-        $reg = Registration::where('event_id', $event->id)
-            ->where('status', 'APPROVED')
-            ->where(function ($q) use ($liveRider) {
-                if ($liveRider->user_id) {
-                    $q->where('user_id', $liveRider->user_id)
-                      ->orWhere('name', $liveRider->name);
-                } else {
-                    $q->where('name', $liveRider->name);
-                }
-            })
-            ->first();
+        $reg = Registration::forLiveRider($event, $liveRider);
 
         return $reg?->division?->best_trick_active ?? false;
     }
@@ -452,17 +432,7 @@ class Dashboard extends Component
         $liveRider = $event->live_rider_id ? Rider::find($event->live_rider_id) : null;
         if (!$liveRider) return;
 
-        $reg = Registration::where('event_id', $this->judgeEventId)
-            ->where('status', 'APPROVED')
-            ->where(function ($q) use ($liveRider) {
-                if ($liveRider->user_id) {
-                    $q->where('user_id', $liveRider->user_id)
-                      ->orWhere('name', $liveRider->name);
-                } else {
-                    $q->where('name', $liveRider->name);
-                }
-            })
-            ->first();
+        $reg = Registration::forLiveRider($event, $liveRider);
 
         if (!$reg) return;
 
