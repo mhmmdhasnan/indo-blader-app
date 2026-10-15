@@ -523,9 +523,20 @@ class Dashboard extends Component
 
     // ─── Live Session Control (Head Judge starts/reveals, Operator sets up) ───
 
-    public function showNextRider(): void
+    public function showNextRider(int $registrationId = 0, int $runNumber = 0): void
     {
         if (!$this->canControlLiveSession()) return;
+
+        // Terima pilihan dari browser langsung (bukan cuma state server): update
+        // wire:model.live dropdown bisa dibatalkan/ketimpa poll, dan tanpa ini
+        // Preview diam-diam memakai rider lama.
+        if ($registrationId && Registration::where('id', $registrationId)->where('event_id', $this->judgeEventId)->exists()) {
+            $this->liveRiderId = $registrationId;
+        }
+        if ($runNumber >= 1 && $runNumber <= 3) {
+            $this->liveRunNumber = $runNumber;
+        }
+
         if (!$this->judgeEventId || !$this->liveRiderId) return;
 
         $riderId = $this->resolveRiderIdFromRegistration($this->liveRiderId);

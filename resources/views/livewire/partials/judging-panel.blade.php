@@ -242,7 +242,7 @@
                         <option value="3">{{ $isBestTrickDivision ? 'Percobaan 3' : 'Run 3' }}</option>
                     </select>
                 </div>
-                <button wire:click="showNextRider"
+                <button wire:click="showNextRider($wire.liveRiderId, $wire.liveRunNumber)"
                     class="btn btn-ghost btn-sm"
                     @if(!$liveRiderId) disabled @endif>
                     👁 Preview
