@@ -14,6 +14,14 @@ COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --ignore-scripts
 COPY . .
+# VITE_REVERB_APP_KEY gets baked into the built JS bundle (resources/js/echo.js
+# reads it via import.meta.env at build time, not runtime) — but .env itself is
+# .dockerignore'd from the build context, so it has to come in as a build arg
+# instead. It's a public identifier (like a Pusher app key), not a secret, so
+# it's fine to bake into the image/bundle — unlike REVERB_APP_SECRET, which
+# stays server-side via .env at runtime and must never go through this path.
+ARG VITE_REVERB_APP_KEY
+ENV VITE_REVERB_APP_KEY=$VITE_REVERB_APP_KEY
 RUN npm run build
 
 # ---- Stage 2: PHP application ----

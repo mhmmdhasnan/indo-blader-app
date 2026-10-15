@@ -3,6 +3,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # VITE_REVERB_APP_KEY has to reach the frontend build step as a build
+      # arg, not a runtime env var — Vite inlines import.meta.env.* into the
+      # bundle at `npm run build` time, and .env is .dockerignore'd from the
+      # build context (see Dockerfile). Docker Compose resolves ${...} here
+      # from the .env file sitting next to this file, same as everywhere
+      # else in this file — it's just also forwarded into the image build.
+      args:
+        VITE_REVERB_APP_KEY: ${REVERB_APP_KEY}
     image: indo-blader-app:latest
     restart: unless-stopped
     volumes:
