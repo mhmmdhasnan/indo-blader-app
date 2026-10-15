@@ -305,7 +305,7 @@
         $criteria  = $eventCriteria ?? collect();
         $critCount = $criteria->count() ?: 1;
         $totalLive = count($criteriaScores) > 0
-            ? round(array_sum($criteriaScores) / $critCount, 1)
+            ? round(array_sum(array_filter($criteriaScores, 'is_numeric')) / $critCount, 1)
             : 0;
     @endphp
 
@@ -577,6 +577,24 @@
         </div>
         @endif
 
+        @if(!$isOperator && ($myPastScores ?? collect())->isNotEmpty())
+            {{-- Riwayat nilai yang sudah diberikan judge ini sendiri (bukan nilai judge lain) --}}
+            <div class="panel" style="overflow:hidden;margin-top:16px;">
+                <div style="padding:14px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
+                    <span class="kicker">📝 NILAI SAYA SEBELUMNYA</span>
+                </div>
+                @foreach($myPastScores as $past)
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;{{ !$loop->last ? 'border-bottom:1px solid var(--line);' : '' }}">
+                        <div class="col" style="gap:2px;">
+                            <span class="label" style="font-size:14px;">{{ $past->rider?->name ?? '—' }}</span>
+                            <span class="mono dim" style="font-size:10px;letter-spacing:0.08em;">RUN {{ $past->run_number }} · {{ $past->live_stage === 'FINAL' ? 'FINAL' : 'KUALIFIKASI' }}</span>
+                        </div>
+                        <span class="display tnum" style="font-size:22px;">{{ number_format($past->total, 1) }}</span>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+
     @else
         {{-- ── KNOCKOUT SCORING ── --}}
         <div class="col" style="gap:14px;">
@@ -624,10 +642,10 @@
                     $riderB  = $koCurrentMatch->riderB;
                     $trick   = $koCurrentMatch->trick;
                     $totalA  = count($criteriaScores) > 0
-                        ? round(array_sum($criteriaScores) / $critCount, 1)
+                        ? round(array_sum(array_filter($criteriaScores, 'is_numeric')) / $critCount, 1)
                         : 0;
                     $totalB  = count($criteriaScoresB) > 0
-                        ? round(array_sum($criteriaScoresB) / $critCount, 1)
+                        ? round(array_sum(array_filter($criteriaScoresB, 'is_numeric')) / $critCount, 1)
                         : 0;
                     $subsA   = isset($koApprovedSubmissions)
                         ? $koApprovedSubmissions->where('registration_id', $koCurrentMatch->rider_a_registration_id)->values()

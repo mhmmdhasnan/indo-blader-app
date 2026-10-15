@@ -969,6 +969,17 @@ class Dashboard extends Component
                     ->get()
                 : collect();
 
+            $data['myPastScores'] = ($this->judgeEventId && $this->scoringMode === 'live')
+                ? JudgeScore::where('judge_user_id', auth()->id())
+                    ->where('event_id', $this->judgeEventId)
+                    ->where('scoring_mode', 'LIVE')
+                    ->where('status', 'DONE')
+                    ->with('rider')
+                    ->orderByDesc('updated_at')
+                    ->limit(30)
+                    ->get()
+                : collect();
+
             // Other judges' live scores for current rider/run
             $resolvedLiveRiderId = ($this->scoringMode === 'live' && $this->liveRiderId)
                 ? $this->resolveRiderIdFromRegistration($this->liveRiderId)
