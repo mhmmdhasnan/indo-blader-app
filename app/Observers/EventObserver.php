@@ -13,7 +13,7 @@ class EventObserver
      */
     private const LIVE_FIELDS = [
         'live_phase', 'live_started_at', 'live_rider_id', 'live_run_number',
-        'active_division_id', 'active_group_id', 'idle_screen',
+        'active_division_id', 'active_group_id', 'idle_screen', 'live_jam', 'live_duration',
     ];
 
     public function saved(Event $event): void

@@ -46,6 +46,8 @@ class Dashboard extends Component
     public int    $judgeDivisionId = 0;
     public int    $judgeGroupId    = 0;
     public ?float $bestTrickScore  = null; // typed 0-10 score for the Best Trick phase
+    public array  $jamScores       = [];   // Jamming heat: [registration_id => [criteria_key => nilai]]
+    public int    $jamDuration     = 0;    // Operator: durasi timer jamming (detik) untuk divisi aktif
     public bool   $scoreReopened   = false; // true when Head Judge reopened this judge's DONE score for revision
 
     // Category review
@@ -122,6 +124,7 @@ class Dashboard extends Component
     public function updatedJudgeDivisionId(): void
     {
         $this->judgeGroupId = 0;
+        $this->jamDuration  = 0;
 
         if ($this->judgeEventId && auth()->user()->isOperator()) {
             Event::find($this->judgeEventId)?->update([
@@ -451,6 +454,16 @@ class Dashboard extends Component
             }
         }
 
+        // Heat Jamming: semua rider heat dinilai bersamaan — siapkan form nilai tiap rider
+        // (judge biasa tidak memulai heat sendiri, jadi form-nya disiapkan dari sini).
+        if ($event && $event->live_jam && $event->live_phase === 'RUNNING' && ($division = $this->activeJamDivision())) {
+            $heatRegs = $this->jamHeatRegistrations($division);
+            if ($heatRegs->contains(fn ($reg) => !isset($this->jamScores[$reg->id]))) {
+                $this->initJamScores($heatRegs);
+            }
+            return;
+        }
+
         if (!$event || !in_array($event->live_phase, ['NEXT', 'RUNNING'], true)) {
             return;
         }
@@ -546,7 +559,131 @@ class Dashboard extends Component
             'live_rider_id'   => $riderId,
             'live_run_number' => $this->liveRunNumber,
             'live_phase'      => 'NEXT',
+            'live_jam'        => false,
         ]);
+    }
+
+    // ─── Jamming Season (1 heat jalan serentak, semua rider dinilai sekaligus) ─
+
+    private function activeJamDivision(): ?\App\Models\EventDivision
+    {
+        if (!$this->judgeDivisionId) return null;
+        $division = \App\Models\EventDivision::find($this->judgeDivisionId);
+
+        return ($division && $division->format === 'JAMMING' && !$division->best_trick_active) ? $division : null;
+    }
+
+    /** Rider (registrasi) yang ikut heat aktif: group terpilih saat kualifikasi, semua finalis saat final. */
+    private function jamHeatRegistrations(\App\Models\EventDivision $division): \Illuminate\Support\Collection
+    {
+        $groupId = $division->live_stage !== 'FINAL' && $this->judgeGroupId ? $this->judgeGroupId : null;
+
+        return app(\App\Services\LiveScoreboardService::class)
+            ->registrationsForStage($division, $division->live_stage === 'FINAL' ? 'FINAL' : 'QUALIFICATION', $groupId)
+            ->sortBy('name')->values();
+    }
+
+    public function updatedJamDuration(): void
+    {
+        if (!auth()->user()->isOperator()) return;
+        $division = $this->activeJamDivision();
+        if (!$division) return;
+
+        $division->update(['jam_duration' => max(10, min(3600, $this->jamDuration))]);
+    }
+
+    private function initJamScores(\Illuminate\Support\Collection $registrations): void
+    {
+        $criteria = $this->loadCriteria('LIVE');
+        $this->jamScores = [];
+        foreach ($registrations as $reg) {
+            foreach ($criteria as $c) {
+                $this->jamScores[$reg->id][$c->key] = 90.0;
+            }
+        }
+    }
+
+    public function startJamHeat(): void
+    {
+        if (!auth()->user()->isHeadJudge()) return;
+
+        $division = $this->activeJamDivision();
+        if (!$this->judgeEventId || !$division) {
+            $this->addError('judgeDivisionId', 'Pilih divisi Jamming Season terlebih dahulu.');
+            return;
+        }
+        if ($division->live_stage !== 'FINAL'
+            && !$this->judgeGroupId
+            && \App\Models\DivisionGroup::where('event_division_id', $division->id)->exists()) {
+            $this->addError('judgeGroupId', 'Pilih group (heat) terlebih dahulu.');
+            return;
+        }
+
+        $registrations = $this->jamHeatRegistrations($division);
+        if ($registrations->isEmpty()) {
+            $this->addError('judgeGroupId', 'Belum ada rider di heat ini.');
+            return;
+        }
+
+        Event::findOrFail($this->judgeEventId)->update([
+            'live_rider_id'   => null,
+            'live_run_number' => 1,
+            'live_phase'      => 'RUNNING',
+            'live_jam'        => true,
+            'live_duration'   => $division->jam_duration,
+            'live_started_at' => now(),
+        ]);
+
+        $this->scoreSubmitted = false;
+        $this->initJamScores($registrations);
+    }
+
+    /** Judge menyimpan nilai satu rider di heat jamming yang sedang berjalan. */
+    public function submitJamScore(int $registrationId): void
+    {
+        if (auth()->user()->isOperator()) return;
+
+        $event    = Event::find($this->judgeEventId);
+        $division = $this->activeJamDivision();
+        if (!$event || !$event->live_jam || $event->live_phase !== 'RUNNING' || !$division) return;
+
+        // Hanya rider yang memang ada di heat ini
+        if (!$this->jamHeatRegistrations($division)->contains('id', $registrationId)) return;
+
+        $riderId = $this->resolveRiderIdFromRegistration($registrationId);
+        if (!$riderId) return;
+
+        $score = JudgeScore::firstOrCreate(
+            [
+                'judge_user_id' => auth()->id(),
+                'event_id'      => $this->judgeEventId,
+                'rider_id'      => $riderId,
+                'run_number'    => 1,
+                'scoring_mode'  => 'LIVE',
+                'live_stage'    => $division->live_stage === 'FINAL' ? 'FINAL' : 'QUALIFICATION',
+            ],
+            ['status' => 'WAITING']
+        );
+
+        app(ScoringService::class)->submitScore($score, $this->jamScores[$registrationId] ?? []);
+    }
+
+    /** Hapus skor heat jamming yang sedang berjalan (dipakai saat heat dibatalkan). */
+    private function deleteJamHeatScores(Event $event): void
+    {
+        $division = \App\Models\EventDivision::find($event->active_division_id);
+        if (!$division) return;
+
+        $riderIds = $this->jamHeatRegistrations($division)
+            ->map(fn ($reg) => $this->resolveRiderIdFromRegistration($reg->id))
+            ->filter()->values();
+
+        JudgeScore::where('event_id', $event->id)
+            ->whereIn('rider_id', $riderIds)
+            ->where('run_number', 1)
+            ->where('scoring_mode', 'LIVE')
+            ->where('live_stage', $division->live_stage === 'FINAL' ? 'FINAL' : 'QUALIFICATION')
+            ->delete();
     }
 
     public function startRun(): void
@@ -565,6 +702,7 @@ class Dashboard extends Component
             'live_rider_id'   => $riderId,
             'live_run_number' => $this->liveRunNumber,
             'live_phase'      => 'RUNNING',
+            'live_jam'        => false,
             'live_started_at' => now(),
         ]);
 
@@ -589,7 +727,9 @@ class Dashboard extends Component
         // Membatalkan run yang sedang berjalan (bukan sekadar batal preview atau
         // kembali dari layar reveal) juga menghapus skor yang sudah disubmit
         // untuk run itu, supaya tidak ada skor "nyangkut" kalau rider run ulang.
-        if ($event->live_phase === 'RUNNING' && $event->live_rider_id && $event->live_run_number) {
+        if ($event->live_jam && $event->live_phase === 'RUNNING') {
+            $this->deleteJamHeatScores($event);
+        } elseif ($event->live_phase === 'RUNNING' && $event->live_rider_id && $event->live_run_number) {
             JudgeScore::where('event_id', $event->id)
                 ->where('rider_id', $event->live_rider_id)
                 ->where('run_number', $event->live_run_number)
@@ -602,6 +742,8 @@ class Dashboard extends Component
             'live_rider_id'   => null,
             'live_run_number' => null,
             'live_phase'      => null,
+            'live_jam'        => false,
+            'live_duration'   => null,
             'live_started_at' => null,
         ]);
     }
@@ -921,6 +1063,29 @@ class Dashboard extends Component
                 }
             }
 
+            // Jamming Season: heat aktif, rider-nya, dan nilai yang sudah disubmit judge ini
+            $data['jamDivision']   = $this->activeJamDivision();
+            $data['jamHeatRegs']   = collect();
+            $data['jamSubmitted']  = [];
+            $data['jamIsLive']     = (bool) ($data['activeEvent']?->live_jam && $data['activeEvent']?->live_phase === 'RUNNING');
+            if ($data['jamDivision']) {
+                if ($this->jamDuration === 0) {
+                    $this->jamDuration = $data['jamDivision']->jam_duration;
+                }
+                $data['jamHeatRegs'] = $this->jamHeatRegistrations($data['jamDivision']);
+
+                if ($data['jamIsLive'] && !auth()->user()->isOperator()) {
+                    $stageForJam = $data['jamDivision']->live_stage === 'FINAL' ? 'FINAL' : 'QUALIFICATION';
+                    foreach ($data['jamHeatRegs'] as $reg) {
+                        $rid = $this->resolveRiderIdFromRegistration($reg->id);
+                        $data['jamSubmitted'][$reg->id] = $rid && JudgeScore::where('event_id', $this->judgeEventId)
+                            ->where('rider_id', $rid)->where('run_number', 1)
+                            ->where('scoring_mode', 'LIVE')->where('live_stage', $stageForJam)
+                            ->where('judge_user_id', auth()->id())->where('status', 'DONE')->exists();
+                    }
+                }
+            }
+
             // Use Registration records directly so all approved participants appear,
             // regardless of whether they have a Rider profile yet.
             $finalistRegIds = \App\Models\DivisionFinalist::whereIn(
@@ -950,16 +1115,29 @@ class Dashboard extends Component
                     ->get()
                 : collect();
 
-            $data['myPastScores'] = ($this->judgeEventId && $this->scoringMode === 'live')
-                ? JudgeScore::where('judge_user_id', auth()->id())
+            // Riwayat nilai judge ini sendiri (Live + Best Trick), dikelompokkan per divisi —
+            // divisi yang sedang aktif dipilih Operator ditaruh paling atas.
+            $data['myPastScoresByDivision'] = collect();
+            if ($this->judgeEventId && $this->scoringMode === 'live' && !auth()->user()->isOperator()) {
+                $pastEvent  = Event::find($this->judgeEventId);
+                $pastScores = JudgeScore::where('judge_user_id', auth()->id())
                     ->where('event_id', $this->judgeEventId)
-                    ->where('scoring_mode', 'LIVE')
+                    ->whereIn('scoring_mode', ['LIVE', 'BEST_TRICK'])
                     ->where('status', 'DONE')
                     ->with('rider')
                     ->orderByDesc('updated_at')
-                    ->limit(30)
-                    ->get()
-                : collect();
+                    ->limit(200)
+                    ->get();
+
+                $divisionByRider = [];
+                foreach ($pastScores->pluck('rider')->filter()->unique('id') as $pastRider) {
+                    $divisionByRider[$pastRider->id] = Registration::forLiveRider($pastEvent, $pastRider)?->division;
+                }
+
+                $data['myPastScoresByDivision'] = $pastScores
+                    ->groupBy(fn ($past) => $divisionByRider[$past->rider_id]->name ?? 'Tanpa Divisi')
+                    ->sortBy(fn ($rows, $name) => [$name === ($selectedDivision?->name) ? 0 : 1, $name]);
+            }
 
             // Other judges' live scores for current rider/run
             $resolvedLiveRiderId = ($this->scoringMode === 'live' && $this->liveRiderId)
@@ -998,6 +1176,20 @@ class Dashboard extends Component
                 $data['assignedJudges'] = EventJudgeAssignment::where('event_id', $this->judgeEventId)
                     ->with('user')
                     ->get();
+
+                // Jamming: progres tiap judge = jumlah rider heat yang sudah dinilai
+                $data['jamProgress'] = [];
+                if ($data['jamIsLive'] && $data['jamDivision']) {
+                    $riderIds = $data['jamHeatRegs']
+                        ->map(fn ($reg) => $this->resolveRiderIdFromRegistration($reg->id))->filter()->values();
+                    $data['jamProgress'] = JudgeScore::where('event_id', $this->judgeEventId)
+                        ->whereIn('rider_id', $riderIds)->where('run_number', 1)
+                        ->where('scoring_mode', 'LIVE')
+                        ->where('live_stage', $data['jamDivision']->live_stage === 'FINAL' ? 'FINAL' : 'QUALIFICATION')
+                        ->where('status', 'DONE')
+                        ->selectRaw('judge_user_id, count(*) as c')->groupBy('judge_user_id')
+                        ->pluck('c', 'judge_user_id')->all();
+                }
             }
 
             // Other judges' KO scores for current match (bracket only)

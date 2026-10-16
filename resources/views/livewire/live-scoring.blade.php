@@ -3,7 +3,8 @@
     <div id="live-data"
          data-phase="{{ $displayPhase ?? '' }}"
          data-started="{{ $liveStartedAt ?? 0 }}"
-         data-duration="{{ $runDuration }}"
+         data-duration="{{ $jamActive ? $jamDuration : $runDuration }}"
+         data-jam="{{ $jamActive ? '1' : '' }}"
          data-score="{{ $revealScore ? number_format($revealScore, 1) : '' }}"
          data-accumulated="{{ ($revealAccumulatedTotal ?? null) !== null ? number_format($revealAccumulatedTotal, 1) : '' }}"
          data-rider="{{ $liveRider?->name ?? '' }}"
@@ -31,6 +32,16 @@
                 style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
                 <source src="{{ asset('motion/bumper-logo.mp4') }}" type="video/mp4">
             </video>
+
+            {{-- Timer heat Jamming Season — hanya muncul saat heat jamming sedang berjalan. --}}
+            <div x-data="jamClock()" x-init="boot()" x-show="jam && phase === 'RUNNING'" x-cloak
+                 style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;text-align:center;
+                        padding:28px 56px;background:color-mix(in srgb,var(--bg) 78%,transparent);border:2px solid var(--lime);border-radius:6px;">
+                <p class="kicker" style="margin-bottom:8px;font-size:13px;">JAMMING SEASON</p>
+                <span class="display tnum text-glow-lime"
+                      style="font-size:clamp(80px,14vw,220px);color:var(--lime);line-height:1;"
+                      x-text="remainingFormatted"></span>
+            </div>
 
             {{-- Sponsor banners — freely positioned by the Operator (drag & drop
                  in Admin → Sponsors). Absolute, percentage-based so it holds up
@@ -98,7 +109,7 @@
     </div>
 
     {{-- ── LIVE PHASE OVERLAY ── --}}
-    <div x-data="livePhaseOverlay()" x-init="boot()" x-show="phase !== 'IDLE'" x-cloak
+    <div x-data="livePhaseOverlay()" x-init="boot()" x-show="phase !== 'IDLE' && !jam" x-cloak
          style="border-bottom:2px solid var(--ink);background:var(--bg);padding:0 32px;">
 
             {{-- ── ESPORTS CARD ── --}}
@@ -229,6 +240,46 @@
                 </div>
             </div>
     </div>
+
+    {{-- ── JAMMING SEASON HEAT: seluruh rider heat tampil bersamaan ── --}}
+    @if($jamActive ?? false)
+    <div x-data="jamClock()" x-init="boot()" x-show="active" x-cloak
+         style="border-bottom:2px solid var(--ink);background:var(--bg);padding:24px 32px;min-height:calc(100vh - 130px);">
+        <div class="between" style="margin-bottom:18px;flex-wrap:wrap;gap:8px;">
+            <span class="kicker">JAMMING SEASON · {{ strtoupper($division?->name ?? '') }} · {{ $stage === 'FINAL' ? 'FINAL' : strtoupper($groups->firstWhere('id', $selectedGroupId)?->name ?? 'KUALIFIKASI') }}</span>
+            <span class="badge badge-red" x-show="phase === 'RUNNING'" style="display:none;"><span class="live-dot" style="margin-right:5px;"></span>HEAT BERJALAN</span>
+            <span class="badge badge-out" x-show="phase === 'JUDGING'" style="display:none;">... JUDGING</span>
+            <span class="badge badge-out" x-show="phase === 'REVEALING'" style="display:none;border-color:var(--lime);color:var(--lime);">✦ HASIL HEAT</span>
+        </div>
+
+        <div x-show="phase === 'RUNNING'" style="display:none;text-align:center;padding:40px 0;">
+            <span class="display tnum text-glow-lime"
+                  style="font-size:clamp(100px,20vw,320px);color:var(--lime);line-height:1;"
+                  x-text="remainingFormatted"></span>
+        </div>
+        <div x-show="phase === 'JUDGING'" style="display:none;text-align:center;padding:60px 0;">
+            <span class="display tnum" style="font-size:clamp(80px,14vw,220px);line-height:1;">00:00:00</span>
+            <p class="mono dim" style="font-size:14px;letter-spacing:0.08em;margin-top:20px;">WAKTU HABIS — MENUNGGU SEMUA JURI SELESAI MENILAI</p>
+        </div>
+
+        <div x-show="phase !== 'REVEALING'" style="display:none;margin-top:8px;">
+            <div class="flex" style="flex-wrap:wrap;gap:10px;justify-content:center;">
+                @foreach($jamRows as $row)
+                    <span class="mono" style="padding:10px 16px;border:2px solid var(--ink);font-size:16px;letter-spacing:0.08em;">{{ $row['rider']->name }}</span>
+                @endforeach
+            </div>
+        </div>
+
+        <div x-show="phase === 'REVEALING'" style="display:none;">
+            <div class="panel" style="overflow:hidden;">
+                <div style="padding:16px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
+                    <span class="kicker">HASIL HEAT</span>
+                </div>
+                @include('livewire.partials.live-score-table', ['rows' => $jamRows])
+            </div>
+        </div>
+    </div>
+    @endif
 
     @if(!$event)
         <div class="wrap section center col" style="padding-block:80px;gap:16px;">
@@ -418,6 +469,112 @@ function liveFullscreen() {
     };
 }
 
+function jamClock() {
+    return {
+        jam: false,
+        phase: 'IDLE',
+        remaining: 0,
+        _timer: null,
+        _observer: null,
+        _lastStartedAt: null,
+        _sounds: null,
+
+        get active() { return this.jam && this.phase !== 'IDLE'; },
+
+        boot() {
+            this._sounds = {
+                start: new Audio('{{ asset('sounds/start.wav') }}'),
+                tick: new Audio('{{ asset('sounds/tick.wav') }}'),
+                end: new Audio('{{ asset('sounds/end.wav') }}'),
+            };
+            Object.values(this._sounds).forEach(a => { a.preload = 'auto'; a.load(); });
+            const unlock = () => {
+                Object.values(this._sounds).forEach(a => {
+                    a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+                });
+            };
+            ['click', 'touchstart', 'keydown'].forEach(evt => {
+                document.addEventListener(evt, unlock, { once: true });
+            });
+
+            this.readData();
+            const el = document.getElementById('live-data');
+            if (el) {
+                this._observer = new MutationObserver(() => this.readData());
+                this._observer.observe(el, { attributes: true });
+            }
+        },
+
+        _playSound(name) {
+            const audio = this._sounds?.[name];
+            if (!audio) return;
+            audio.currentTime = 0;
+            audio.play().catch(err => console.warn('[live-scoring] sound blocked:', name, err));
+        },
+
+        readData() {
+            const el = document.getElementById('live-data');
+            if (!el) return;
+            this.jam = !!el.dataset.jam;
+            const serverPhase = el.dataset.phase || '';
+            const startedAt   = parseInt(el.dataset.started) || 0;
+            const duration    = parseInt(el.dataset.duration) || 180;
+
+            if (!this.jam) {
+                clearTimeout(this._timer);
+                this._timer = null;
+                this.phase = 'IDLE';
+            } else if (serverPhase === 'REVEALING') {
+                clearTimeout(this._timer);
+                this._timer = null;
+                this.phase = 'REVEALING';
+            } else if (serverPhase === 'RUNNING') {
+                this._startCountdown(startedAt, duration);
+            } else {
+                clearTimeout(this._timer);
+                this._timer = null;
+                this.phase = 'IDLE';
+            }
+        },
+
+        _startCountdown(startedAt, duration) {
+            // Broadcast tiap judge submit memanggil readData() lagi — jangan restart
+            // timer (dan bunyi start/tick) kalau heat yang sama sudah berjalan.
+            if (startedAt === this._lastStartedAt && this._timer !== null) return;
+            clearTimeout(this._timer);
+            if (startedAt !== this._lastStartedAt) {
+                this._lastStartedAt = startedAt;
+                this._playSound('start');
+            }
+            let lastBeepedSecond = null;
+            const tick = () => {
+                const elapsed = Math.floor(Date.now() / 1000) - startedAt;
+                this.remaining = Math.max(0, duration - elapsed);
+                if (this.remaining > 0) {
+                    this.phase = 'RUNNING';
+                    if (this.remaining <= 10 && this.remaining !== lastBeepedSecond) {
+                        lastBeepedSecond = this.remaining;
+                        this._playSound('tick');
+                    }
+                    this._timer = setTimeout(tick, 1000);
+                } else {
+                    this.phase = 'JUDGING';
+                    this._playSound('end');
+                    this._timer = setTimeout(() => {}, 0); // tandai heat ini sudah selesai dihitung
+                }
+            };
+            tick();
+        },
+
+        get remainingFormatted() {
+            const h = Math.floor(this.remaining / 3600);
+            const m = Math.floor((this.remaining % 3600) / 60);
+            const s = this.remaining % 60;
+            return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+        }
+    };
+}
+
 function livePhaseOverlay() {
     return {
         phase: 'IDLE',
@@ -432,6 +589,7 @@ function livePhaseOverlay() {
         runNumber: '',
         divisionLabel: '',
         isBestTrick: false,
+        jam: false,
         _timer: null,
         _observer: null,
         _lastStartedAt: null,
@@ -490,8 +648,16 @@ function livePhaseOverlay() {
             this.runNumber  = el.dataset.run || '';
             this.divisionLabel = el.dataset.divisionLabel || '';
             this.isBestTrick = !!el.dataset.isBestTrick;
+            this.jam = !!el.dataset.jam;
 
-            if (serverPhase === 'REVEALING') {
+            if (this.jam) {
+                // Heat Jamming ditangani jamClock() — kartu esports per-rider tidak dipakai.
+                clearTimeout(this._timer);
+                this._timer = null;
+                this.phase = 'IDLE';
+            } else if (serverPhase === 'REVEALING') {
+                // Best Trick: bunyi 'end' saat percobaan selesai (RUNNING -> REVEALING)
+                if (this.phase === 'RUNNING' && this.isBestTrick) this._playSound('end');
                 this.phase = 'REVEALING';
                 clearTimeout(this._timer);
             } else if (serverPhase === 'RUNNING' && this.isBestTrick) {
@@ -499,6 +665,10 @@ function livePhaseOverlay() {
                 // gak ada hitung mundur, dan gak auto-pindah ke JUDGING kayak
                 // _startCountdown; tetap di RUNNING sampai Head Judge klik Reveal.
                 clearTimeout(this._timer);
+                if (startedAt !== this._lastStartedAt) {
+                    this._lastStartedAt = startedAt;
+                    this._playSound('start');
+                }
                 this.phase = 'RUNNING';
             } else if (serverPhase === 'RUNNING') {
                 this._startCountdown(startedAt, duration);

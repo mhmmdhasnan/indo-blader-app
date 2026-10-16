@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class EventDivision extends Model
 {
     protected $fillable = [
-        'event_id', 'name', 'discipline', 'level', 'slots', 'filled', 'is_active',
+        'event_id', 'name', 'discipline', 'level', 'format', 'jam_duration', 'slots', 'filled', 'is_active',
         'live_stage', 'live_final_completed_at', 'best_trick_active',
         'qualification_announced_at', 'final_announced_at',
     ];
@@ -50,6 +50,11 @@ class EventDivision extends Model
     public function getIsFinalStageAttribute(): bool
     {
         return $this->live_stage === 'FINAL';
+    }
+
+    public function getIsJammingAttribute(): bool
+    {
+        return $this->format === 'JAMMING';
     }
 
     public function getIsUnlimitedAttribute(): bool

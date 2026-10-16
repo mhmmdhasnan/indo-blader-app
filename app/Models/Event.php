@@ -14,7 +14,7 @@ class Event extends Model
         'status', 'type', 'categories', 'prize', 'prize_hidden', 'featured', 'blurb', 'banner',
         'schedule', 'rules',
         'run_duration', 'live_rider_id', 'live_run_number', 'live_phase', 'live_started_at',
-        'active_division_id', 'active_group_id', 'idle_screen',
+        'active_division_id', 'active_group_id', 'idle_screen', 'live_jam', 'live_duration',
     ];
 
     protected $casts = [
@@ -28,6 +28,7 @@ class Event extends Model
         'longitude'      => 'float',
         'live_started_at'=> 'datetime',
         'idle_screen'    => 'boolean',
+        'live_jam'       => 'boolean',
     ];
 
     public function registrations(): HasMany

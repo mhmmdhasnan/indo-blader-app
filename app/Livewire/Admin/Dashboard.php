@@ -153,6 +153,8 @@ class Dashboard extends Component
     public string $divLevel         = '';
     public ?int   $divSlots         = null;
     public bool   $divUnlimited     = true;
+    public string $divFormat        = 'STANDARD';
+    public int    $divJamDuration   = 180;
 
     // Live Score finalist picker
     public int   $finalistPickerDivisionId = 0;
@@ -1262,6 +1264,8 @@ class Dashboard extends Component
         $this->divLevel         = '';
         $this->divSlots         = null;
         $this->divUnlimited     = true;
+        $this->divFormat        = 'STANDARD';
+        $this->divJamDuration   = 180;
         $this->divEditing       = true;
     }
 
@@ -1274,6 +1278,8 @@ class Dashboard extends Component
         $this->divLevel         = $div->level ?? '';
         $this->divUnlimited     = $div->slots === null;
         $this->divSlots         = $div->slots;
+        $this->divFormat        = $div->format ?? 'STANDARD';
+        $this->divJamDuration   = $div->jam_duration ?? 180;
         $this->divEditing       = true;
     }
 
@@ -1292,6 +1298,8 @@ class Dashboard extends Component
 
         $this->validate([
             'divLevel' => 'required|string',
+            'divFormat' => 'required|in:STANDARD,JAMMING',
+            'divJamDuration' => 'required|integer|min:10|max:3600',
             ...($event->type === 'LIVE_SCORE' ? ['divDiscipline' => 'required|string'] : []),
         ], [], ['divLevel' => 'level', 'divDiscipline' => 'discipline']);
 
@@ -1303,6 +1311,8 @@ class Dashboard extends Component
             'discipline' => $this->divDiscipline ?: null,
             'level'      => $this->divLevel,
             'slots'      => $this->divUnlimited ? null : max(1, (int) $this->divSlots),
+            'format'     => $this->divFormat,
+            'jam_duration' => $this->divJamDuration,
         ];
 
         if ($this->divId) {

@@ -902,6 +902,20 @@
                                                         <input type="number" wire:model.live="divSlots" min="1" class="input-field" style="width:80px;" placeholder="32" />
                                                     @endif
                                                 </div>
+                                                <div class="col" style="gap:4px;min-width:140px;">
+                                                    <span class="mono dim" style="font-size:9px;">FORMAT</span>
+                                                    <select wire:model.live="divFormat" class="input-field" style="font-size:12px;">
+                                                        <option value="STANDARD">Standar (rider per rider)</option>
+                                                        <option value="JAMMING">Jamming Season (1 heat serentak)</option>
+                                                    </select>
+                                                </div>
+                                                @if($divFormat === 'JAMMING')
+                                                <div class="col" style="gap:4px;">
+                                                    <span class="mono dim" style="font-size:9px;">DURASI JAM (DETIK)</span>
+                                                    <input type="number" wire:model.live="divJamDuration" min="10" max="3600" class="input-field" style="width:100px;font-size:12px;" />
+                                                    @error('divJamDuration') <span style="color:var(--red);font-size:10px;">{{ $message }}</span> @enderror
+                                                </div>
+                                                @endif
                                                 {{-- Preview nama --}}
                                                 @if($divLevel)
                                                 <div class="col" style="gap:2px;align-self:flex-end;padding-bottom:6px;">
@@ -927,6 +941,9 @@
                                             <div class="between" style="padding:10px 18px;border-bottom:1px solid var(--line);">
                                                 <div class="flex gap-s" style="align-items:center;">
                                                     <span class="label" style="font-size:13px;">{{ $div->name }}</span>
+                                                    @if($div->format === 'JAMMING')
+                                                        <span class="mono" style="font-size:9px;padding:1px 5px;background:var(--lime);color:#0a0a0b;">JAMMING · {{ $div->jam_duration }}s</span>
+                                                    @endif
                                                     @if($div->discipline)
                                                         <span class="mono" style="font-size:9px;padding:1px 5px;background:var(--bg-2);border:1px solid var(--line);">{{ $div->discipline }}</span>
                                                     @endif

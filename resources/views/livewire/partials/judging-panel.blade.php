@@ -38,6 +38,15 @@
                 </div>
             @endif
 
+        @elseif($activeEvent->live_phase === 'RUNNING' && $activeEvent->live_jam)
+            <div class="flex" style="align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:var(--bg-2);border-radius:3px;">
+                <span class="live-dot"></span>
+                <span class="label" style="font-size:13px;">JAMMING HEAT · {{ $jamHeatRegs->count() }} rider</span>
+                <span class="mono" style="font-size:10px;margin-left:auto;color:var(--lime);">{{ $activeEvent->live_duration }}s</span>
+            </div>
+            @include('livewire.partials.jam-heat-status', ['assignedJudges' => $assignedJudges ?? collect(), 'jamProgress' => $jamProgress ?? [], 'jamHeatRegs' => $jamHeatRegs, 'isHeadJudge' => $isHeadJudge])
+            <p class="mono dim" style="font-size:11px;">Menunggu Head Judge klik REVEAL SCORE.</p>
+
         @elseif($activeEvent->live_phase === 'RUNNING')
             @php $liveR = $activeEvent->live_rider_id ? \App\Models\Rider::find($activeEvent->live_rider_id) : null; @endphp
             <div class="flex" style="align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:var(--bg-2);border-radius:3px;">
@@ -209,6 +218,23 @@
     @if($isOperator && $scoringMode === 'live' && (!$activeEvent?->live_phase || $activeEvent?->live_phase === 'NEXT'))
     <div class="panel" style="border:2px solid var(--lime);padding:18px;">
         <span class="kicker" style="color:var(--lime);display:block;margin-bottom:14px;">⚙ SETUP RUN</span>
+        @if($jamDivision ?? null)
+        <div class="col" style="gap:12px;margin-bottom:12px;">
+            <span class="mono" style="font-size:11px;color:var(--lime);">JAMMING SEASON · satu heat langsung jalan semua rider ({{ $jamHeatRegs->count() }} rider)</span>
+            <div>
+                <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">DURASI TIMER (DETIK)</span>
+                <input type="number" wire:model.live.debounce.500ms="jamDuration" min="10" max="3600" step="10" class="input-field" style="width:140px;">
+                <span class="mono dim" style="font-size:10px;margin-left:8px;">{{ floor($jamDuration / 60) }}m {{ $jamDuration % 60 }}s</span>
+            </div>
+            @if($jamHeatRegs->isEmpty())
+                <p class="mono" style="font-size:11px;color:var(--red);">Belum ada rider di heat ini{{ $jamDivision->live_stage === 'FINAL' ? ' (pilih finalis dulu)' : ' — pilih group/heat' }}.</p>
+            @else
+                <div class="flex gap-s" style="flex-wrap:wrap;">
+                    @foreach($jamHeatRegs as $reg)<span class="badge badge-out">{{ $reg->name }}</span>@endforeach
+                </div>
+            @endif
+        </div>
+        @else
         <div class="col" style="gap:12px;margin-bottom:12px;">
             <div>
                 <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">
@@ -249,6 +275,7 @@
                 </button>
             </div>
         </div>
+        @endif
         @if($activeEvent?->live_phase === 'NEXT')
             <button wire:click="endSession" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;font-size:11px;">
                 ✗ Batal Preview
@@ -316,6 +343,8 @@
 
         @if($isOperator)
             {{-- Operator tidak menilai — panel setup di atas (setelah filter divisi/group) sudah cukup --}}
+        @elseif(($jamDivision ?? null) && ($isHeadJudge || $isRunning))
+            @include('livewire.partials.jam-scoring', ['isRunning' => $isRunning && ($activeEvent?->live_jam ?? false)])
         @elseif(!$isHeadJudge && !$isRunning)
             {{-- Judge biasa: standby state --}}
             <div class="panel center col" style="padding:48px;gap:14px;text-align:center;">
@@ -505,6 +534,8 @@
                         <span class="label" style="font-size:13px;">{{ $nextR?->name ?? '—' }}</span>
                         <span class="mono dim" style="font-size:10px;margin-left:auto;">NEXT UP · RUN {{ $activeEvent->live_run_number }}</span>
                     </div>
+                @elseif($jamDivision ?? null)
+                    <p class="mono dim" style="font-size:11px;margin-bottom:12px;">Heat jamming: <strong>{{ $jamHeatRegs->count() }}</strong> rider jalan serentak · timer {{ $jamDivision->jam_duration }}s. Klik START HEAT untuk mulai.</p>
                 @else
                     @php $readyRider = $liveRiderId ? $judgeRiders->find($liveRiderId) : null; @endphp
                     <p class="mono dim" style="font-size:11px;margin-bottom:12px;">
@@ -516,6 +547,12 @@
                     </p>
                 @endif
 
+                @if($jamDivision ?? null)
+                    <button wire:click="startJamHeat" class="btn btn-lime" @if($jamHeatRegs->isEmpty()) disabled @endif
+                        style="width:100%;justify-content:center;font-size:13px;letter-spacing:0.1em;">▶ START HEAT</button>
+                    @error('judgeGroupId') <p class="mono" style="font-size:11px;color:var(--red);margin-top:6px;">{{ $message }}</p> @enderror
+                    @error('judgeDivisionId') <p class="mono" style="font-size:11px;color:var(--red);margin-top:6px;">{{ $message }}</p> @enderror
+                @else
                 <div class="flex gap-s" style="margin-bottom:8px;">
                     <button wire:click="startRun"
                         wire:key="start-run-{{ $liveRiderId }}-{{ $liveRunNumber }}-{{ ($riderAlreadyRan ?? false) ? 1 : 0 }}"
@@ -529,6 +566,29 @@
                 @if(!$liveRiderId)
                     <p class="mono dim" style="font-size:10px;text-align:center;">Menunggu Operator memilih rider</p>
                 @endif
+                @endif
+
+            @elseif($activeEvent->live_phase === 'RUNNING' && $activeEvent->live_jam)
+                @php
+                    $heatSize   = $jamHeatRegs->count();
+                    $totalJudges = ($assignedJudges ?? collect())->count();
+                    $pendingJudges = ($assignedJudges ?? collect())->filter(fn ($aj) => ($jamProgress[$aj->user_id] ?? 0) < $heatSize);
+                @endphp
+                <div class="flex" style="align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:var(--bg-2);border-radius:3px;">
+                    <span class="live-dot"></span>
+                    <span class="label" style="font-size:13px;">JAMMING HEAT · {{ $heatSize }} rider</span>
+                    <span class="mono" style="font-size:10px;margin-left:auto;color:var(--lime);">{{ $activeEvent->live_duration }}s</span>
+                </div>
+                @include('livewire.partials.jam-heat-status', ['assignedJudges' => $assignedJudges ?? collect(), 'jamProgress' => $jamProgress ?? [], 'jamHeatRegs' => $jamHeatRegs, 'isHeadJudge' => $isHeadJudge])
+                <div class="flex gap-s">
+                    <button wire:click="revealScore"
+                        wire:key="reveal-jam-{{ $pendingJudges->count() }}"
+                        @if($pendingJudges->count())
+                            wire:confirm="Masih ada {{ $pendingJudges->count() }} judge yang belum selesai menilai semua rider ({{ $pendingJudges->map(fn ($aj) => $aj->user?->name)->filter()->implode(', ') }}). Yakin ingin reveal sekarang?"
+                        @endif
+                        class="btn btn-lime" style="flex:1;justify-content:center;">✓ REVEAL SCORE</button>
+                    <button wire:click="endSession" wire:confirm="Batalkan heat? Semua skor heat ini akan dihapus." class="btn btn-ghost btn-sm">✗ BATAL</button>
+                </div>
 
             @elseif($activeEvent->live_phase === 'RUNNING')
                 @php
@@ -577,22 +637,31 @@
         </div>
         @endif
 
-        @if(!$isOperator && ($myPastScores ?? collect())->isNotEmpty())
-            {{-- Riwayat nilai yang sudah diberikan judge ini sendiri (bukan nilai judge lain) --}}
-            <div class="panel" style="overflow:hidden;margin-top:16px;">
-                <div style="padding:14px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
-                    <span class="kicker">📝 NILAI SAYA SEBELUMNYA</span>
-                </div>
-                @foreach($myPastScores as $past)
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;{{ !$loop->last ? 'border-bottom:1px solid var(--line);' : '' }}">
-                        <div class="col" style="gap:2px;">
-                            <span class="label" style="font-size:14px;">{{ $past->rider?->name ?? '—' }}</span>
-                            <span class="mono dim" style="font-size:10px;letter-spacing:0.08em;">RUN {{ $past->run_number }} · {{ $past->live_stage === 'FINAL' ? 'FINAL' : 'KUALIFIKASI' }}</span>
-                        </div>
-                        <span class="display tnum" style="font-size:22px;">{{ number_format($past->total, 1) }}</span>
+        @if(!$isOperator && ($myPastScoresByDivision ?? collect())->isNotEmpty())
+            {{-- Riwayat nilai yang sudah diberikan judge ini sendiri (Live + Best Trick), per divisi --}}
+            @foreach($myPastScoresByDivision as $divName => $rows)
+                <div class="panel" style="overflow:hidden;margin-top:16px;">
+                    <div class="between" style="padding:14px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
+                        <span class="kicker">📝 NILAI SAYA SEBELUMNYA · {{ strtoupper($divName) }}</span>
+                        <span class="mono dim" style="font-size:10px;">{{ $rows->count() }} NILAI</span>
                     </div>
-                @endforeach
-            </div>
+                    @foreach($rows as $past)
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;{{ !$loop->last ? 'border-bottom:1px solid var(--line);' : '' }}">
+                            <div class="col" style="gap:2px;">
+                                <span class="label" style="font-size:14px;">{{ $past->rider?->name ?? '—' }}</span>
+                                <span class="mono dim" style="font-size:10px;letter-spacing:0.08em;">
+                                    @if($past->scoring_mode === 'BEST_TRICK')
+                                        BEST TRICK · PERCOBAAN {{ $past->run_number }}
+                                    @else
+                                        RUN {{ $past->run_number }} · {{ $past->live_stage === 'FINAL' ? 'FINAL' : 'KUALIFIKASI' }}
+                                    @endif
+                                </span>
+                            </div>
+                            <span class="display tnum" style="font-size:22px;">{{ number_format($past->total, 1) }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            @endforeach
         @endif
 
     @else

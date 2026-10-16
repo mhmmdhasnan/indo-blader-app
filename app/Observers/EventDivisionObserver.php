@@ -9,6 +9,7 @@ class EventDivisionObserver
 {
     private const LIVE_FIELDS = [
         'live_stage', 'best_trick_active', 'qualification_announced_at', 'final_announced_at',
+        'format', 'jam_duration',
     ];
 
     public function saved(EventDivision $division): void

@@ -103,6 +103,9 @@ class LiveScoring extends Component
         $liveDivisionLabel = $event?->title ?? 'FRAMEBLADESCORE';
         $isBestTrickPhase = false;
         $showingQualRecap = false;
+        $jamActive   = false;
+        $jamRows     = collect();
+        $jamDuration = $event?->live_duration ?? 180;
 
         // Pengumuman kualifikasi & final ini SENGAJA independen dari $stage saat ini —
         // begitu admin pilih finalis, live_stage divisi langsung pindah ke FINAL, jadi
@@ -174,8 +177,19 @@ class LiveScoring extends Component
                     ->values();
             }
 
-            if ($event->live_phase) {
+            // Heat Jamming Season: tidak ada rider tunggal — seluruh heat tampil bersama
+            // (timer + ranking heat), jadi kartu esports per-rider dilewati.
+            $jamActive = (bool) ($event->live_jam && $event->live_phase && $division?->format === 'JAMMING');
+            if ($event->live_phase && !$jamActive) {
                 $liveRider     = $event->live_rider_id ? Rider::find($event->live_rider_id) : null;
+                $displayPhase  = $event->live_phase;
+                $liveStartedAt = $event->live_started_at?->timestamp;
+            }
+
+            if ($jamActive) {
+                $jamRows       = app(LiveScoreboardService::class)->buildLeaderboard(
+                    $division, $stage, ($stage === 'QUALIFICATION' && $groups->contains('id', $selectedGroupId)) ? $selectedGroupId : null
+                );
                 $displayPhase  = $event->live_phase;
                 $liveStartedAt = $event->live_started_at?->timestamp;
             }
@@ -240,7 +254,7 @@ class LiveScoring extends Component
             'event', 'idleScreen', 'idlePlacements', 'nextupPlacements', 'leaderboardPlacements', 'divisions', 'division', 'stage', 'groups', 'selectedGroupId', 'scores', 'scoreSections', 'judgeScores',
             'liveRider', 'displayPhase', 'liveStartedAt', 'runDuration', 'revealScore', 'revealAccumulatedTotal',
             'liveRiderBestScore', 'liveDivisionLabel', 'isBestTrickPhase', 'showingQualRecap',
-            'qualificationAnnounced', 'finalAnnounced', 'finalistRegIds', 'finalistNames', 'podium'
+            'qualificationAnnounced', 'finalAnnounced', 'finalistRegIds', 'finalistNames', 'podium', 'jamActive', 'jamDuration', 'jamRows'
         ));
     }
 }
