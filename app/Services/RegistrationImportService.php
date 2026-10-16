@@ -7,7 +7,10 @@ use App\Models\DivisionGroup;
 use App\Models\EventDivision;
 use App\Models\Registration;
 use Carbon\Carbon;
+use App\Models\Rider;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 use SimpleXMLElement;
@@ -102,13 +105,14 @@ class RegistrationImportService
         $touched = [];
         $heatsCreated = 0;
         $heatSize = (int) ($options['heat_size'] ?? 0);
+        $photoJobs = [];
 
         // A rider may enter several divisions, so a duplicate is the same name in the same division.
         $seen = Registration::where('event_id', $event->id)->get(['name', 'division_id'])
             ->mapWithKeys(fn ($r) => [Str::lower(trim($r->name)) . '|' . $r->division_id => true])->all();
         $validDivisions = $event->divisions()->pluck('id')->all();
 
-        DB::transaction(function () use ($event, $rows, $options, $heatSize, &$created, &$skipped, &$seen, $validDivisions, &$divisionsCreated, &$touched, &$heatsCreated) {
+        DB::transaction(function () use ($event, $rows, $options, $heatSize, &$created, &$skipped, &$seen, $validDivisions, &$divisionsCreated, &$touched, &$heatsCreated, &$photoJobs) {
             foreach ($rows as $row) {
                 $splitGender = !empty($options['split_gender']) && in_array($row['gender'] ?? '', ['Men', 'Women'], true);
                 $division = null;
@@ -176,6 +180,9 @@ class RegistrationImportService
                 $reg->save();
                 $division->increment('filled');
                 $created++;
+                if (!empty($row['photo_url'])) {
+                    $photoJobs[] = [$reg, $row['photo_url']];
+                }
             }
 
             if ($heatSize > 0) {
@@ -185,10 +192,73 @@ class RegistrationImportService
             }
         });
 
+        // Downloaded after the transaction so slow/failed Drive requests never hold the DB or roll back registrations.
+        $photosSaved = 0;
+        $photosFailed = [];
+        foreach ($photoJobs as [$reg, $url]) {
+            if ($this->saveRiderPhoto($reg, $url)) {
+                $photosSaved++;
+            } else {
+                $photosFailed[] = $reg->name;
+            }
+        }
+
         return [
             'created' => $created, 'divisions_created' => $divisionsCreated,
             'heats_created' => $heatsCreated, 'skipped' => $skipped,
+            'photos_saved' => $photosSaved, 'photos_failed' => $photosFailed,
         ];
+    }
+
+    /**
+     * Download the photo link (Google Drive "anyone with the link") into the rider's avatar,
+     * creating the Rider profile if needed. Returns false when the link isn't a readable image.
+     */
+    private function saveRiderPhoto(Registration $reg, string $url): bool
+    {
+        $url = $this->directPhotoUrl($url);
+        try {
+            $res = Http::timeout(20)->withOptions(['allow_redirects' => true])->get($url);
+            $body = $res->successful() ? $res->body() : '';
+        } catch (\Throwable) {
+            return false;
+        }
+
+        // Drive returns an HTML page for private files, so verify it is really an image.
+        $info = $body !== '' && strlen($body) <= 5 * 1024 * 1024 ? @getimagesizefromstring($body) : false;
+        $ext = match ($info[2] ?? null) {
+            IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_WEBP => 'webp', default => null,
+        };
+        if (!$ext) {
+            return false;
+        }
+
+        $rider = Rider::where('name', $reg->name)->first() ?? Rider::create([
+            'user_id'  => $reg->user_id,
+            'name'     => $reg->name,
+            'nick'     => $reg->name,
+            'city'     => $reg->city ?? '-',
+            'age'      => $reg->dob ? (int) $reg->dob->diffInYears(now()) : 0,
+            'category' => in_array($reg->category, ['STREET', 'PARK', 'VERT', 'FLAT', 'MINIRAMP']) ? $reg->category : 'STREET',
+            'stance'   => 'Regular',
+            'slug'     => Str::slug($reg->name . '-' . $reg->id),
+        ]);
+
+        $path = 'avatars/' . Str::random(40) . '.' . $ext;
+        Storage::disk('public')->put($path, $body);
+        $rider->update(['avatar' => $path]);
+
+        return true;
+    }
+
+    /** drive.google.com/open?id=X, /file/d/X/view, /uc?id=X -> direct download URL; other URLs pass through. */
+    private function directPhotoUrl(string $url): string
+    {
+        if (preg_match('~drive\.google\.com/.*?(?:/d/|[?&]id=)([\w-]+)~', $url, $m)) {
+            return 'https://drive.google.com/uc?export=download&id=' . $m[1];
+        }
+
+        return $url;
     }
 
     /**

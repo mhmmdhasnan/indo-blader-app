@@ -223,6 +223,12 @@
                         @if($importResult)
                             <div class="col" style="gap:8px;">
                                 <span style="color:var(--lime);font-size:13px;">✓ {{ $importResult['created'] }} registrasi dibuat (status PENDING) · {{ $importResult['divisions_created'] }} divisi baru · {{ $importResult['heats_created'] }} heat dibuat.</span>
+                                @if(!empty($importResult['photos_saved']) || !empty($importResult['photos_failed']))
+                                    <span style="color:var(--lime);font-size:13px;">📷 {{ $importResult['photos_saved'] }} foto rider tersimpan.</span>
+                                    @if(count($importResult['photos_failed']))
+                                        <span class="mono dim" style="font-size:11px;">Foto gagal diunduh (cek akses Drive "Siapa saja yang memiliki link"): {{ implode(', ', $importResult['photos_failed']) }}</span>
+                                    @endif
+                                @endif
                                 @if(count($importResult['skipped']))
                                     <span class="mono dim" style="font-size:11px;">{{ count($importResult['skipped']) }} dilewati:</span>
                                     @foreach($importResult['skipped'] as $sk)
