@@ -35,11 +35,11 @@
 
             {{-- Timer heat Jamming Season — hanya muncul saat heat jamming sedang berjalan. --}}
             <div x-data="jamClock()" x-init="boot()" x-show="jam && phase === 'RUNNING'" x-cloak
-                 style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;text-align:center;
-                        padding:28px 56px;background:color-mix(in srgb,var(--bg) 78%,transparent);border:2px solid var(--lime);border-radius:6px;">
-                <p class="kicker" style="margin-bottom:8px;font-size:13px;">JAMMING SEASON</p>
+                 style="position:absolute;left:50%;top:3%;transform:translateX(-50%);z-index:5;text-align:center;
+                        padding:16px 44px;background:color-mix(in srgb,var(--bg) 78%,transparent);border:2px solid var(--lime);border-radius:6px;">
+                <p class="kicker" style="margin-bottom:4px;font-size:13px;">JAMMING SEASON</p>
                 <span class="display tnum text-glow-lime"
-                      style="font-size:clamp(80px,14vw,220px);color:var(--lime);line-height:1;"
+                      style="font-size:clamp(60px,9vw,150px);color:var(--lime);line-height:1;"
                       x-text="remainingFormatted"></span>
             </div>
 
