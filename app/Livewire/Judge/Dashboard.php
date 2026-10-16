@@ -47,7 +47,10 @@ class Dashboard extends Component
     public int    $judgeGroupId    = 0;
     public ?float $bestTrickScore  = null; // typed 0-10 score for the Best Trick phase
     public array  $jamScores       = [];   // Jamming heat: [registration_id => [criteria_key => nilai]]
-    public int    $jamDuration     = 0;    // Operator: durasi timer jamming (detik) untuk divisi aktif
+    // Operator: durasi timer jamming (detik) untuk divisi aktif. Sengaja tanpa type `int`:
+    // saat input dikosongkan Livewire mengirim '' dan akan meng-unset property bertipe int,
+    // yang bikin render berikutnya error "Property not found".
+    public $jamDuration            = 0;
     public bool   $scoreReopened   = false; // true when Head Judge reopened this judge's DONE score for revision
 
     // Category review
@@ -589,7 +592,11 @@ class Dashboard extends Component
         $division = $this->activeJamDivision();
         if (!$division) return;
 
-        $division->update(['jam_duration' => max(10, min(3600, $this->jamDuration))]);
+        // Input kosong / <10 detik = masih mengetik, jangan disimpan dulu.
+        $seconds = (int) $this->jamDuration;
+        if ($seconds < 10) return;
+
+        $division->update(['jam_duration' => min(3600, $seconds)]);
     }
 
     private function initJamScores(\Illuminate\Support\Collection $registrations): void

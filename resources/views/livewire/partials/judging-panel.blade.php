@@ -224,7 +224,7 @@
             <div>
                 <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">DURASI TIMER (DETIK)</span>
                 <input type="number" wire:model.live.debounce.500ms="jamDuration" min="10" max="3600" step="10" class="input-field" style="width:140px;">
-                <span class="mono dim" style="font-size:10px;margin-left:8px;">{{ floor($jamDuration / 60) }}m {{ $jamDuration % 60 }}s</span>
+                <span class="mono dim" style="font-size:10px;margin-left:8px;">{{ floor((int) $jamDuration / 60) }}m {{ (int) $jamDuration % 60 }}s</span>
             </div>
             @if($jamHeatRegs->isEmpty())
                 <p class="mono" style="font-size:11px;color:var(--red);">Belum ada rider di heat ini{{ $jamDivision->live_stage === 'FINAL' ? ' (pilih finalis dulu)' : ' — pilih group/heat' }}.</p>
