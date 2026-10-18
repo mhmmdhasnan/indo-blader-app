@@ -206,6 +206,7 @@ class Dashboard extends Component
                 'judge_user_id' => auth()->id(),
                 'event_id'      => $this->judgeEventId,
                 'rider_id'      => $riderId,
+                'division_id'   => Registration::find($this->liveRiderId)?->division_id,
                 'run_number'    => $this->liveRunNumber,
                 'scoring_mode'  => 'LIVE',
                 'live_stage'    => $stage,
@@ -243,6 +244,7 @@ class Dashboard extends Component
                 'judge_user_id' => auth()->id(),
                 'event_id'      => $this->judgeEventId,
                 'rider_id'      => $riderId,
+                'division_id'   => Registration::find($this->liveRiderId)?->division_id,
                 'run_number'    => $this->liveRunNumber,
                 'scoring_mode'  => 'BEST_TRICK',
                 'live_stage'    => 'FINAL',
@@ -296,6 +298,17 @@ class Dashboard extends Component
         $reg = Registration::forLiveRider($event, $liveRider);
 
         return $reg?->division?->live_stage ?? 'QUALIFICATION';
+    }
+
+    /** Division the live rider is currently being scored in (null = registration without a division). */
+    private function currentLiveDivisionId(Event $event): ?int
+    {
+        if (!$event->live_rider_id) return null;
+
+        $liveRider = Rider::find($event->live_rider_id);
+        if (!$liveRider) return null;
+
+        return Registration::forLiveRider($event, $liveRider)?->division_id;
     }
 
     private function currentIsBestTrick(Event $event): bool
@@ -498,6 +511,7 @@ class Dashboard extends Component
             $isBestTrick = $this->currentIsBestTrick($event);
             $wasSubmitted = $this->scoreSubmitted;
             $this->scoreSubmitted = JudgeScore::where('event_id', $event->id)
+                ->where('division_id', $this->currentLiveDivisionId($event))
                 ->where('rider_id', $event->live_rider_id)
                 ->where('run_number', $eventRunNumber)
                 ->where('scoring_mode', $isBestTrick ? 'BEST_TRICK' : 'LIVE')
@@ -512,6 +526,7 @@ class Dashboard extends Component
                 // there, just flipped back to WAITING) — in that case prefill the
                 // judge's previous values instead of blanking them back to defaults.
                 $existing = JudgeScore::where('event_id', $event->id)
+                    ->where('division_id', $this->currentLiveDivisionId($event))
                     ->where('rider_id', $event->live_rider_id)
                     ->where('run_number', $eventRunNumber)
                     ->where('scoring_mode', $isBestTrick ? 'BEST_TRICK' : 'LIVE')
@@ -665,6 +680,7 @@ class Dashboard extends Component
                 'judge_user_id' => auth()->id(),
                 'event_id'      => $this->judgeEventId,
                 'rider_id'      => $riderId,
+                'division_id'   => $division->id,
                 'run_number'    => 1,
                 'scoring_mode'  => 'LIVE',
                 'live_stage'    => $division->live_stage === 'FINAL' ? 'FINAL' : 'QUALIFICATION',
@@ -686,6 +702,7 @@ class Dashboard extends Component
             ->filter()->values();
 
         JudgeScore::where('event_id', $event->id)
+            ->where('division_id', $division->id)
             ->whereIn('rider_id', $riderIds)
             ->where('run_number', 1)
             ->where('scoring_mode', 'LIVE')
@@ -738,6 +755,7 @@ class Dashboard extends Component
             $this->deleteJamHeatScores($event);
         } elseif ($event->live_phase === 'RUNNING' && $event->live_rider_id && $event->live_run_number) {
             JudgeScore::where('event_id', $event->id)
+                ->where('division_id', $this->currentLiveDivisionId($event))
                 ->where('rider_id', $event->live_rider_id)
                 ->where('run_number', $event->live_run_number)
                 ->where('scoring_mode', $this->currentIsBestTrick($event) ? 'BEST_TRICK' : 'LIVE')
@@ -1086,6 +1104,7 @@ class Dashboard extends Component
                     foreach ($data['jamHeatRegs'] as $reg) {
                         $rid = $this->resolveRiderIdFromRegistration($reg->id);
                         $data['jamSubmitted'][$reg->id] = $rid && JudgeScore::where('event_id', $this->judgeEventId)
+                            ->where('division_id', $data['jamDivision']->id)
                             ->where('rider_id', $rid)->where('run_number', 1)
                             ->where('scoring_mode', 'LIVE')->where('live_stage', $stageForJam)
                             ->where('judge_user_id', auth()->id())->where('status', 'DONE')->exists();
@@ -1126,23 +1145,17 @@ class Dashboard extends Component
             // divisi yang sedang aktif dipilih Operator ditaruh paling atas.
             $data['myPastScoresByDivision'] = collect();
             if ($this->judgeEventId && $this->scoringMode === 'live' && !auth()->user()->isOperator()) {
-                $pastEvent  = Event::find($this->judgeEventId);
                 $pastScores = JudgeScore::where('judge_user_id', auth()->id())
                     ->where('event_id', $this->judgeEventId)
                     ->whereIn('scoring_mode', ['LIVE', 'BEST_TRICK'])
                     ->where('status', 'DONE')
-                    ->with('rider')
+                    ->with(['rider', 'division'])
                     ->orderByDesc('updated_at')
                     ->limit(200)
                     ->get();
 
-                $divisionByRider = [];
-                foreach ($pastScores->pluck('rider')->filter()->unique('id') as $pastRider) {
-                    $divisionByRider[$pastRider->id] = Registration::forLiveRider($pastEvent, $pastRider)?->division;
-                }
-
                 $data['myPastScoresByDivision'] = $pastScores
-                    ->groupBy(fn ($past) => $divisionByRider[$past->rider_id]->name ?? 'Tanpa Divisi')
+                    ->groupBy(fn ($past) => $past->division->name ?? 'Tanpa Divisi')
                     ->sortBy(fn ($rows, $name) => [$name === ($selectedDivision?->name) ? 0 : 1, $name]);
             }
 
@@ -1155,6 +1168,7 @@ class Dashboard extends Component
 
             if ($this->scoringMode === 'live' && $this->judgeEventId && $resolvedLiveRiderId) {
                 $data['otherJudgeScores'] = JudgeScore::where('event_id', $this->judgeEventId)
+                    ->where('division_id', Registration::find($this->liveRiderId)?->division_id)
                     ->where('rider_id', $resolvedLiveRiderId)
                     ->where('run_number', $this->liveRunNumber)
                     ->where('scoring_mode', $data['isBestTrickPhase'] ? 'BEST_TRICK' : 'LIVE')
@@ -1173,6 +1187,7 @@ class Dashboard extends Component
                 $liveEvent = $data['activeEvent'];
                 if ($liveEvent?->live_rider_id) {
                     $data['liveJudgeScores'] = JudgeScore::where('event_id', $this->judgeEventId)
+                        ->where('division_id', $this->currentLiveDivisionId($liveEvent))
                         ->where('rider_id', $liveEvent->live_rider_id)
                         ->where('run_number', $liveEvent->live_run_number)
                         ->where('scoring_mode', $this->currentIsBestTrick($liveEvent) ? 'BEST_TRICK' : 'LIVE')
@@ -1190,6 +1205,7 @@ class Dashboard extends Component
                     $riderIds = $data['jamHeatRegs']
                         ->map(fn ($reg) => $this->resolveRiderIdFromRegistration($reg->id))->filter()->values();
                     $data['jamProgress'] = JudgeScore::where('event_id', $this->judgeEventId)
+                        ->where('division_id', $data['jamDivision']->id)
                         ->whereIn('rider_id', $riderIds)->where('run_number', 1)
                         ->where('scoring_mode', 'LIVE')
                         ->where('live_stage', $data['jamDivision']->live_stage === 'FINAL' ? 'FINAL' : 'QUALIFICATION')

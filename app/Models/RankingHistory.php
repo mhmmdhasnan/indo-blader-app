@@ -10,7 +10,7 @@ class RankingHistory extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['rider_id', 'event_id', 'placement', 'points_earned'];
+    protected $fillable = ['rider_id', 'event_id', 'division_id', 'placement', 'points_earned'];
 
     public function rider(): BelongsTo
     {

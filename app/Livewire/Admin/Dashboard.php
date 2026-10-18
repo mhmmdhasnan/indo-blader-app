@@ -304,6 +304,7 @@ class Dashboard extends Component
                 'judge_user_id' => auth()->id(),
                 'event_id'      => $this->judgeEventId,
                 'rider_id'      => $riderId,
+                'division_id'   => Registration::find($this->liveRiderId)?->division_id,
                 'run_number'    => $this->liveRunNumber,
                 'scoring_mode'  => 'LIVE',
                 'live_stage'    => $stage,
@@ -338,6 +339,7 @@ class Dashboard extends Component
                 'judge_user_id' => auth()->id(),
                 'event_id'      => $this->judgeEventId,
                 'rider_id'      => $riderId,
+                'division_id'   => Registration::find($this->liveRiderId)?->division_id,
                 'run_number'    => $this->liveRunNumber,
                 'scoring_mode'  => 'BEST_TRICK',
                 'live_stage'    => 'FINAL',
@@ -387,6 +389,17 @@ class Dashboard extends Component
         $reg = Registration::forLiveRider($event, $liveRider);
 
         return $reg?->division?->live_stage ?? 'QUALIFICATION';
+    }
+
+    /** Division the live rider is currently being scored in (null = registration without a division). */
+    private function currentLiveDivisionId(Event $event): ?int
+    {
+        if (!$event->live_rider_id) return null;
+
+        $liveRider = Rider::find($event->live_rider_id);
+        if (!$liveRider) return null;
+
+        return Registration::forLiveRider($event, $liveRider)?->division_id;
     }
 
     private function currentIsBestTrick(Event $event): bool
@@ -1440,8 +1453,8 @@ class Dashboard extends Component
     }
 
     /**
-     * Wipe every judged score for every rider in this division (both stages)
-     * and put the division back to a fresh QUALIFICATION state — finalists,
+     * Wipe every judged score recorded IN THIS DIVISION (both stages) — scores the same
+     * riders got in other divisions are left alone — and put the division back to a fresh QUALIFICATION state — finalists,
      * announcements, and best-trick phase all cleared. If a live final was
      * already completed here, its points/wins/podiums are reverted first
      * (same as reopenCompletedFinal()) so nothing stale is left on the riders.
@@ -1452,13 +1465,8 @@ class Dashboard extends Component
 
         app(RankingService::class)->revertLiveFinal($division);
 
-        $riderIds = Rider::whereIn('name', Registration::where('division_id', $divisionId)->pluck('name'))
-            ->pluck('id');
-
-        DB::transaction(function () use ($division, $riderIds) {
-            JudgeScore::where('event_id', $division->event_id)
-                ->whereIn('rider_id', $riderIds)
-                ->delete();
+        DB::transaction(function () use ($division) {
+            JudgeScore::where('division_id', $division->id)->delete();
 
             DivisionFinalist::where('event_division_id', $division->id)->delete();
 
@@ -2110,6 +2118,7 @@ class Dashboard extends Component
 
             if ($this->scoringMode === 'live' && $jeid && $resolvedLiveRiderId) {
                 $data['otherJudgeScores'] = JudgeScore::where('event_id', $jeid)
+                    ->where('division_id', Registration::find($this->liveRiderId)?->division_id)
                     ->where('rider_id', $resolvedLiveRiderId)
                     ->where('run_number', $this->liveRunNumber)
                     ->where('scoring_mode', $data['isBestTrickPhase'] ? 'BEST_TRICK' : 'LIVE')
@@ -2126,6 +2135,7 @@ class Dashboard extends Component
                 $liveEvent = $data['activeEvent'];
                 if ($liveEvent?->live_rider_id) {
                     $data['liveJudgeScores'] = JudgeScore::where('event_id', $jeid)
+                        ->where('division_id', $this->currentLiveDivisionId($liveEvent))
                         ->where('rider_id', $liveEvent->live_rider_id)
                         ->where('run_number', $liveEvent->live_run_number)
                         ->where('scoring_mode', $this->currentIsBestTrick($liveEvent) ? 'BEST_TRICK' : 'LIVE')

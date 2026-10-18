@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class JudgeScore extends Model
 {
     protected $fillable = [
-        'judge_user_id', 'event_id', 'rider_id', 'run_number', 'scoring_mode', 'live_stage',
+        'judge_user_id', 'event_id', 'rider_id', 'division_id', 'run_number', 'scoring_mode', 'live_stage',
         'execution', 'style', 'creativity', 'difficulty', 'consistency', 'total', 'status',
     ];
 
@@ -30,6 +30,11 @@ class JudgeScore extends Model
     public function rider(): BelongsTo
     {
         return $this->belongsTo(Rider::class);
+    }
+
+    public function division(): BelongsTo
+    {
+        return $this->belongsTo(EventDivision::class, 'division_id');
     }
 
     public function judge(): BelongsTo

@@ -47,9 +47,10 @@ class LiveScoreboardService
      * highest of the (up to 3) per-attempt averages is the bonus added to the
      * rider's FINAL total. Returns 0 if the rider has no Best Trick scores yet.
      */
-    private function bestTrickBonus(int $eventId, int $riderId): float
+    private function bestTrickBonus(int $eventId, ?int $divisionId, int $riderId): float
     {
         $attemptAverages = JudgeScore::where('event_id', $eventId)
+            ->where('division_id', $divisionId)
             ->where('rider_id', $riderId)
             ->where('scoring_mode', 'BEST_TRICK')
             ->where('live_stage', 'FINAL')
@@ -82,6 +83,7 @@ class LiveScoreboardService
         $riders = Rider::whereIn('id', $riderIdByReg->filter()->values())->get()->keyBy('id');
 
         $scoresByRider = JudgeScore::where('event_id', $division->event_id)
+            ->where('division_id', $division->id)
             ->where('scoring_mode', 'LIVE')
             ->where('status', 'DONE')
             ->where('live_stage', $stage)
@@ -101,7 +103,7 @@ class LiveScoreboardService
                 $run1avg     = $riderScores->where('run_number', 1)->avg('total');
                 $run2avg     = $riderScores->where('run_number', 2)->avg('total');
                 $best        = max($run1avg ?? 0, $run2avg ?? 0);
-                $bonus       = ($stage === 'FINAL' && $riderId) ? $this->bestTrickBonus($division->event_id, $riderId) : 0.0;
+                $bonus       = ($stage === 'FINAL' && $riderId) ? $this->bestTrickBonus($division->event_id, $division->id, $riderId) : 0.0;
 
                 return [
                     'rider'            => $rider,

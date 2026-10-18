@@ -204,6 +204,7 @@ class LiveScoring extends Component
 
             if ($event->live_phase === 'REVEALING' && $event->live_rider_id && $event->live_run_number) {
                 $revealScore = JudgeScore::where('event_id', $event->id)
+                    ->where('division_id', $liveDivision?->id)
                     ->where('rider_id', $event->live_rider_id)
                     ->where('run_number', $event->live_run_number)
                     ->where('scoring_mode', $liveScoringMode)
@@ -224,6 +225,7 @@ class LiveScoring extends Component
             if ($liveRider) {
                 $judgeScores = JudgeScore::with(['judge', 'scoreDetails.criterion'])
                     ->where('event_id', $event->id)
+                    ->where('division_id', $liveDivision?->id)
                     ->where('rider_id', $liveRider->id)
                     ->where('scoring_mode', $liveScoringMode)
                     ->where('live_stage', $liveStage)
@@ -236,6 +238,7 @@ class LiveScoring extends Component
                 $excludeRunNumber = $event->live_phase === 'REVEALING' ? $event->live_run_number : null;
 
                 $liveRiderBestScore = JudgeScore::where('event_id', $event->id)
+                    ->where('division_id', $liveDivision?->id)
                     ->where('rider_id', $liveRider->id)
                     ->where('scoring_mode', $liveScoringMode)
                     ->where('live_stage', $liveStage)

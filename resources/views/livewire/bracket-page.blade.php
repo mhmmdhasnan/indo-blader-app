@@ -13,6 +13,10 @@
                     <h1 class="display" style="font-size:clamp(40px,6vw,80px);line-height:0.9;letter-spacing:-0.02em;">
                         {{ strtoupper($bracket->division->name) }}
                     </h1>
+                @elseif($liveDivision)
+                    <h1 class="display" style="font-size:clamp(40px,6vw,80px);line-height:0.9;letter-spacing:-0.02em;">
+                        {{ strtoupper($liveDivision->name) }}
+                    </h1>
                 @else
                     <h1 class="display" style="font-size:clamp(40px,6vw,80px);line-height:0.9;letter-spacing:-0.02em;">BRACKET</h1>
                 @endif
@@ -21,6 +25,10 @@
                     <span class="mono dim" style="font-size:11px;margin-top:8px;display:block;">
                         {{ str_replace('_', ' ', $bracket->type) }}
                         @if($bracket->status === 'COMPLETED') · <span style="color:var(--lime);">COMPLETED</span>@endif
+                    </span>
+                @elseif($liveDivision)
+                    <span class="mono dim" style="font-size:11px;margin-top:8px;display:block;">
+                        LIVE SCORE · HASIL FINAL
                     </span>
                 @endif
             </div>
@@ -237,6 +245,127 @@
         @endif
 
     </div>{{-- end padding wrapper --}}
+
+    @elseif($liveDivision)
+    {{-- Live-score result: podium + klasemen final. Nominal Best Trick tidak ditampilkan ke publik — total akhir saja. --}}
+    @php
+        $podium    = $liveRows->filter(fn ($r) => $r['rank'] && $r['rank'] <= 3)->values();
+        $scored    = $liveRows->filter(fn ($r) => $r['rank'])->values();
+        $topTotal  = (float) ($scored->first()['total'] ?? 0);
+        $secondTot = (float) ($scored->first(fn ($r) => $r['rank'] > 1)['total'] ?? 0);
+        $showRun2  = $liveRows->contains(fn ($r) => $r['run2'] !== null);
+        $podiumOrder = [1 => 2, 2 => 1, 3 => 3];
+        $medal = [1 => 'var(--lime)', 2 => '#d9d9de', 3 => '#e0a35c'];
+        $avatarUrl = fn ($rider) => $rider->avatar ? '/storage/' . ltrim($rider->avatar, '/') : null;
+    @endphp
+    <style>
+        .rs-wrap { padding:32px 48px 72px; max-width:1100px; margin:0 auto; }
+        .rs-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-bottom:28px; }
+        .rs-podium { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; align-items:end; margin-bottom:36px; }
+        .rs-card { position:relative; background:var(--panel); border:2px solid var(--ink); border-radius:var(--radius); overflow:hidden; text-align:center; }
+        .rs-photo { position:relative; width:100%; background:var(--panel-2); display:flex; align-items:center; justify-content:center; overflow:hidden; }
+        .rs-photo img { width:100%; height:100%; object-fit:cover; }
+        .rs-row { display:grid; grid-template-columns:56px minmax(0,1fr) 84px 84px 130px; align-items:center; gap:12px; padding:12px 18px; border-bottom:1px solid var(--line); }
+        .rs-row:last-child { border-bottom:none; }
+        @media (max-width:760px) {
+            .rs-wrap { padding:20px 16px 56px; }
+            .rs-podium { grid-template-columns:1fr; gap:12px; }
+            .rs-podium .rs-card { display:grid; grid-template-columns:96px minmax(0,1fr); text-align:left; align-items:center; order:0 !important; }
+            .rs-podium .rs-photo { height:100% !important; min-height:96px; aspect-ratio:auto !important; }
+            .rs-row { grid-template-columns:44px minmax(0,1fr) 84px; padding:10px 12px; }
+            .rs-run { display:none !important; }
+            .rs-stats { gap:8px; }
+        }
+    </style>
+    <div class="rs-wrap">
+
+        {{-- Ringkasan --}}
+        <div class="rs-stats">
+            @foreach([
+                ['PESERTA', $liveRows->count()],
+                ['SKOR TERTINGGI', $topTotal > 0 ? number_format($topTotal, 1) : '—'],
+                ['SELISIH JUARA 1–2', ($topTotal > 0 && $secondTot > 0) ? '+' . number_format($topTotal - $secondTot, 1) : '—'],
+            ] as [$lbl, $val])
+                <div class="panel" style="padding:14px 16px;">
+                    <span class="kicker" style="display:block;font-size:9px;margin-bottom:6px;">{{ $lbl }}</span>
+                    <span class="display tnum" style="font-size:clamp(26px,4vw,40px);">{{ $val }}</span>
+                </div>
+            @endforeach
+        </div>
+
+        {{-- Podium --}}
+        @if($podium->isNotEmpty())
+            <span class="kicker" style="display:block;margin-bottom:14px;color:var(--lime);">🏆 PODIUM</span>
+            <div class="rs-podium">
+                @foreach($podium as $row)
+                    @php
+                        $r      = $row['rank'];
+                        $first  = $r === 1;
+                        $accent = $medal[$r];
+                        $url    = $avatarUrl($row['rider']);
+                    @endphp
+                    <div class="rs-card" style="order:{{ $podiumOrder[$r] ?? 4 }};{{ $first ? 'border-color:var(--lime);box-shadow:0 0 0 1px var(--lime),0 18px 48px -12px rgba(198,255,58,.35);' : '' }}">
+                        <div class="rs-photo" style="aspect-ratio:{{ $first ? '4/4.6' : '4/4' }};">
+                            {{-- Inisial selalu dirender di bawah; foto menutupinya dan disembunyikan kalau gagal dimuat --}}
+                            <span class="display" style="font-size:{{ $first ? 96 : 76 }}px;color:var(--ink-faint);">{{ $row['rider']->initials }}</span>
+                            @if($url)
+                                <img src="{{ $url }}" alt="" loading="lazy" style="position:absolute;inset:0;" onerror="this.style.display='none'">
+                            @endif
+                            <span class="display tnum" style="position:absolute;top:0;left:0;padding:6px 14px 4px;font-size:{{ $first ? 44 : 34 }}px;background:{{ $accent }};color:#0a0a0b;">{{ str_pad($r, 2, '0', STR_PAD_LEFT) }}</span>
+                        </div>
+                        <div style="padding:14px 16px 18px;min-width:0;">
+                            <span class="label" style="display:block;font-size:{{ $first ? 20 : 17 }}px;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">{{ $row['rider']->name }}</span>
+                            <span class="mono dim" style="display:block;font-size:11px;margin:4px 0 10px;">{{ $row['rider']->city ?? '—' }}</span>
+                            <span class="display tnum" style="font-size:{{ $first ? 54 : 40 }}px;color:{{ $first ? 'var(--lime)' : 'var(--ink)' }};{{ $first ? 'text-shadow:0 0 32px rgba(198,255,58,.45);' : '' }}">{{ number_format($row['total'], 1) }}</span>
+                            <span class="mono dim" style="display:block;font-size:10px;letter-spacing:.12em;margin-top:2px;">
+                                RUN 1 {{ $row['run1'] !== null ? number_format($row['run1'], 1) : '—' }}@if($showRun2) · RUN 2 {{ $row['run2'] !== null ? number_format($row['run2'], 1) : '—' }}@endif
+                            </span>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+
+        {{-- Klasemen lengkap --}}
+        <div class="panel" style="overflow:hidden;">
+            <div style="padding:14px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                <span class="kicker">KLASEMEN FINAL</span>
+                <span class="mono dim" style="font-size:11px;">{{ strtoupper($liveDivision->name) }}</span>
+            </div>
+            <div class="rs-row" style="padding-block:8px;background:var(--panel-2);">
+                <span class="mono dim" style="font-size:10px;letter-spacing:.14em;">#</span>
+                <span class="mono dim" style="font-size:10px;letter-spacing:.14em;">RIDER</span>
+                <span class="mono dim rs-run" style="font-size:10px;letter-spacing:.14em;text-align:right;">RUN 1</span>
+                <span class="mono dim rs-run" style="font-size:10px;letter-spacing:.14em;text-align:right;">{{ $showRun2 ? 'RUN 2' : '' }}</span>
+                <span class="mono dim" style="font-size:10px;letter-spacing:.14em;text-align:right;">TOTAL</span>
+            </div>
+            @foreach($liveRows as $row)
+                @php
+                    $r   = $row['rank'];
+                    $pct = ($r && $topTotal > 0) ? max(4, min(100, $row['total'] / $topTotal * 100)) : 0;
+                    $url = $avatarUrl($row['rider']);
+                @endphp
+                <div class="rs-row" style="background:linear-gradient(90deg,color-mix(in srgb,var(--lime) {{ $r === 1 ? 16 : 8 }}%,transparent) {{ $pct }}%,transparent {{ $pct }}%);">
+                    <span class="display tnum" style="font-size:30px;color:{{ $r === 1 ? 'var(--lime)' : ($r && $r <= 3 ? 'var(--ink)' : 'var(--ink-faint)') }};">{{ $r ? str_pad($r, 2, '0', STR_PAD_LEFT) : '—' }}</span>
+                    <div class="flex" style="gap:12px;min-width:0;">
+                        <div style="position:relative;width:42px;height:42px;flex-shrink:0;border-radius:50%;overflow:hidden;background:var(--panel-2);border:2px solid {{ $r === 1 ? 'var(--lime)' : 'var(--line-strong)' }};display:flex;align-items:center;justify-content:center;">
+                            <span class="display" style="font-size:16px;color:var(--ink-dim);">{{ $row['rider']->initials }}</span>
+                            @if($url)
+                                <img src="{{ $url }}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
+                            @endif
+                        </div>
+                        <div class="col" style="min-width:0;">
+                            <span class="label" style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $row['rider']->name }}</span>
+                            <span class="mono dim" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $row['rider']->city ?? '—' }}</span>
+                        </div>
+                    </div>
+                    <span class="mono tnum dim rs-run" style="font-size:15px;text-align:right;">{{ $row['run1'] !== null ? number_format($row['run1'], 1) : '—' }}</span>
+                    <span class="mono tnum dim rs-run" style="font-size:15px;text-align:right;">{{ $showRun2 ? ($row['run2'] !== null ? number_format($row['run2'], 1) : '—') : '' }}</span>
+                    <span class="display tnum" style="font-size:30px;text-align:right;color:{{ $r === 1 ? 'var(--lime)' : 'var(--ink)' }};">{{ $r ? number_format($row['total'], 1) : '—' }}</span>
+                </div>
+            @endforeach
+        </div>
+    </div>
 
     @else
     {{-- Empty state --}}

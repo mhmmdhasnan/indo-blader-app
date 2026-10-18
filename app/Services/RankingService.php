@@ -41,7 +41,7 @@ class RankingService
                 $points = self::POINTS[$placement] ?? 20;
 
                 RankingHistory::updateOrCreate(
-                    ['rider_id' => $rider->id, 'event_id' => $event->id],
+                    ['rider_id' => $rider->id, 'event_id' => $event->id, 'division_id' => $bracket->division_id],
                     ['placement' => $placement, 'points_earned' => $points]
                 );
 
@@ -76,12 +76,13 @@ class RankingService
             foreach ($rows as $row) {
                 $rider = $row['rider'];
                 $reg   = $row['registration'];
-                if (!$rider) continue;
+                // No Rider row yet (never scored) or no score at all: nothing to award.
+                if (!$rider?->exists || ($row['total'] ?? 0) <= 0) continue;
 
                 $points = self::POINTS[$placement] ?? 20;
 
                 RankingHistory::updateOrCreate(
-                    ['rider_id' => $rider->id, 'event_id' => $event->id],
+                    ['rider_id' => $rider->id, 'event_id' => $event->id, 'division_id' => $division->id],
                     ['placement' => $placement, 'points_earned' => $points]
                 );
 
@@ -131,8 +132,11 @@ class RankingService
             ->values();
 
         DB::transaction(function () use ($event, $riderIds, $division) {
+            // This division's own rows; legacy rows with no division (written before
+            // division_id existed) are matched through the division's riders as before.
             $histories = RankingHistory::where('event_id', $event->id)
-                ->whereIn('rider_id', $riderIds)
+                ->where(fn ($q) => $q->where('division_id', $division->id)
+                    ->orWhere(fn ($q2) => $q2->whereNull('division_id')->whereIn('rider_id', $riderIds)))
                 ->get();
 
             foreach ($histories as $history) {
