@@ -257,6 +257,16 @@ class Dashboard extends Component
         $this->bestTrickScore  = null;
     }
 
+    /** Foto dari form register jadi avatar rider kalau rider-nya belum punya foto. */
+    private function adoptRegistrationPhoto(Rider $rider, Registration $reg): int
+    {
+        if (!$rider->avatar && $reg->photo) {
+            $rider->update(['avatar' => $reg->photo]);
+        }
+
+        return $rider->id;
+    }
+
     private function resolveRiderIdFromRegistration(int $registrationId): ?int
     {
         $reg = Registration::find($registrationId);
@@ -265,12 +275,12 @@ class Dashboard extends Component
         // Try to find existing Rider by user_id
         if ($reg->user_id) {
             $rider = Rider::where('user_id', $reg->user_id)->first();
-            if ($rider) return $rider->id;
+            if ($rider) return $this->adoptRegistrationPhoto($rider, $reg);
         }
 
         // Try by name
         $rider = Rider::where('name', $reg->name)->first();
-        if ($rider) return $rider->id;
+        if ($rider) return $this->adoptRegistrationPhoto($rider, $reg);
 
         // Auto-create Rider record for this registrant
         $age = $reg->dob ? (int) $reg->dob->diffInYears(now()) : 0;
@@ -283,6 +293,7 @@ class Dashboard extends Component
             'category' => in_array($reg->category, ['STREET','PARK','VERT','FLAT','MINIRAMP']) ? $reg->category : 'STREET',
             'stance'   => in_array($reg->stance, ['Regular','Goofy']) ? $reg->stance : 'Regular',
             'slug'     => \Illuminate\Support\Str::slug($reg->name . '-' . $reg->id),
+            'avatar'   => $reg->photo,
         ]);
 
         return $rider->id;

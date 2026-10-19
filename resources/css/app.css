@@ -413,6 +413,13 @@ select.input-field option {
     .footer-grid { grid-template-columns: 1fr !important; }
     .adm-stats { grid-template-columns: 1fr 1fr !important; }
 }
+/* Tabel admin (Registrations / Payments): di HP header kolom disembunyikan dan tiap baris jadi kartu bertumpuk. */
+@media (max-width: 760px) {
+    .adm-minw { min-width: 0 !important; }
+    .adm-tbl-head { display: none !important; }
+    .adm-tbl-row { display: flex !important; flex-direction: column; align-items: stretch !important; gap: 8px; padding: 14px 14px !important; }
+    .adm-tbl-row .btn { min-height: 36px; }
+}
 
 /* ── EVENT LIST CARD ────────────────────────────────────────── */
 .event-card {

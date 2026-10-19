@@ -284,18 +284,23 @@
                         @endforeach
                     </div>
                     <div class="panel" style="overflow:hidden;overflow-x:auto;">
-                        <div style="display:grid;grid-template-columns:1.6fr 1.2fr 1fr 100px 1fr;padding:12px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);min-width:800px;">
+                        <div class="adm-tbl-head adm-minw" style="display:grid;grid-template-columns:1.6fr 1.2fr 1fr 100px 1fr;padding:12px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);min-width:800px;">
                             @foreach(['RIDER','EVENT','DIVISI','STATUS','ACTION'] as $h)
                                 <span class="mono dim" style="font-size:10px;letter-spacing:0.12em;">{{ $h }}</span>
                             @endforeach
                         </div>
-                        @forelse($registrations as $reg)
+                        @forelse($registrations->groupBy(fn ($r) => $r->division?->name ?? 'Tanpa Divisi')->sortKeys() as $divName => $divRegs)
+                        <div class="between adm-minw" style="padding:9px 18px;background:var(--bg);border-bottom:1px solid var(--line);border-top:1px solid var(--line);min-width:800px;">
+                            <span class="mono" style="font-size:11px;letter-spacing:0.14em;color:var(--lime);">{{ strtoupper($divName) }}</span>
+                            <span class="mono dim" style="font-size:10px;">{{ $divRegs->count() }} rider · {{ $divRegs->where('status','APPROVED')->count() }} approved</span>
+                        </div>
+                        @foreach($divRegs as $reg)
                             @php $isEditingReg = $regEditId === $reg->id; @endphp
-                            <div style="border-bottom:1px solid var(--line);min-width:800px;">
+                            <div class="adm-minw" style="border-bottom:1px solid var(--line);min-width:800px;">
                                 {{-- Main row --}}
-                                <div style="display:grid;grid-template-columns:1.6fr 1.2fr 1fr 100px 1fr;align-items:center;padding:12px 18px;">
+                                <div class="adm-tbl-row" style="display:grid;grid-template-columns:1.6fr 1.2fr 1fr 100px 1fr;align-items:center;padding:12px 18px;">
                                     <div class="flex" style="align-items:center;gap:11px;min-width:0;">
-                                        <x-avatar :initials="collect(explode(' ',$reg->name))->map(fn($w)=>$w[0])->take(2)->implode('')" :size="32" />
+                                        <x-avatar :initials="collect(explode(' ',$reg->name))->map(fn($w)=>$w[0])->take(2)->implode('')" :src="$reg->photo_url" :size="32" />
                                         <div class="col">
                                             <span class="label" style="font-size:13px;">{{ $reg->name }}</span>
                                             <span class="mono dim" style="font-size:9px;">{{ strtoupper($reg->city) }} · {{ $reg->email }}</span>
@@ -322,6 +327,14 @@
                                         @else
                                             <button wire:click="pendingRegistration({{ $reg->id }})" class="mono dim" style="font-size:11px;text-decoration:underline;">undo</button>
                                         @endif
+                                        <select x-data
+                                            @change="if (confirm('Pindahkan {{ addslashes($reg->name) }} ke divisi ' + $el.options[$el.selectedIndex].text + '?{{ in_array($reg->id, $scoredRegIds ?? [], true) ? ' ⚠ RIDER INI SUDAH PUNYA NILAI di divisi lama — nilainya TIDAK ikut pindah dan tetap tercatat di divisi lama.' : '' }} Group/heat di divisi lama dilepas.')) { $wire.moveRegistrationDivision({{ $reg->id }}, parseInt($el.value)) } else { $el.value = '' }"
+                                            class="input-field" style="font-size:10px;padding:4px 6px;max-width:120px;{{ in_array($reg->id, $scoredRegIds ?? [], true) ? 'border-color:var(--red);' : '' }}" title="Pindah ke divisi lain">
+                                            <option value="">Pindah divisi…</option>
+                                            @foreach(($reg->event?->divisions ?? collect())->where('id', '!=', $reg->division_id) as $div)
+                                                <option value="{{ $div->id }}">{{ $div->name }}</option>
+                                            @endforeach
+                                        </select>
                                         <button wire:click="openEditRegistration({{ $reg->id }})" class="btn btn-sm btn-ghost" style="font-size:10px;">Edit</button>
                                         <button wire:click="deleteRegistration({{ $reg->id }})"
                                             wire:confirm="Hapus registrasi {{ $reg->name }}? Tidak bisa dibatalkan."
@@ -343,7 +356,7 @@
                                                 @elseif($regEditAvatarUrl)
                                                     <img src="{{ $regEditAvatarUrl }}" style="width:48px;height:48px;object-fit:cover;border-radius:50%;border:2px solid var(--line);">
                                                 @else
-                                                    <x-avatar :initials="collect(explode(' ',$reg->name))->map(fn($w)=>$w[0])->take(2)->implode('')" :size="48" />
+                                                    <x-avatar :initials="collect(explode(' ',$reg->name))->map(fn($w)=>$w[0])->take(2)->implode('')" :src="$reg->photo_url" :size="48" />
                                                 @endif
                                                 <input type="file" wire:model="regEditPhoto" accept="image/*" class="input-field" style="font-size:11px;max-width:220px;">
                                             </div>
@@ -385,6 +398,7 @@
                                 </div>
                                 @endif
                             </div>
+                        @endforeach
                         @empty
                             <div class="center" style="padding:40px;color:var(--ink-dim);">No registrations yet.</div>
                         @endforelse
@@ -402,19 +416,24 @@
                     @error('bulkPayment')<span style="font-size:11px;color:var(--red);">{{ $message }}</span>@enderror
                 </div>
                 <div class="panel" style="overflow:hidden;overflow-x:auto;">
-                    <div style="display:grid;grid-template-columns:1.4fr 110px 120px 120px 1fr;padding:12px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);min-width:700px;">
+                    <div class="adm-tbl-head adm-minw" style="display:grid;grid-template-columns:1.4fr 110px 120px 120px 1fr;padding:12px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);min-width:700px;">
                         @foreach(['RIDER','AMOUNT','METHOD','STATUS','ACTION'] as $h)
                             <span class="mono dim" style="font-size:10px;letter-spacing:0.12em;">{{ $h }}</span>
                         @endforeach
                     </div>
-                    @forelse($registrations as $reg)
-                        <div style="display:grid;grid-template-columns:1.4fr 110px 120px 120px 1fr;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);min-width:700px;">
+                    @forelse($registrations->groupBy(fn ($r) => $r->division?->name ?? 'Tanpa Divisi')->sortKeys() as $divName => $divRegs)
+                        <div class="between adm-minw" style="padding:9px 18px;background:var(--bg);border-bottom:1px solid var(--line);border-top:1px solid var(--line);min-width:700px;">
+                            <span class="mono" style="font-size:11px;letter-spacing:0.14em;color:var(--lime);">{{ strtoupper($divName) }}</span>
+                            <span class="mono dim" style="font-size:10px;">{{ $divRegs->count() }} rider · {{ $divRegs->where('payment_status','VERIFIED')->count() }} verified</span>
+                        </div>
+                        @foreach($divRegs as $reg)
+                        <div class="adm-tbl-row adm-minw" style="display:grid;grid-template-columns:1.4fr 110px 120px 120px 1fr;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);min-width:700px;">
                             <div class="flex" style="align-items:center;gap:11px;">
-                                <x-avatar :initials="collect(explode(' ',$reg->name))->map(fn($w)=>$w[0])->take(2)->implode('')" :size="32" />
+                                <x-avatar :initials="collect(explode(' ',$reg->name))->map(fn($w)=>$w[0])->take(2)->implode('')" :src="$reg->photo_url" :size="32" />
                                 <span class="label" style="font-size:13px;">{{ $reg->name }}</span>
                             </div>
-                            <span class="mono tnum" style="font-size:13px;">Rp 350.000</span>
-                            <span class="dim mono" style="font-size:12px;">{{ $reg->payment_method }}</span>
+                            <span class="mono tnum" style="font-size:13px;">{{ ($reg->event?->entry_fee ?? 0) > 0 ? 'Rp ' . number_format($reg->event->entry_fee, 0, ',', '.') : 'Gratis' }}</span>
+                            <span class="dim mono" style="font-size:12px;">{{ ($reg->event?->entry_fee ?? 0) > 0 ? $reg->payment_method : '—' }}</span>
                             <span class="badge badge-{{ $reg->payment_status_variant }}">{{ $reg->payment_status }}</span>
                             <div class="flex gap-s" style="align-items:center;flex-wrap:wrap;">
                                 @if($reg->payment_proof)
@@ -465,6 +484,9 @@
                                 <button wire:click="deletePayment({{ $reg->id }})"
                                     wire:confirm="Reset data payment {{ $reg->name }}? Bukti transfer akan dihapus."
                                     class="btn btn-sm btn-ghost" style="color:var(--red);font-size:10px;">Reset</button>
+                                <button wire:click="deleteRegistration({{ $reg->id }})"
+                                    wire:confirm="Hapus registrasi {{ $reg->name }} beserta pembayarannya? Tidak bisa dibatalkan."
+                                    class="btn btn-sm btn-ghost" style="color:var(--red);font-size:10px;">Hapus</button>
                             </div>
                         </div>
                         {{-- Inline edit payment --}}
@@ -498,6 +520,7 @@
                             </div>
                         </div>
                         @endif
+                    @endforeach
                     @empty
                         <div class="center" style="padding:40px;color:var(--ink-dim);">No payments yet.</div>
                     @endforelse
@@ -736,6 +759,12 @@
                                             <input type="checkbox" wire:model="evPrizeHidden" style="accent-color:var(--lime);">
                                             Sembunyikan nominal prize dari publik
                                         </label>
+                                    </div>
+                                    <div>
+                                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">BIAYA PENDAFTARAN (IDR) *</span>
+                                        <input wire:model="evEntryFee" type="number" min="0" step="1000" class="input-field" style="width:100%;" placeholder="0">
+                                        @error('evEntryFee') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
+                                        <span class="mono dim" style="font-size:9px;display:block;margin-top:4px;">Isi 0 untuk gratis — langkah Payment di form register akan dilewati.</span>
                                     </div>
                                     @if($evType === 'LIVE_SCORE')
                                     <div>

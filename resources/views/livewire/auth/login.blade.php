@@ -32,10 +32,13 @@
                 @error('password') <p style="color:var(--red);font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
             </div>
 
-            <label class="flex label" style="gap:8px;align-items:center;font-size:12px;cursor:pointer;">
-                <input wire:model="remember" type="checkbox" style="accent-color:var(--lime);">
-                Ingat saya
-            </label>
+            <div class="flex" style="justify-content:space-between;align-items:center;">
+                <label class="flex label" style="gap:8px;align-items:center;font-size:12px;cursor:pointer;">
+                    <input wire:model="remember" type="checkbox" style="accent-color:var(--lime);">
+                    Ingat saya
+                </label>
+                <a href="{{ route('password.request') }}" class="label" style="font-size:12px;color:var(--lime);">Lupa password?</a>
+            </div>
 
             <button type="submit" class="btn btn-lime" style="margin-top:4px;" wire:loading.attr="disabled">
                 <span wire:loading.remove>MASUK</span>

@@ -11,7 +11,7 @@ class Event extends Model
 {
     protected $fillable = [
         'slug', 'title', 'edition', 'city', 'venue', 'latitude', 'longitude', 'date', 'date_label',
-        'status', 'type', 'categories', 'prize', 'prize_hidden', 'featured', 'blurb', 'banner',
+        'status', 'type', 'categories', 'prize', 'prize_hidden', 'entry_fee', 'featured', 'blurb', 'banner',
         'schedule', 'rules',
         'run_duration', 'live_rider_id', 'live_run_number', 'live_phase', 'live_started_at',
         'active_division_id', 'active_group_id', 'idle_screen', 'live_jam', 'live_duration',
@@ -24,6 +24,7 @@ class Event extends Model
         'date'           => 'datetime',
         'featured'       => 'boolean',
         'prize_hidden'   => 'boolean',
+        'entry_fee'      => 'integer',
         'latitude'       => 'float',
         'longitude'      => 'float',
         'live_started_at'=> 'datetime',

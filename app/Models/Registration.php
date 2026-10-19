@@ -14,7 +14,7 @@ class Registration extends Model
         'user_id', 'entry_code', 'name', 'email', 'phone', 'dob', 'city', 'stance',
         'event_id', 'division_id', 'division_group_id', 'category', 'competition_category', 'experience',
         'ec_name', 'ec_phone', 'ec_relation',
-        'payment_method', 'payment_proof', 'payment_status', 'status',
+        'payment_method', 'payment_proof', 'photo', 'payment_status', 'status',
     ];
 
     protected $casts = [
@@ -88,6 +88,16 @@ class Registration extends Model
         return str_starts_with($this->payment_proof, 'http')
             ? $this->payment_proof
             : asset('storage/' . $this->payment_proof);
+    }
+
+    /** Foto dari form register (disk public), atau link eksternal kalau hasil import. */
+    public function getPhotoUrlAttribute(): ?string
+    {
+        if (!$this->photo) {
+            return null;
+        }
+
+        return str_starts_with($this->photo, 'http') ? $this->photo : asset('storage/' . $this->photo);
     }
 
     public function getPaymentProofIsExternalAttribute(): bool

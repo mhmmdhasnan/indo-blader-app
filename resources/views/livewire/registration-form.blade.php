@@ -21,7 +21,7 @@
                 <div class="flex" style="flex-wrap:wrap;">
                     <div style="flex:1 1 280px;padding:24px;">
                         @php $selectedDiv = $divisions->firstWhere('id', $divisionId); @endphp
-                        @foreach([['RIDER',$name],['EVENT',$currentEvent?->title],['DIVISION',$selectedDiv?->name ?? '-'],['CITY',$city],['PAYMENT','Transfer Bank'],['STATUS','PENDING APPROVAL']] as [$l,$v])
+                        @foreach([['RIDER',$name],['EVENT',$currentEvent?->title],['DIVISION',$selectedDiv?->name ?? '-'],['CITY',$city],['PAYMENT',$entryFee > 0 ? 'Transfer Bank' : 'Gratis'],['STATUS','PENDING APPROVAL']] as [$l,$v])
                             <div class="between" style="padding:11px 0;border-bottom:1px solid var(--line);">
                                 <span class="mono dim" style="font-size:10px;letter-spacing:0.12em;">{{ $l }}</span>
                                 <span class="label" style="font-size:14px;text-align:right;">{{ $v }}</span>
@@ -59,7 +59,7 @@
         <div class="wrap section" style="padding-top:36px;max-width:880px;">
             {{-- Progress --}}
             <div class="flex" style="margin-bottom:34px;gap:0;">
-                @foreach(['Personal','Category','Emergency','Payment','Confirm'] as $i => $s)
+                @foreach(['Personal','Category','Emergency',$entryFee > 0 ? 'Payment' : 'Agreement','Confirm'] as $i => $s)
                     <div class="flex" style="flex:1;align-items:center;">
                         <div class="col center" style="gap:7px;flex-shrink:0;">
                             <div class="center" style="
@@ -156,6 +156,28 @@
                             <input wire:model.live="city" type="text" placeholder="e.g. Jakarta"
                                 class="field-input {{ isset($errors['city']) ? 'error' : '' }}" />
                         </label>
+
+                        {{-- Photo --}}
+                        <div class="col" style="gap:7px;grid-column:1/-1;">
+                            <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['photo']) ? 'var(--red)' : 'var(--ink-dim)' }};">
+                                PHOTO *{{ isset($errors['photo']) ? ' — '.$errors['photo'] : '' }}
+                            </span>
+                            <label class="flex" style="gap:16px;align-items:center;padding:14px;border:2px dashed {{ isset($errors['photo']) ? 'var(--red)' : 'var(--line-strong)' }};border-radius:3px;cursor:pointer;">
+                                <input wire:model="photo" type="file" accept="image/jpeg,image/png,image/webp" style="display:none;" />
+                                <div class="center" style="width:72px;height:72px;flex-shrink:0;border-radius:50%;overflow:hidden;background:var(--bg-2);border:2px solid var(--line-strong);">
+                                    @if($photo && method_exists($photo, 'temporaryUrl'))
+                                        <img src="{{ $photo->temporaryUrl() }}" alt="" style="width:100%;height:100%;object-fit:cover;">
+                                    @else
+                                        <span style="font-size:24px;">↑</span>
+                                    @endif
+                                </div>
+                                <div class="col" style="gap:3px;min-width:0;">
+                                    <span class="label" style="font-size:14px;">{{ $photo ? $photo->getClientOriginalName() : 'Click to upload your photo' }}</span>
+                                    <span class="mono dim" style="font-size:10px;">Foto wajah rider · JPG / PNG / WebP · MAX 2MB</span>
+                                    <span wire:loading wire:target="photo" class="mono" style="font-size:10px;color:var(--lime);">Uploading...</span>
+                                </div>
+                            </label>
+                        </div>
 
                     </div>
                 @endif
@@ -278,14 +300,15 @@
                 @if($step === 3)
                     <div class="flex" style="align-items:baseline;gap:12px;margin-bottom:26px;">
                         <span class="mono" style="font-size:12px;color:var(--lime);">04</span>
-                        <h2 class="display" style="font-size:clamp(24px,3.2vw,34px);">Payment</h2>
+                        <h2 class="display" style="font-size:clamp(24px,3.2vw,34px);">{{ $entryFee > 0 ? 'Payment' : 'Agreement' }}</h2>
                     </div>
+                    @if($entryFee > 0)
                     <div class="between" style="padding:16px 18px;border:2px solid var(--ink);border-radius:3px;margin-bottom:20px;background:var(--bg-2);">
                         <div class="col">
                             <span class="mono dim" style="font-size:10px;letter-spacing:0.14em;">ENTRY FEE · {{ strtoupper($currentEvent?->title ?? '') }}</span>
                             <span class="label" style="font-size:14px;">{{ $divisions->firstWhere('id', $divisionId)?->name ?? 'Division' }}</span>
                         </div>
-                        <span class="display tnum" style="font-size:30px;color:var(--lime);">Rp 350.000</span>
+                        <span class="display tnum" style="font-size:30px;color:var(--lime);">Rp {{ number_format($entryFee, 0, ',', '.') }}</span>
                     </div>
                     <div style="margin-bottom:20px;padding:14px 16px;background:var(--bg-2);border:2px solid var(--line);border-radius:3px;display:flex;align-items:center;gap:12px;">
                         <span style="font-size:20px;">🏦</span>
@@ -309,6 +332,9 @@
                             <span class="mono dim" style="font-size:10px;">JPG / PNG · MAX 5MB</span>
                         </label>
                     </div>
+                    @else
+                    <p class="dim" style="font-size:14px;margin-bottom:20px;">Event ini <strong>gratis</strong> — tidak ada pembayaran. Tinggal konfirmasi persetujuan di bawah.</p>
+                    @endif
                     <label class="flex" style="gap:10px;margin-top:20px;cursor:pointer;align-items:flex-start;">
                         <input wire:model="agree" type="checkbox" style="width:20px;height:20px;margin-top:2px;accent-color:var(--lime);" />
                         <span style="font-size:13px;line-height:1.5;color:{{ isset($errors['agree']) ? 'var(--red)' : 'var(--ink-dim)' }};">
@@ -320,9 +346,9 @@
                 {{-- Nav buttons --}}
                 <div class="between" style="margin-top:30px;padding-top:22px;border-top:1px solid var(--line);">
                     <button wire:click="back" class="btn btn-ghost" {{ $step === 0 ? 'disabled' : '' }}>← Back</button>
-                    <button wire:click="next" class="btn btn-lime" wire:loading.attr="disabled">
-                        <span wire:loading.remove>{{ $step === 3 ? 'Submit Entry →' : 'Continue →' }}</span>
-                        <span wire:loading>Processing...</span>
+                    <button wire:click="next" class="btn btn-lime" wire:loading.attr="disabled" wire:target="next">
+                        <span wire:loading.remove wire:target="next">{{ $step === 3 ? 'Submit Entry →' : 'Continue →' }}</span>
+                        <span wire:loading wire:target="next">Processing...</span>
                     </button>
                 </div>
             </div>

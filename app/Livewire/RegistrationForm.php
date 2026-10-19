@@ -31,8 +31,12 @@ class RegistrationForm extends Component
     public string $phoneNumber = '';
     public string $dob         = '';
     public string $city        = '';
+    public $photo              = null;
 
     // Step 1 — Division
+    // Hanya event dengan status ini yang muncul di Event & Category dan bisa didaftar.
+    private const REGISTRABLE_STATUSES = ['SOON', 'OPEN', 'LIVE'];
+
     public string $eventSlug  = 'nationals';
     public int    $divisionId = 0;
 
@@ -57,7 +61,7 @@ class RegistrationForm extends Component
             return;
         }
 
-        $this->eventSlug = Event::orderBy('date')->first()?->slug ?? '';
+        $this->eventSlug = Event::whereIn('status', self::REGISTRABLE_STATUSES)->orderBy('date')->first()?->slug ?? '';
 
         $user = auth()->user();
         $this->name  = $user->name;
@@ -79,13 +83,19 @@ class RegistrationForm extends Component
             if (!preg_match('/^[0-9]{6,}$/', trim($this->phoneNumber))) $this->errors['phone'] = 'min 6 digit';
             if (!$this->dob)                                      $this->errors['dob']   = 'required';
             if (!trim($this->city))                               $this->errors['city']  = 'required';
+            if (!$this->photo) {
+                $this->errors['photo'] = 'foto wajib diupload';
+            } elseif (!in_array(strtolower($this->photo->getClientOriginalExtension()), ['jpg', 'jpeg', 'png', 'webp'], true)
+                || $this->photo->getSize() > 2 * 1024 * 1024) {
+                $this->errors['photo'] = 'JPG/PNG/WebP, maks 2MB';
+            }
         }
 
         if ($this->step === 1) {
             if (!$this->divisionId) {
                 $this->errors['division'] = 'pick one';
             } else {
-                $event    = Event::where('slug', $this->eventSlug)->first();
+                $event    = Event::whereIn('status', self::REGISTRABLE_STATUSES)->where('slug', $this->eventSlug)->first();
                 $division = EventDivision::find($this->divisionId);
                 if (!$division || $division->event_id !== $event?->id) {
                     $this->errors['division'] = 'invalid';
@@ -100,6 +110,7 @@ class RegistrationForm extends Component
         }
 
         if ($this->step === 3) {
+            if ($this->entryFee() > 0 && !$this->payFile) $this->errors['payFile'] = 'bukti bayar wajib';
             if (!$this->agree) $this->errors['agree'] = 'must agree';
         }
 
@@ -113,6 +124,11 @@ class RegistrationForm extends Component
         $this->step++;
     }
 
+    private function entryFee(): int
+    {
+        return (int) Event::whereIn('status', self::REGISTRABLE_STATUSES)->where('slug', $this->eventSlug)->value('entry_fee');
+    }
+
     public function back(): void
     {
         $this->step = max(0, $this->step - 1);
@@ -120,11 +136,14 @@ class RegistrationForm extends Component
 
     private function submit(): void
     {
-        $event    = Event::where('slug', $this->eventSlug)->firstOrFail();
+        $event    = Event::whereIn('status', self::REGISTRABLE_STATUSES)->where('slug', $this->eventSlug)->firstOrFail();
         $division = EventDivision::findOrFail($this->divisionId);
 
+        $fee       = (int) $event->entry_fee;
+        $photoPath = $this->photo->store('avatars', 'public');
+
         $proofPath = null;
-        if ($this->payFile) {
+        if ($fee > 0 && $this->payFile) {
             $proofPath = $this->payFile->store('proofs', 'public');
         }
 
@@ -146,9 +165,11 @@ class RegistrationForm extends Component
             'ec_name'              => $this->ecName,
             'ec_phone'             => $this->ecPhoneCode . $this->ecPhoneNum,
             'ec_relation'          => $this->ecRelation,
-            'payment_method'       => 'Transfer',
+            'payment_method'       => 'Transfer', // kolom enum (Transfer/E-Wallet/QRIS); event gratis tetap diisi default
             'payment_proof'        => $proofPath,
-            'payment_status'       => 'PENDING',
+            'photo'                => $photoPath,
+            // Gratis: tidak ada yang perlu diverifikasi, langsung VERIFIED supaya bisa di-approve.
+            'payment_status'       => $fee > 0 ? 'PENDING' : 'VERIFIED',
             'status'               => 'PENDING',
         ]);
 
@@ -181,12 +202,14 @@ class RegistrationForm extends Component
 
     public function render()
     {
-        $events       = Event::orderBy('date')->get();
-        $currentEvent = Event::where('slug', $this->eventSlug)->with('divisions')->first();
+        $events       = Event::whereIn('status', self::REGISTRABLE_STATUSES)->orderBy('date')->get();
+        $currentEvent = Event::whereIn('status', self::REGISTRABLE_STATUSES)->where('slug', $this->eventSlug)->with('divisions')->first();
         $divisions    = $currentEvent
             ? $currentEvent->divisions()->where('is_active', true)->orderBy('name')->get()
             : collect();
 
-        return view('livewire.registration-form', compact('events', 'currentEvent', 'divisions'));
+        $entryFee = (int) ($currentEvent?->entry_fee ?? 0);
+
+        return view('livewire.registration-form', compact('events', 'currentEvent', 'divisions', 'entryFee'));
     }
 }

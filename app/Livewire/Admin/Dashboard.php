@@ -128,6 +128,7 @@ class Dashboard extends Component
     public array  $evCategories        = [];
     public int    $evPrize             = 5000000;
     public bool   $evPrizeHidden       = false;
+    public int    $evEntryFee          = 0;
     public string $evBlurb      = '';
     public bool   $evFeatured   = false;
     public        $evBannerFile = null;
@@ -221,7 +222,10 @@ class Dashboard extends Component
 
     public function mount(): void
     {
-        $active = Event::where('status', 'LIVE')->orderBy('date')->first()
+        // Pilihan ACTIVE EVENT terakhir disimpan di session supaya tidak balik ke
+        // event lain saat halaman di-refresh.
+        $active = Event::find(session('admin.active_event_id'))
+            ?? Event::where('status', 'LIVE')->orderBy('date')->first()
             ?? Event::orderByRaw("ABS(DATEDIFF(date, NOW()))")->orderBy('date')->first()
             ?? Event::orderBy('date')->first();
 
@@ -236,6 +240,7 @@ class Dashboard extends Component
 
     public function updatedActiveEventId(): void
     {
+        session(['admin.active_event_id' => $this->activeEventId ?: null]);
         $this->judgeEventId    = $this->activeEventId;
         $this->selectedEventId = $this->activeEventId;
         $this->scoreSubmitted  = false;
@@ -351,6 +356,16 @@ class Dashboard extends Component
         $this->bestTrickScore = null;
     }
 
+    /** Foto dari form register jadi avatar rider kalau rider-nya belum punya foto. */
+    private function adoptRegistrationPhoto(Rider $rider, Registration $reg): int
+    {
+        if (!$rider->avatar && $reg->photo) {
+            $rider->update(['avatar' => $reg->photo]);
+        }
+
+        return $rider->id;
+    }
+
     private function resolveRiderIdFromRegistration(int $registrationId): ?int
     {
         $reg = Registration::find($registrationId);
@@ -358,11 +373,11 @@ class Dashboard extends Component
 
         if ($reg->user_id) {
             $rider = Rider::where('user_id', $reg->user_id)->first();
-            if ($rider) return $rider->id;
+            if ($rider) return $this->adoptRegistrationPhoto($rider, $reg);
         }
 
         $rider = Rider::where('name', $reg->name)->first();
-        if ($rider) return $rider->id;
+        if ($rider) return $this->adoptRegistrationPhoto($rider, $reg);
 
         $age = $reg->dob ? (int) $reg->dob->diffInYears(now()) : 0;
         $rider = Rider::create([
@@ -374,6 +389,7 @@ class Dashboard extends Component
             'category' => in_array($reg->category, ['STREET','PARK','VERT','FLAT','MINIRAMP']) ? $reg->category : 'STREET',
             'stance'   => in_array($reg->stance, ['Regular','Goofy']) ? $reg->stance : 'Regular',
             'slug'     => Str::slug($reg->name . '-' . $reg->id),
+            'avatar'   => $reg->photo,
         ]);
 
         return $rider->id;
@@ -482,6 +498,7 @@ class Dashboard extends Component
         $this->evCategories        = [];
         $this->evPrize             = 5000000;
         $this->evPrizeHidden       = false;
+        $this->evEntryFee          = 0;
         $this->evBlurb             = '';
         $this->evFeatured          = false;
         $this->evBannerFile        = null;
@@ -510,6 +527,7 @@ class Dashboard extends Component
         $this->evCategories        = $ev->categories ?? [];
         $this->evPrize      = (int) $ev->prize;
         $this->evPrizeHidden = (bool) $ev->prize_hidden;
+        $this->evEntryFee    = (int) $ev->entry_fee;
         $this->evBlurb      = $ev->blurb ?? '';
         $this->evFeatured   = (bool) $ev->featured;
         $this->evBannerFile  = null;
@@ -554,6 +572,7 @@ class Dashboard extends Component
             'evSlug'       => 'required|alpha_dash|max:80',
             'evStatus'     => 'required|in:SOON,OPEN,CLOSING,FULL,LIVE,CLOSED',
             'evPrize'      => 'required|integer|min:0',
+            'evEntryFee'   => 'required|integer|min:0',
             'evBannerFile' => 'nullable|image|max:5120',
             'evRunDuration'=> 'required|integer|min:30|max:300',
             'evRules'         => 'nullable|array',
@@ -599,6 +618,7 @@ class Dashboard extends Component
             'categories' => $this->evCategories,
             'prize'        => $this->evPrize,
             'prize_hidden' => $this->evPrizeHidden,
+            'entry_fee'    => $this->evEntryFee,
             'blurb'      => $this->evBlurb,
             'featured'     => $this->evFeatured,
             'banner'       => $bannerPath ?: null,
@@ -608,9 +628,18 @@ class Dashboard extends Component
         ];
 
         if ($this->evId) {
-            Event::findOrFail($this->evId)->update($data);
+            $event = Event::findOrFail($this->evId);
+            $event->update($data);
         } else {
-            Event::create($data);
+            $event = Event::create($data);
+        }
+
+        // Event gratis: tidak ada pembayaran yang perlu dicek, jadi semua yang
+        // masih PENDING/UNPAID langsung dianggap VERIFIED.
+        if ((int) $event->entry_fee === 0) {
+            Registration::where('event_id', $event->id)
+                ->whereIn('payment_status', ['PENDING', 'UNPAID'])
+                ->update(['payment_status' => 'VERIFIED']);
         }
 
         $this->evBannerFile = null;
@@ -865,19 +894,19 @@ class Dashboard extends Component
         $existingRider = $reg->user_id
             ? Rider::where('user_id', $reg->user_id)->first()
             : Rider::where('name', $reg->name)->first();
-        $this->regEditAvatarUrl = $existingRider?->avatar ? asset('storage/' . $existingRider->avatar) : null;
+        $this->regEditAvatarUrl = $existingRider?->avatar ? asset('storage/' . $existingRider->avatar) : $reg->photo_url;
     }
 
     public function saveRegistration(): void
     {
         $reg = Registration::findOrFail($this->regEditId);
         $reg->update([
-            'name'        => $this->regEditName,
-            'email'       => $this->regEditEmail,
-            'phone'       => $this->regEditPhone,
-            'city'        => $this->regEditCity,
-            'division_id' => $this->regEditDivisionId ?: null,
+            'name'  => $this->regEditName,
+            'email' => $this->regEditEmail,
+            'phone' => $this->regEditPhone,
+            'city'  => $this->regEditCity,
         ]);
+        $this->applyRegistrationDivision($reg, $this->regEditDivisionId ?: null);
 
         if ($this->regEditPhoto) {
             $this->validate(['regEditPhoto' => 'image|max:2048'], [], ['regEditPhoto' => 'foto rider']);
@@ -886,6 +915,7 @@ class Dashboard extends Component
             if ($riderId) {
                 $path = $this->regEditPhoto->store('avatars', 'public');
                 Rider::whereKey($riderId)->update(['avatar' => $path]);
+                $reg->update(['photo' => $path]);
             }
         }
 
@@ -978,9 +1008,84 @@ class Dashboard extends Component
         $this->importFile = null;
     }
 
+    /**
+     * Id registrasi yang rider-nya sudah punya skor juri di divisi registrasi itu
+     * (dipakai untuk peringatan sebelum memindahkan divisi).
+     *
+     * @return array<int, int>
+     */
+    private function scoredRegistrationIds($registrations): array
+    {
+        if ($registrations->isEmpty()) return [];
+
+        $pairs = JudgeScore::whereIn('event_id', $registrations->pluck('event_id')->unique())
+            ->whereIn('division_id', $registrations->pluck('division_id')->filter()->unique())
+            ->distinct()->get(['rider_id', 'division_id']);
+
+        if ($pairs->isEmpty()) return [];
+
+        $riders = Rider::whereIn('id', $pairs->pluck('rider_id')->unique())->get(['id', 'user_id', 'name']);
+        $scored = $pairs->groupBy('division_id')->map(fn ($p) => $p->pluck('rider_id')->all());
+
+        return $registrations->filter(function ($reg) use ($riders, $scored) {
+            $riderIds = $scored->get($reg->division_id, []);
+            return $riders->contains(fn ($r) => in_array($r->id, $riderIds, true)
+                && (($reg->user_id && $r->user_id === $reg->user_id) || $r->name === $reg->name));
+        })->pluck('id')->all();
+    }
+
+    /** Pindahkan rider ke divisi lain di event yang sama (dipanggil dari dropdown "Pindah divisi"). */
+    public function moveRegistrationDivision(int $registrationId, int $divisionId): void
+    {
+        $reg = Registration::findOrFail($registrationId);
+
+        if (!$divisionId || !EventDivision::where('id', $divisionId)->where('event_id', $reg->event_id)->exists()) {
+            $this->addError('registration_' . $reg->id, 'Divisi tidak valid untuk event ini.');
+            return;
+        }
+
+        $this->applyRegistrationDivision($reg, $divisionId);
+    }
+
+    /**
+     * Ganti divisi sebuah registrasi sekaligus merapikan data turunannya: group/heat
+     * di divisi lama tidak berlaku lagi, kategori ikut divisi baru, dan counter slot
+     * (`filled`) kedua divisi disesuaikan.
+     */
+    private function applyRegistrationDivision(Registration $reg, ?int $newDivisionId): void
+    {
+        $oldDivisionId = $reg->division_id;
+        if ($oldDivisionId === $newDivisionId) {
+            return;
+        }
+
+        $new = $newDivisionId ? EventDivision::find($newDivisionId) : null;
+
+        $reg->update([
+            'division_id'          => $new?->id,
+            'division_group_id'    => null,
+            'category'             => $new ? ($new->discipline ?? $new->name) : $reg->category,
+            'competition_category' => $new ? $new->level : $reg->competition_category,
+        ]);
+
+        if ($oldDivisionId) {
+            EventDivision::whereKey($oldDivisionId)->where('filled', '>', 0)->decrement('filled');
+        }
+        if ($new) {
+            $new->increment('filled');
+        }
+    }
+
     public function deleteRegistration(int $id): void
     {
-        Registration::findOrFail($id)->delete();
+        $reg = Registration::findOrFail($id);
+        $divisionId = $reg->division_id;
+        $reg->delete();
+
+        // Slot divisi dikembalikan (form register menambah `filled` saat mendaftar).
+        if ($divisionId) {
+            EventDivision::whereKey($divisionId)->where('filled', '>', 0)->decrement('filled');
+        }
     }
 
     public function openQuickAdd(int $userId): void
@@ -1099,7 +1204,7 @@ class Dashboard extends Component
         Registration::findOrFail($id)->update([
             'payment_proof'  => null,
             'payment_status' => 'PENDING',
-            'payment_method' => null,
+            'payment_method' => 'Transfer',
         ]);
     }
 
@@ -1977,7 +2082,7 @@ class Dashboard extends Component
             ->latest()->get();
         $riders         = Rider::whereHas('registrations', fn ($q) => $q->when($eid, fn ($q) => $q->where('event_id', $eid)))
             ->orderByDesc('points')->get();
-        $revenue        = $registrations->count() * 350000;
+        $revenue        = $registrations->sum(fn ($r) => (int) ($r->event?->entry_fee ?? 0));
 
         $competitionLevels = Category::orderBy('name')->get();
 
@@ -1993,7 +2098,9 @@ class Dashboard extends Component
                 ->orderBy('name')->get()
             : collect();
 
-        $data = compact('registrations', 'events', 'riders', 'revenue', 'activeEvent', 'competitionLevels', 'eventDivisions', 'bracketDivisions');
+        $scoredRegIds = $this->scoredRegistrationIds($registrations);
+
+        $data = compact('registrations', 'scoredRegIds', 'events', 'riders', 'revenue', 'activeEvent', 'competitionLevels', 'eventDivisions', 'bracketDivisions');
         $data['finalistSections'] = $this->finalistPickerDivisionId
             ? app(LiveScoreboardService::class)->buildQualificationSections(
                 EventDivision::findOrFail($this->finalistPickerDivisionId)

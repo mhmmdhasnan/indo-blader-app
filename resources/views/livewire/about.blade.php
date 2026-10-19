@@ -5,7 +5,7 @@
                 <span class="mono" style="font-size:11px;color:var(--lime);font-weight:700;">ABOUT /</span>
                 <span class="kicker">FRAMEBLADESCORE</span>
             </div>
-            <h1 class="display" style="font-size:clamp(40px,7vw,84px);">One Wheel,<br>One Family.</h1>
+            <h1 class="display" style="font-size:clamp(40px,7vw,84px);">FRAMEBLADESCORE</h1>
         </div>
     </div>
 
@@ -13,20 +13,13 @@
         <div>
             <h2 class="display" style="font-size:clamp(34px,5vw,64px);margin-bottom:24px;">About FRAMEBLADESCORE</h2>
             <div class="col" style="gap:20px;font-size:16px;line-height:1.7;">
-                <p>FRAMEBLADESCORE is the national organizing body for competitive aggressive inline skating in Indonesia. Founded in 2020, we run the national circuit, maintain the official ranking, and publish competition results.</p>
+                <p>FRAMEBLADESCORE is the national organizing body for competitive aggressive inline skating in Indonesia. Founded in 2026, we run the national circuit, maintain the official ranking, and publish competition results.</p>
                 <p>Our mission: build a legitimate, professional competition structure that elevates Indonesian aggressive inline to an international standard — while keeping the core community spirit alive.</p>
-                <p>Since Vol. 01, the circuit has grown from a single Jakarta stop to five national events, with over 500 registered competitors and a combined prize pool exceeding Rp 500 juta per season.</p>
             </div>
         </div>
         <div class="col" style="gap:20px;">
             @foreach([
-                ['2020','Founded in Jakarta — Vol. 01 with 32 riders.'],
-                ['2021','Expanded to Bandung and Bali.'],
-                ['2022','Official ranking system launched.'],
-                ['2023','First mega ramp event — Vert Attack Vol. 01.'],
-                ['2024','500+ registered competitors.'],
-                ['2025','National TV broadcast of Nationals final.'],
-                ['2026','Season 6 — biggest circuit yet.'],
+                ['2026','HighFive Inline Cup 2026 — Vol. 01, Buqiet Skatepark, Bandung.'],
             ] as [$yr,$txt])
                 <div class="flex" style="gap:18px;align-items:flex-start;">
                     <span class="display" style="font-size:28px;color:var(--lime);flex-shrink:0;width:52px;">{{ $yr }}</span>
@@ -41,27 +34,16 @@
             <div class="between" style="margin-bottom:34px;align-items:flex-end;gap:20px;">
                 <div>
                     <div class="eyebrow-row" style="margin-bottom:10px;"><span class="kicker">THE TEAM</span></div>
-                    <h2 class="display" style="font-size:clamp(34px,5vw,64px);">Staff & Judges</h2>
+                    <h2 class="display" style="font-size:clamp(34px,5vw,64px);">Staff</h2>
                 </div>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;">
-                @foreach([
-                    ['A. Hidayat','HEAD JUDGE','Jakarta'],
-                    ['M. Santoso','JUDGE','Surabaya'],
-                    ['L. Pratiwi','JUDGE','Bandung'],
-                    ['K. Wijaya','JUDGE','Semarang'],
-                    ['R. Gunawan','EVENT DIRECTOR','Jakarta'],
-                    ['S. Dewi','MEDIA COORDINATOR','Bali'],
-                ] as [$name,$role,$city])
+                @foreach(['Ihas', 'Billma', 'Asmo'] as $name)
                     <div class="panel" style="padding:18px;">
-                        <div class="flex" style="align-items:center;gap:14px;margin-bottom:12px;">
-                            <x-avatar :initials="collect(explode(' ',$name))->map(fn($w)=>$w[0])->take(2)->implode('')" :size="48" />
-                            <div class="col">
-                                <span class="label" style="font-size:15px;">{{ $name }}</span>
-                                <span class="mono dim" style="font-size:10px;letter-spacing:0.1em;">{{ $city }}</span>
-                            </div>
+                        <div class="flex" style="align-items:center;gap:14px;">
+                            <x-avatar :initials="strtoupper(mb_substr($name, 0, 2))" :size="48" />
+                            <span class="label" style="font-size:15px;">{{ $name }}</span>
                         </div>
-                        <span class="badge badge-out" style="font-size:9px;">{{ $role }}</span>
                     </div>
                 @endforeach
             </div>

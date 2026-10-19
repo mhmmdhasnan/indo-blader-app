@@ -12,6 +12,8 @@ use App\Livewire\Home;
 use App\Livewire\Judge\Dashboard as JudgeDashboard;
 use App\Livewire\LiveScoring;
 use App\Livewire\NotificationInbox;
+use App\Livewire\Auth\ForgotPassword;
+use App\Livewire\Auth\ResetPassword;
 use App\Livewire\QualificationPage;
 use App\Livewire\Rankings;
 use App\Livewire\RegistrationForm;
@@ -24,6 +26,8 @@ use Illuminate\Support\Facades\Route;
 // ── Auth routes ─────────────────────────────────────────────────────────────
 Route::get('/login',  Login::class)->name('login')->middleware('guest');
 Route::get('/daftar', RegisterAccount::class)->name('register.account')->middleware('guest');
+Route::get('/lupa-password', ForgotPassword::class)->name('password.request')->middleware('guest');
+Route::get('/reset-password/{token}', ResetPassword::class)->name('password.reset')->middleware('guest');
 Route::post('/logout', function () {
     Auth::logout();
     request()->session()->invalidate();
