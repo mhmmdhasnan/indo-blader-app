@@ -163,8 +163,21 @@
                 <div style="padding:40px 48px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);position:relative;overflow:hidden;">
                     <div x-show="phase === 'REVEALING'" class="halftone" style="position:absolute;inset:0;pointer-events:none;opacity:0.4;display:none;"></div>
 
+                    {{-- NEXT (Best Trick): kolom kanan diisi leaderboard divisi --}}
+                    @if(($isBestTrickPhase ?? false) && ($scores ?? collect())->isNotEmpty())
+                    <div x-show="phase === 'NEXT' && isBestTrick" style="display:none;width:100%;max-height:100%;overflow-y:auto;">
+                        <div class="between" style="margin-bottom:14px;gap:10px;flex-wrap:wrap;">
+                            <span class="kicker" style="font-size:13px;" x-text="'PERCOBAAN ' + (runNumber || '—')"></span>
+                            <span class="mono dim" style="font-size:12px;letter-spacing:0.14em;" x-text="divisionLabel"></span>
+                        </div>
+                        <div class="panel" style="overflow:hidden;">
+                            @include('livewire.partials.live-score-table', ['rows' => $scores])
+                        </div>
+                    </div>
+                    @endif
+
                     {{-- NEXT --}}
-                    <div x-show="phase === 'NEXT'" style="display:none;text-align:center;">
+                    <div x-show="phase === 'NEXT' && !(isBestTrick && {{ (($isBestTrickPhase ?? false) && ($scores ?? collect())->isNotEmpty()) ? 'true' : 'false' }})" style="display:none;text-align:center;">
                         <p class="kicker" style="margin-bottom:8px;font-size:11px;" x-text="(isBestTrick ? 'PERCOBAAN ' : 'RUN ') + (runNumber || '—')"></p>
                         <p class="mono dim" style="font-size:12px;letter-spacing:0.14em;" x-text="divisionLabel"></p>
                         <template x-if="bestScore">
