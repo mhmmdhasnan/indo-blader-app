@@ -51,7 +51,22 @@
 
     {{-- ── DIVISION TABS ── --}}
     @if($divisions->count() > 1)
-    <div style="border-bottom:2px solid var(--ink);background:var(--bg-2);padding:0 48px;display:flex;gap:0;overflow-x:auto;">
+    <style>
+        .rs-div-select { display:none; }
+        @media (max-width:760px) {
+            .rs-div-tabs { display:none !important; }
+            .rs-div-select { display:block; padding:12px 16px; border-bottom:2px solid var(--ink); background:var(--bg-2); }
+            .rs-div-select select { width:100%; background:var(--bg);color:var(--ink);border:1.5px solid var(--line-strong);border-radius:6px;padding:10px 12px;font-size:13px;font-weight:700;letter-spacing:.08em;outline:none; }
+        }
+    </style>
+    <div class="rs-div-select">
+        <select wire:model.live="selectedDivisionId" class="mono" aria-label="Divisi">
+            @foreach($divisions as $div)
+                <option value="{{ $div->id }}">{{ strtoupper($div->name) }}</option>
+            @endforeach
+        </select>
+    </div>
+    <div class="rs-div-tabs" style="border-bottom:2px solid var(--ink);background:var(--bg-2);padding:0 48px;display:flex;gap:0;overflow-x:auto;">
         @foreach($divisions as $div)
             @php $active = $selectedDivisionId === $div->id; @endphp
             <button wire:click="$set('selectedDivisionId', {{ $div->id }})"
@@ -272,6 +287,7 @@
             .rs-podium { grid-template-columns:1fr; gap:12px; }
             .rs-podium .rs-card { display:grid; grid-template-columns:96px minmax(0,1fr); text-align:left; align-items:center; order:0 !important; }
             .rs-podium .rs-photo { height:100% !important; min-height:96px; aspect-ratio:auto !important; }
+            .rs-podium .rs-badge { top:auto !important; bottom:0; padding:2px 8px 0 !important; font-size:20px !important; }
             .rs-row { grid-template-columns:44px minmax(0,1fr) 84px; padding:10px 12px; }
             .rs-run { display:none !important; }
             .rs-stats { gap:8px; }
@@ -311,7 +327,7 @@
                             @if($url)
                                 <img src="{{ $url }}" alt="" loading="lazy" style="position:absolute;inset:0;" onerror="this.style.display='none'">
                             @endif
-                            <span class="display tnum" style="position:absolute;top:0;left:0;padding:6px 14px 4px;font-size:{{ $first ? 44 : 34 }}px;background:{{ $accent }};color:#0a0a0b;">{{ str_pad($r, 2, '0', STR_PAD_LEFT) }}</span>
+                            <span class="display tnum rs-badge" style="position:absolute;top:0;left:0;padding:6px 14px 4px;font-size:{{ $first ? 44 : 34 }}px;background:{{ $accent }};color:#0a0a0b;">{{ str_pad($r, 2, '0', STR_PAD_LEFT) }}</span>
                         </div>
                         <div style="padding:14px 16px 18px;min-width:0;">
                             <span class="label" style="display:block;font-size:{{ $first ? 20 : 17 }}px;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">{{ $row['rider']->name }}</span>
@@ -320,6 +336,9 @@
                             <span class="mono dim" style="display:block;font-size:10px;letter-spacing:.12em;margin-top:2px;">
                                 RUN 1 {{ $row['run1'] !== null ? number_format($row['run1'], 1) : '—' }}@if($showRun2) · RUN 2 {{ $row['run2'] !== null ? number_format($row['run2'], 1) : '—' }}@endif
                             </span>
+                            @if(($row['best_trick_bonus'] ?? 0) > 0)
+                                <span class="mono" style="display:block;font-size:10px;letter-spacing:.12em;margin-top:2px;color:var(--lime);">BEST {{ number_format($row['run2'] !== null ? max($row['run1'], $row['run2']) : $row['run1'], 1) }} + TRICK {{ number_format($row['best_trick_bonus'], 1) }}</span>
+                            @endif
                         </div>
                     </div>
                 @endforeach
@@ -356,7 +375,7 @@
                         </div>
                         <div class="col" style="min-width:0;">
                             <span class="label" style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $row['rider']->name }}</span>
-                            <span class="mono dim" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $row['rider']->city ?? '—' }}</span>
+                            <span class="mono dim" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $row['rider']->city ?? '—' }}@if(($row['best_trick_bonus'] ?? 0) > 0) · <span style="color:var(--lime);">+{{ number_format($row['best_trick_bonus'], 1) }} TRICK</span>@endif</span>
                         </div>
                     </div>
                     <span class="mono tnum dim rs-run" style="font-size:15px;text-align:right;">{{ $row['run1'] !== null ? number_format($row['run1'], 1) : '—' }}</span>
