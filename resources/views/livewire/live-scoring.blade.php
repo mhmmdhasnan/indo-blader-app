@@ -317,15 +317,15 @@
         <div class="wrap {{ $scoreSections->isNotEmpty() ? 'wrap-wide' : '' }} section" style="padding-top:30px;">
             <div class="col" style="gap:20px;">
                     @php
-                        // Best Trick: setelah kartu skor reveal tampil sebentar, layar publik
-                        // berganti ke leaderboard penuh. Saat NEXT/RUNNING leaderboard ada di
+                        // Best Trick: begitu REVEAL, layar publik langsung leaderboard penuh
+                        // (tanpa kartu skor). Saat NEXT/RUNNING leaderboard ada di
                         // kolom kanan kartu rider.
                         // Overlay (livePhaseOverlay) yang memutuskan kapan disembunyikan lewat event 'lsc-bt'.
                         $btLeaderboard = ($isBestTrickPhase ?? false) && $displayPhase === 'REVEALING';
                     @endphp
                     @if(!$displayPhase || $btLeaderboard)
                     <div class="col" style="gap:20px;"
-                         @if($btLeaderboard) x-data="{ show: false }" x-on:lsc-bt.window="show = $event.detail" x-show="show" x-cloak @endif>
+                         @if($btLeaderboard) x-data="{ show: true }" x-on:lsc-bt.window="show = $event.detail" x-show="show" x-cloak @endif>
 
                     {{-- Fixed-height freeform zone — selalu dapat ruang di atas
                          leaderboard/"ADVANCING TO FINAL" biar Operator punya tempat naruh
@@ -421,8 +421,9 @@
                     </div>
                     @endif {{-- !$displayPhase --}}
 
-                    {{-- Judge Scores — hanya tampil setelah REVEAL --}}
-                    @if($judgeScores->isNotEmpty() && $displayPhase === 'REVEALING')
+                    {{-- Judge Cards disembunyikan di /live (nilai per juri tidak ditampilkan ke publik).
+                         Ganti false jadi true untuk menampilkannya lagi setelah REVEAL. --}}
+                    @if(false && $judgeScores->isNotEmpty() && $displayPhase === 'REVEALING')
                         <div class="panel" style="overflow:hidden;">
                             <div style="padding:16px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
                                 <span class="kicker">JUDGE CARDS — {{ $liveRider?->name ?? 'CURRENT RIDER' }}</span>
@@ -616,8 +617,6 @@ function livePhaseOverlay() {
         divisionLabel: '',
         isBestTrick: false,
         jam: false,
-        revealDone: false,
-        _revealTimer: null,
         _timer: null,
         _observer: null,
         _lastStartedAt: null,
@@ -660,25 +659,13 @@ function livePhaseOverlay() {
             audio.play().catch(err => console.warn('[live-scoring] sound blocked:', name, err));
         },
 
-        // Best Trick: kartu rider disembunyikan saat RUNNING/JUDGING, dan setelah
-        // kartu skor tampil sebentar (revealDone) — leaderboard publik yang tampil.
+        // Best Trick: begitu REVEAL, kartu rider/skor disembunyikan dan yang tampil
+        // langsung leaderboard publik.
         get btHide() {
-            return this.isBestTrick && this.phase === 'REVEALING' && this.revealDone;
+            return this.isBestTrick && this.phase === 'REVEALING';
         },
 
         _syncBt() {
-            if (this.phase === 'REVEALING' && this.isBestTrick) {
-                if (!this._revealTimer && !this.revealDone) {
-                    this._revealTimer = setTimeout(() => {
-                        this.revealDone = true;
-                        this._emitBt();
-                    }, 6000);
-                }
-            } else {
-                clearTimeout(this._revealTimer);
-                this._revealTimer = null;
-                this.revealDone = false;
-            }
             this._emitBt();
         },
 
