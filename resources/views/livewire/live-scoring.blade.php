@@ -165,9 +165,12 @@
 
                     {{-- NEXT (Best Trick): kolom kanan diisi leaderboard divisi --}}
                     @if(($isBestTrickPhase ?? false) && ($scores ?? collect())->isNotEmpty())
-                    <div x-show="phase === 'NEXT' && isBestTrick" style="display:none;width:100%;max-height:100%;overflow-y:auto;">
+                    <div x-show="(phase === 'NEXT' || phase === 'RUNNING') && isBestTrick" style="display:none;width:100%;max-height:100%;overflow-y:auto;">
                         <div class="between" style="margin-bottom:14px;gap:10px;flex-wrap:wrap;">
-                            <span class="kicker" style="font-size:13px;" x-text="'PERCOBAAN ' + (runNumber || '—')"></span>
+                            <span class="kicker" style="font-size:13px;display:flex;align-items:center;gap:10px;">
+                                <span x-show="phase === 'RUNNING'" class="live-dot" style="width:12px;height:12px;display:none;"></span>
+                                <span x-text="'PERCOBAAN ' + (runNumber || '—') + (phase === 'RUNNING' ? ' · ON COURSE — SEDANG MELAKUKAN TRICK' : '')"></span>
+                            </span>
                             <span class="mono dim" style="font-size:12px;letter-spacing:0.14em;" x-text="divisionLabel"></span>
                         </div>
                         <div class="panel" style="overflow:hidden;">
@@ -197,7 +200,7 @@
                     </div>
 
                     {{-- RUNNING (Best Trick — 1 percobaan, tanpa timer) --}}
-                    <div x-show="phase === 'RUNNING' && isBestTrick" style="display:none;text-align:center;">
+                    <div x-show="phase === 'RUNNING' && isBestTrick && !{{ (($isBestTrickPhase ?? false) && ($scores ?? collect())->isNotEmpty()) ? 'true' : 'false' }}" style="display:none;text-align:center;">
                         <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
                             <span class="live-dot" style="width:14px;height:14px;"></span>
                         </div>
@@ -314,14 +317,15 @@
         <div class="wrap {{ $scoreSections->isNotEmpty() ? 'wrap-wide' : '' }} section" style="padding-top:30px;">
             <div class="col" style="gap:20px;">
                     @php
-                        // Best Trick: selama percobaan (RUNNING/JUDGING) dan setelah kartu skor
-                        // reveal selesai, layar publik menampilkan leaderboard, bukan kartu rider.
+                        // Best Trick: setelah kartu skor reveal tampil sebentar, layar publik
+                        // berganti ke leaderboard penuh. Saat NEXT/RUNNING leaderboard ada di
+                        // kolom kanan kartu rider.
                         // Overlay (livePhaseOverlay) yang memutuskan kapan disembunyikan lewat event 'lsc-bt'.
-                        $btLeaderboard = ($isBestTrickPhase ?? false) && in_array($displayPhase, ['RUNNING', 'JUDGING', 'REVEALING'], true);
+                        $btLeaderboard = ($isBestTrickPhase ?? false) && $displayPhase === 'REVEALING';
                     @endphp
                     @if(!$displayPhase || $btLeaderboard)
                     <div class="col" style="gap:20px;"
-                         @if($btLeaderboard) x-data="{ show: {{ $displayPhase === 'REVEALING' ? 'false' : 'true' }} }" x-on:lsc-bt.window="show = $event.detail" x-show="show" x-cloak @endif>
+                         @if($btLeaderboard) x-data="{ show: false }" x-on:lsc-bt.window="show = $event.detail" x-show="show" x-cloak @endif>
 
                     {{-- Fixed-height freeform zone — selalu dapat ruang di atas
                          leaderboard/"ADVANCING TO FINAL" biar Operator punya tempat naruh
@@ -659,8 +663,7 @@ function livePhaseOverlay() {
         // Best Trick: kartu rider disembunyikan saat RUNNING/JUDGING, dan setelah
         // kartu skor tampil sebentar (revealDone) — leaderboard publik yang tampil.
         get btHide() {
-            return this.isBestTrick && (this.phase === 'RUNNING' || this.phase === 'JUDGING'
-                || (this.phase === 'REVEALING' && this.revealDone));
+            return this.isBestTrick && this.phase === 'REVEALING' && this.revealDone;
         },
 
         _syncBt() {

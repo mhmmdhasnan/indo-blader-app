@@ -5,75 +5,6 @@
         $isOperator  = auth()->user()->isOperator();
     @endphp
 
-    {{-- ── OPERATOR STATUS SUMMARY (LIVE CONTROL milik Head Judge sekarang di bawah Context Scoring) ── --}}
-    @if($isOperator && $scoringMode === 'live')
-    <div class="panel" style="border:2px solid var(--lime);padding:18px;">
-        <div class="between" style="margin-bottom:14px;">
-            <span class="kicker" style="color:var(--lime);">⚙ OPERATOR — SETUP</span>
-            @if($activeEvent?->live_phase)
-                <span class="badge badge-red"><span class="live-dot" style="margin-right:5px;"></span>{{ $activeEvent->live_phase }}</span>
-            @else
-                <span class="badge badge-out">STANDBY</span>
-            @endif
-        </div>
-
-        {{-- Idle screen: paksa /live nampilin logo FRAMEBLADESCORE aja, misal pas jeda
-             antar sesi atau sebelum event mulai — independen dari state run/phase. --}}
-        <div style="margin-bottom:14px;">
-            @if($activeEvent?->idle_screen)
-                <button wire:click="hideIdleScreen" class="btn btn-sm btn-lime" style="width:100%;justify-content:center;">▶ Kembali ke Live Score</button>
-            @else
-                <button wire:click="showIdleScreen" class="btn btn-sm btn-ghost" style="width:100%;justify-content:center;">🌙 Tampilkan Idle Screen</button>
-            @endif
-        </div>
-
-        @if(!$activeEvent?->live_phase || $activeEvent?->live_phase === 'NEXT')
-
-            @if($activeEvent?->live_phase === 'NEXT')
-                @php $nextR = $activeEvent->live_rider_id ? \App\Models\Rider::find($activeEvent->live_rider_id) : null; @endphp
-                <div class="flex" style="align-items:center;gap:10px;padding:10px;background:var(--bg-2);border-radius:3px;">
-                    <span style="font-size:13px;">→</span>
-                    <span class="label" style="font-size:13px;">{{ $nextR?->name ?? '—' }}</span>
-                    <span class="mono dim" style="font-size:10px;margin-left:auto;">NEXT UP · RUN {{ $activeEvent->live_run_number }}</span>
-                </div>
-            @endif
-
-        @elseif($activeEvent->live_phase === 'RUNNING' && $activeEvent->live_jam)
-            <div class="flex" style="align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:var(--bg-2);border-radius:3px;">
-                <span class="live-dot"></span>
-                <span class="label" style="font-size:13px;">JAMMING HEAT · {{ $jamHeatRegs->count() }} rider</span>
-                <span class="mono" style="font-size:10px;margin-left:auto;color:var(--lime);">{{ $activeEvent->live_duration }}s</span>
-            </div>
-            @include('livewire.partials.jam-heat-status', ['assignedJudges' => $assignedJudges ?? collect(), 'jamProgress' => $jamProgress ?? [], 'jamHeatRegs' => $jamHeatRegs, 'isHeadJudge' => $isHeadJudge])
-            <p class="mono dim" style="font-size:11px;">Menunggu Head Judge klik REVEAL SCORE.</p>
-
-        @elseif($activeEvent->live_phase === 'RUNNING')
-            @php $liveR = $activeEvent->live_rider_id ? \App\Models\Rider::find($activeEvent->live_rider_id) : null; @endphp
-            <div class="flex" style="align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:var(--bg-2);border-radius:3px;">
-                <span class="live-dot"></span>
-                <span class="label" style="font-size:13px;">{{ $liveR?->name ?? 'Rider' }}</span>
-                <span class="mono dim" style="font-size:10px;">RUN {{ $activeEvent->live_run_number }}</span>
-                <span class="mono" style="font-size:10px;margin-left:auto;color:var(--lime);">{{ ($isBestTrickPhase ?? false) ? '1 TRICK' : $activeEvent->run_duration . 's' }}</span>
-            </div>
-
-            @include('livewire.partials.judge-status-list', ['assignedJudges' => $assignedJudges ?? collect(), 'liveJudgeScores' => $liveJudgeScores ?? collect(), 'isHeadJudge' => $isHeadJudge])
-
-            <p class="mono dim" style="font-size:11px;">Menunggu Head Judge klik REVEAL SCORE.</p>
-
-        @elseif($activeEvent->live_phase === 'REVEALING')
-            <p class="mono" style="font-size:11px;margin-bottom:12px;color:var(--lime);">
-                Skor sedang ditampilkan di layar publik.
-            </p>
-
-            @include('livewire.partials.judge-status-list', ['assignedJudges' => $assignedJudges ?? collect(), 'liveJudgeScores' => $liveJudgeScores ?? collect(), 'isHeadJudge' => $isHeadJudge])
-
-            <button wire:click="endSession" class="btn btn-ghost" style="width:100%;justify-content:center;">
-                ← KEMBALI KE LEADERBOARD
-            </button>
-        @endif
-    </div>
-    @endif
-
     {{-- Context bar: Event label + Division + Mode --}}
     <div class="panel" style="padding:16px;">
         <div class="between" style="margin-bottom:12px;">
@@ -213,6 +144,75 @@
             @error('judgeEventId') <p style="color:var(--red);font-size:11px;margin-top:6px;">{{ $message }}</p> @enderror
         @endif
     </div>
+
+    {{-- ── OPERATOR STATUS SUMMARY (LIVE CONTROL milik Head Judge sekarang di bawah Context Scoring) ── --}}
+    @if($isOperator && $scoringMode === 'live')
+    <div class="panel" style="border:2px solid var(--lime);padding:18px;">
+        <div class="between" style="margin-bottom:14px;">
+            <span class="kicker" style="color:var(--lime);">⚙ OPERATOR — SETUP</span>
+            @if($activeEvent?->live_phase)
+                <span class="badge badge-red"><span class="live-dot" style="margin-right:5px;"></span>{{ $activeEvent->live_phase }}</span>
+            @else
+                <span class="badge badge-out">STANDBY</span>
+            @endif
+        </div>
+
+        {{-- Idle screen: paksa /live nampilin logo FRAMEBLADESCORE aja, misal pas jeda
+             antar sesi atau sebelum event mulai — independen dari state run/phase. --}}
+        <div style="margin-bottom:14px;">
+            @if($activeEvent?->idle_screen)
+                <button wire:click="hideIdleScreen" class="btn btn-sm btn-lime" style="width:100%;justify-content:center;">▶ Kembali ke Live Score</button>
+            @else
+                <button wire:click="showIdleScreen" class="btn btn-sm btn-ghost" style="width:100%;justify-content:center;">🌙 Tampilkan Idle Screen</button>
+            @endif
+        </div>
+
+        @if(!$activeEvent?->live_phase || $activeEvent?->live_phase === 'NEXT')
+
+            @if($activeEvent?->live_phase === 'NEXT')
+                @php $nextR = $activeEvent->live_rider_id ? \App\Models\Rider::find($activeEvent->live_rider_id) : null; @endphp
+                <div class="flex" style="align-items:center;gap:10px;padding:10px;background:var(--bg-2);border-radius:3px;">
+                    <span style="font-size:13px;">→</span>
+                    <span class="label" style="font-size:13px;">{{ $nextR?->name ?? '—' }}</span>
+                    <span class="mono dim" style="font-size:10px;margin-left:auto;">NEXT UP · RUN {{ $activeEvent->live_run_number }}</span>
+                </div>
+            @endif
+
+        @elseif($activeEvent->live_phase === 'RUNNING' && $activeEvent->live_jam)
+            <div class="flex" style="align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:var(--bg-2);border-radius:3px;">
+                <span class="live-dot"></span>
+                <span class="label" style="font-size:13px;">JAMMING HEAT · {{ $jamHeatRegs->count() }} rider</span>
+                <span class="mono" style="font-size:10px;margin-left:auto;color:var(--lime);">{{ $activeEvent->live_duration }}s</span>
+            </div>
+            @include('livewire.partials.jam-heat-status', ['assignedJudges' => $assignedJudges ?? collect(), 'jamProgress' => $jamProgress ?? [], 'jamHeatRegs' => $jamHeatRegs, 'isHeadJudge' => $isHeadJudge])
+            <p class="mono dim" style="font-size:11px;">Menunggu Head Judge klik REVEAL SCORE.</p>
+
+        @elseif($activeEvent->live_phase === 'RUNNING')
+            @php $liveR = $activeEvent->live_rider_id ? \App\Models\Rider::find($activeEvent->live_rider_id) : null; @endphp
+            <div class="flex" style="align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:var(--bg-2);border-radius:3px;">
+                <span class="live-dot"></span>
+                <span class="label" style="font-size:13px;">{{ $liveR?->name ?? 'Rider' }}</span>
+                <span class="mono dim" style="font-size:10px;">RUN {{ $activeEvent->live_run_number }}</span>
+                <span class="mono" style="font-size:10px;margin-left:auto;color:var(--lime);">{{ ($isBestTrickPhase ?? false) ? '1 TRICK' : $activeEvent->run_duration . 's' }}</span>
+            </div>
+
+            @include('livewire.partials.judge-status-list', ['assignedJudges' => $assignedJudges ?? collect(), 'liveJudgeScores' => $liveJudgeScores ?? collect(), 'isHeadJudge' => $isHeadJudge])
+
+            <p class="mono dim" style="font-size:11px;">Menunggu Head Judge klik REVEAL SCORE.</p>
+
+        @elseif($activeEvent->live_phase === 'REVEALING')
+            <p class="mono" style="font-size:11px;margin-bottom:12px;color:var(--lime);">
+                Skor sedang ditampilkan di layar publik.
+            </p>
+
+            @include('livewire.partials.judge-status-list', ['assignedJudges' => $assignedJudges ?? collect(), 'liveJudgeScores' => $liveJudgeScores ?? collect(), 'isHeadJudge' => $isHeadJudge])
+
+            <button wire:click="endSession" class="btn btn-ghost" style="width:100%;justify-content:center;">
+                ← KEMBALI KE LEADERBOARD
+            </button>
+        @endif
+    </div>
+    @endif
 
     {{-- Operator setup panel — muncul setelah filter divisi/group di atas --}}
     @if($isOperator && $scoringMode === 'live' && (!$activeEvent?->live_phase || $activeEvent?->live_phase === 'NEXT'))
