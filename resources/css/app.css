@@ -491,6 +491,13 @@ select.input-field option {
     padding: 20px 22px;
     min-width: 520px;
 }
+/* Leaderboard publik /live diperbesar untuk layar proyektor (hanya layar lebar; mobile tetap kompak). */
+@media (min-width: 900px) {
+    .score-scroll.lsc-big .score-header,
+    .score-scroll.lsc-big .score-row { grid-template-columns: 90px 1fr 150px 150px 200px; }
+    .score-scroll.lsc-big .score-row { padding: 26px 30px; }
+    .score-scroll.lsc-big .score-header { padding: 18px 30px; }
+}
 /* Live (public) leaderboard: wide = RUN 1 + RUN 2, narrow = a single "latest run" column. */
 .lsc-latest { display: none; }
 @media (max-width: 580px) {

@@ -1,11 +1,11 @@
 {{-- Form nilai Jamming Season: semua rider di heat dinilai bersamaan.
-     Expects $jamHeatRegs, $jamSubmitted, $eventCriteria, $jamScores, $jamDivision, $isRunning --}}
+     Expects $jamHeatRegs, $jamSubmitted, $jamAllScores, $eventCriteria, $jamScores, $jamDivision, $isRunning, $isHeadJudge --}}
 @php $criteria = $eventCriteria ?? collect(); @endphp
 <div class="col" style="gap:14px;">
     <div class="panel" style="padding:16px 20px;border:2px solid {{ $isRunning ? 'var(--red)' : 'var(--line)' }};">
         <div class="between">
             <span class="kicker">JAMMING SEASON · {{ strtoupper($jamDivision->name) }} · {{ $jamDivision->live_stage === 'FINAL' ? 'FINAL' : 'KUALIFIKASI' }}</span>
-            <span class="mono" style="font-size:11px;color:var(--lime);">{{ $jamHeatRegs->count() }} RIDER · {{ $jamDivision->jam_duration }}s</span>
+            <span class="mono" style="font-size:11px;color:var(--lime);">RUN {{ $activeEvent?->live_run_number ?: $liveRunNumber }} · {{ $jamHeatRegs->count() }} RIDER · {{ $jamDivision->jam_duration }}s</span>
         </div>
         @if(!$isRunning)
             <p class="mono dim" style="font-size:11px;margin-top:8px;">Heat belum dimulai. Form nilai tiap rider muncul saat Head Judge menekan START HEAT.</p>
@@ -47,10 +47,31 @@
                         </div>
                     @endforeach
                     @if($done)
+                        {{-- Terkunci seperti live score biasa; revisi lewat tombol Edit Head Judge. --}}
                         <span class="badge badge-lime">✓ SUBMITTED</span>
-                        <button wire:click="submitJamScore({{ $reg->id }})" class="btn btn-sm btn-ghost" style="margin-left:6px;font-size:10px;">Update</button>
                     @else
                         <button wire:click="submitJamScore({{ $reg->id }})" class="btn btn-lime btn-sm" @if($criteria->isEmpty()) disabled @endif>Submit Score</button>
+                    @endif
+
+                    {{-- Nilai judge lain yang sudah submit untuk rider ini --}}
+                    @php $riderScores = ($jamAllScores ?? [])[$reg->id] ?? collect(); @endphp
+                    @if($riderScores->isNotEmpty())
+                        <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);">
+                            <span class="mono dim" style="font-size:9px;letter-spacing:0.12em;">NILAI JUDGE</span>
+                            @foreach($riderScores as $js)
+                                <div class="between" style="padding:3px 0;">
+                                    <span class="mono" style="font-size:11px;">{{ $js->judge?->name ?? '—' }}</span>
+                                    <span class="flex gap-s" style="align-items:center;">
+                                        <span class="mono tnum" style="font-size:12px;color:var(--lime);">{{ number_format($js->total, 1) }}</span>
+                                        @if(($isHeadJudge ?? false))
+                                            <button wire:click="reopenJudgeScore({{ $js->id }})"
+                                                wire:confirm="Buka ulang skor {{ $js->judge?->name ?? 'judge ini' }} untuk direvisi?"
+                                                class="btn btn-sm btn-ghost" style="font-size:9px;padding:2px 8px;">✎ Edit</button>
+                                        @endif
+                                    </span>
+                                </div>
+                            @endforeach
+                        </div>
                     @endif
                 </div>
             @endforeach

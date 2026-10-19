@@ -344,7 +344,7 @@
         @if($isOperator)
             {{-- Operator tidak menilai — panel setup di atas (setelah filter divisi/group) sudah cukup --}}
         @elseif(($jamDivision ?? null) && ($isHeadJudge || $isRunning))
-            @include('livewire.partials.jam-scoring', ['isRunning' => $isRunning && ($activeEvent?->live_jam ?? false)])
+            @include('livewire.partials.jam-scoring', ['isRunning' => $isRunning && ($activeEvent?->live_jam ?? false), 'jamAllScores' => $jamAllScores ?? [], 'isHeadJudge' => $isHeadJudge])
         @elseif(!$isHeadJudge && !$isRunning)
             {{-- Judge biasa: standby state --}}
             <div class="panel center col" style="padding:48px;gap:14px;text-align:center;">
@@ -548,6 +548,13 @@
                 @endif
 
                 @if($jamDivision ?? null)
+                    <div style="margin-bottom:10px;">
+                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">RUN NUMBER</span>
+                        <select wire:model.live="liveRunNumber" class="input-field" style="max-width:140px;">
+                            <option value="1">Run 1</option>
+                            <option value="2">Run 2</option>
+                        </select>
+                    </div>
                     <button wire:click="startJamHeat" class="btn btn-lime" @if($jamHeatRegs->isEmpty()) disabled @endif
                         style="width:100%;justify-content:center;font-size:13px;letter-spacing:0.1em;">▶ START HEAT</button>
                     @error('judgeGroupId') <p class="mono" style="font-size:11px;color:var(--red);margin-top:6px;">{{ $message }}</p> @enderror
@@ -637,7 +644,33 @@
         </div>
         @endif
 
-        @if(!$isOperator && ($myPastScoresByDivision ?? collect())->isNotEmpty())
+        @if($isHeadJudge && ($headJudgeSummary ?? collect())->isNotEmpty())
+            {{-- Rangkuman nilai semua judge untuk divisi yang dipilih Operator --}}
+            <div class="panel" style="overflow:hidden;margin-top:16px;">
+                <div class="between" style="padding:14px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
+                    <span class="kicker">📋 RANGKUMAN NILAI JUDGE</span>
+                    <span class="mono dim" style="font-size:10px;">{{ $headJudgeSummary->count() }} ENTRI</span>
+                </div>
+                @foreach($headJudgeSummary as $row)
+                    <div style="padding:12px 18px;{{ !$loop->last ? 'border-bottom:1px solid var(--line);' : '' }}">
+                        <div class="between">
+                            <div class="col" style="gap:2px;">
+                                <span class="label" style="font-size:14px;">{{ $row['rider']?->name ?? '—' }}</span>
+                                <span class="mono dim" style="font-size:10px;letter-spacing:0.08em;">
+                                    {{ $row['mode'] === 'BEST_TRICK' ? 'BEST TRICK · PERCOBAAN ' . $row['run'] : 'RUN ' . $row['run'] . ' · ' . ($row['stage'] === 'FINAL' ? 'FINAL' : 'KUALIFIKASI') }}
+                                </span>
+                            </div>
+                            <span class="display tnum" style="font-size:22px;color:var(--lime);">{{ number_format($row['avg'], 1) }}</span>
+                        </div>
+                        <div class="flex gap-s" style="flex-wrap:wrap;margin-top:6px;">
+                            @foreach($row['judges'] as $j)
+                                <span class="badge badge-out" style="font-size:9px;">{{ $j['name'] }} · {{ number_format($j['total'], 1) }}</span>
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @elseif(!$isOperator && ($myPastScoresByDivision ?? collect())->isNotEmpty())
             {{-- Riwayat nilai yang sudah diberikan judge ini sendiri (Live + Best Trick), per divisi --}}
             @foreach($myPastScoresByDivision as $divName => $rows)
                 <div class="panel" style="overflow:hidden;margin-top:16px;">
