@@ -58,8 +58,8 @@ $current = Route::currentRouteName();
                     {{-- Dashboard link sesuai role --}}
                     @if(auth()->user()->isRider())
                         <a href="{{ route('rider.dashboard') }}" class="btn btn-lime btn-sm nav-reg">DASHBOARD</a>
-                    @elseif(auth()->user()->isAdmin())
-                        <a href="{{ route('admin') }}" class="btn btn-lime btn-sm nav-reg">ADMIN</a>
+                    @elseif(auth()->user()->isAdmin() || auth()->user()->isRegistrar())
+                        <a href="{{ route('admin') }}" class="btn btn-lime btn-sm nav-reg">{{ auth()->user()->isRegistrar() ? 'REGISTRASI' : 'ADMIN' }}</a>
                     @elseif(auth()->user()->isJudge() || auth()->user()->isOperator())
                         <a href="{{ route('judge') }}" class="btn btn-lime btn-sm nav-reg">{{ auth()->user()->isOperator() ? 'OPERATOR' : 'JUDGE' }}</a>
                     @endif
@@ -95,7 +95,7 @@ $current = Route::currentRouteName();
         @auth
             @if(auth()->user()->isRider())
                 <a href="{{ route('rider.dashboard') }}" class="display" style="display:block;font-size:28px;padding:10px 0;border-bottom:1px solid var(--line);">Dashboard</a>
-            @elseif(auth()->user()->isAdmin())
+            @elseif(auth()->user()->isAdmin() || auth()->user()->isRegistrar())
                 <a href="{{ route('admin') }}" class="display" style="display:block;font-size:28px;padding:10px 0;border-bottom:1px solid var(--line);">Admin</a>
             @elseif(auth()->user()->isJudge() || auth()->user()->isOperator())
                 <a href="{{ route('judge') }}" class="display" style="display:block;font-size:28px;padding:10px 0;border-bottom:1px solid var(--line);">{{ auth()->user()->isOperator() ? 'Operator Panel' : 'Judge Panel' }}</a>

@@ -203,6 +203,8 @@ class Dashboard extends Component
     // User CRUD
     public bool   $userEditing  = false;
     public int    $userId       = 0;
+    /** @var array<int, int|string> Event yang di-assign ke user ber-role registrar */
+    public array  $userEventIds = [];
     public string $userName     = '';
     public string $userUsername = '';
     public string $userEmail    = '';
@@ -217,6 +219,50 @@ class Dashboard extends Component
     public string $quickAddPhone      = '';
     public string $quickAddDob        = '';
     public int    $quickAddDivisionId = 0;
+
+    // ─── Registrar (panitia registrasi) ──────────────────────────────────────
+
+    /** Menu yang boleh dibuka Registrar. */
+    private const REGISTRAR_VIEWS = ['overview', 'registrations', 'payments', 'riders_all'];
+
+    /** Aksi Livewire yang boleh dipanggil Registrar — semua aksi lain ditolak (403). */
+    private const REGISTRAR_ACTIONS = [
+        'approveRegistration', 'rejectRegistration', 'pendingRegistration', 'openEditRegistration',
+        'saveRegistration', 'approveAllRegistrations', 'deleteAllRegistrations', 'deleteRegistration',
+        'moveRegistrationDivision', 'openImport', 'closeImport', 'confirmImport',
+        'verifyPayment', 'verifyAllPayments', 'rejectPayment', 'deletePayment', 'openEditPayment', 'savePayment',
+        'openQuickAdd', 'cancelQuickAdd', 'quickAddToEvent',
+    ];
+
+    private function isRegistrarUser(): bool
+    {
+        return (bool) auth()->user()?->isRegistrar();
+    }
+
+    /**
+     * Registrar hanya melihat event yang di-assign Admin: dibatasi lewat global scope
+     * pada Event & Registration (berlaku untuk semua query di request ini, termasuk
+     * findOrFail($id) — id dari event/registrasi lain jadi 404), dan hanya aksi di
+     * REGISTRAR_ACTIONS yang boleh dipanggil dari browser.
+     */
+    public function boot(): void
+    {
+        if (!$this->isRegistrarUser()) {
+            return;
+        }
+
+        $eventIds = auth()->user()->registrarEvents()->pluck('events.id')->all();
+        Event::addGlobalScope('registrar', fn ($q) => $q->whereIn('events.id', $eventIds));
+        Registration::addGlobalScope('registrar', fn ($q) => $q->whereIn('registrations.event_id', $eventIds));
+
+        \Livewire\on('call', function ($component, $method) {
+            if ($component !== $this) return;
+            if (str_starts_with($method, '$') || str_starts_with($method, '_')) return;
+            if (!in_array($method, self::REGISTRAR_ACTIONS, true)) {
+                abort(403, 'Akses ditolak untuk role Registrar.');
+            }
+        });
+    }
 
     // ─── Boot ────────────────────────────────────────────────────────────────
 
@@ -774,6 +820,7 @@ class Dashboard extends Component
         $this->userEmail    = '';
         $this->userRole     = 'rider';
         $this->userPassword = '';
+        $this->userEventIds = [];
     }
 
     public function userEdit(int $id): void
@@ -786,6 +833,9 @@ class Dashboard extends Component
         $this->userEmail    = $user->email;
         $this->userRole     = $user->role;
         $this->userPassword = '';
+        $this->userEventIds = $user->isRegistrar()
+            ? $user->registrarEvents()->pluck('events.id')->map(fn ($id) => (string) $id)->all()
+            : [];
     }
 
     public function userSave(): void
@@ -794,7 +844,7 @@ class Dashboard extends Component
             'userName'     => 'required|string|max:100',
             'userUsername' => 'required|string|max:30|alpha_dash|unique:users,username' . ($this->userId ? ",{$this->userId}" : ''),
             'userEmail'    => 'required|email|unique:users,email' . ($this->userId ? ",{$this->userId}" : ''),
-            'userRole'     => 'required|in:admin,head_judge,judge,rider',
+            'userRole'     => 'required|in:admin,head_judge,judge,rider,registrar',
         ];
         if (!$this->userId) {
             $rules['userPassword'] = 'required|min:8';
@@ -824,10 +874,16 @@ class Dashboard extends Component
         }
 
         if ($this->userId) {
-            User::findOrFail($this->userId)->update($payload);
+            $user = User::findOrFail($this->userId);
+            $user->update($payload);
         } else {
-            User::create($payload);
+            $user = User::create($payload);
         }
+
+        // Event yang boleh dilihat Registrar — hanya Admin yang bisa mengubahnya.
+        $user->registrarEvents()->sync(
+            $user->isRegistrar() ? Event::whereIn('id', $this->userEventIds)->pluck('id')->all() : []
+        );
 
         $this->userEditing  = false;
         $this->userId       = 0;
@@ -900,6 +956,13 @@ class Dashboard extends Component
     public function saveRegistration(): void
     {
         $reg = Registration::findOrFail($this->regEditId);
+
+        if ($this->regEditDivisionId && (int) $this->regEditDivisionId !== (int) $reg->division_id
+            && ($dup = $this->registrationInDivision($reg, (int) $this->regEditDivisionId))) {
+            $this->addError('registration_' . $reg->id, $this->divisionDuplicateMessage($reg, $dup));
+            return;
+        }
+
         $reg->update([
             'name'  => $this->regEditName,
             'email' => $this->regEditEmail,
@@ -1044,7 +1107,43 @@ class Dashboard extends Component
             return;
         }
 
+        if ($dup = $this->registrationInDivision($reg, $divisionId)) {
+            $this->addError('registration_' . $reg->id, $this->divisionDuplicateMessage($reg, $dup));
+            return;
+        }
+
         $this->applyRegistrationDivision($reg, $divisionId);
+    }
+
+    /**
+     * Registrasi lain di event & divisi tujuan yang orangnya sama dengan $reg
+     * (akun sama, email sama, atau nama sama) — dipakai untuk mencegah rider
+     * ganda saat memindahkan divisi.
+     */
+    private function registrationInDivision(Registration $reg, int $divisionId): ?Registration
+    {
+        $email = trim((string) $reg->email);
+
+        return Registration::where('event_id', $reg->event_id)
+            ->where('division_id', $divisionId)
+            ->where('id', '!=', $reg->id)
+            ->where(function ($q) use ($reg, $email) {
+                $q->whereRaw('LOWER(name) = ?', [mb_strtolower(trim($reg->name))]);
+                if ($reg->user_id) {
+                    $q->orWhere('user_id', $reg->user_id);
+                }
+                if ($email !== '') {
+                    $q->orWhereRaw('LOWER(email) = ?', [mb_strtolower($email)]);
+                }
+            })
+            ->first();
+    }
+
+    private function divisionDuplicateMessage(Registration $reg, Registration $dup): string
+    {
+        $divName = EventDivision::whereKey($dup->division_id)->value('name') ?? 'divisi itu';
+
+        return "{$reg->name} sudah terdaftar di {$divName} (status {$dup->status}). Tidak dipindahkan agar tidak ganda.";
     }
 
     /**
@@ -1060,6 +1159,11 @@ class Dashboard extends Component
         }
 
         $new = $newDivisionId ? EventDivision::find($newDivisionId) : null;
+
+        // Divisi harus milik event registrasi ini.
+        if ($new && $new->event_id !== $reg->event_id) {
+            return;
+        }
 
         $reg->update([
             'division_id'          => $new?->id,
@@ -1098,7 +1202,7 @@ class Dashboard extends Component
         $this->quickAddUserId     = $userId;
         $this->quickAddCity       = $previous->city ?? '';
         $this->quickAddPhone      = $previous->phone ?? '';
-        $this->quickAddDob        = $previous->dob?->format('Y-m-d') ?? '';
+        $this->quickAddDob        = $previous?->dob?->format('Y-m-d') ?? '';
         $this->quickAddDivisionId = 0;
         $this->resetErrorBag();
     }
@@ -1112,6 +1216,17 @@ class Dashboard extends Component
     {
         if (!$this->activeEventId) {
             $this->addError('quickAdd', 'Pilih event aktif dulu (di sidebar) sebelum menambahkan rider.');
+            return;
+        }
+
+        // Event harus ada (dan, untuk Registrar, termasuk event yang di-assign) dan divisi harus milik event itu.
+        $event = Event::find($this->activeEventId);
+        if (!$event) {
+            $this->addError('quickAdd', 'Event tidak valid.');
+            return;
+        }
+        if ($this->quickAddDivisionId && !EventDivision::where('id', $this->quickAddDivisionId)->where('event_id', $event->id)->exists()) {
+            $this->addError('quickAdd', 'Divisi tidak valid untuk event ini.');
             return;
         }
 
@@ -2073,6 +2188,10 @@ class Dashboard extends Component
 
     public function render()
     {
+        if ($this->isRegistrarUser() && !in_array($this->view, self::REGISTRAR_VIEWS, true)) {
+            $this->view = 'overview';
+        }
+
         $eid    = $this->activeEventId ?: null;
         $events = Event::with('divisions')->orderBy('date')->get();
 

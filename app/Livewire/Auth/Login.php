@@ -31,6 +31,7 @@ class Login extends Component
 
         $redirect = match (auth()->user()->role) {
             'admin'      => route('admin'),
+            'registrar'  => route('admin'),
             'judge'      => route('judge'),
             'head_judge' => route('judge'),
             'operator'   => route('judge'),

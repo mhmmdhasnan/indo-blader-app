@@ -180,7 +180,7 @@
                     @endif
 
                     {{-- NEXT --}}
-                    <div x-show="phase === 'NEXT' && !(isBestTrick && {{ (($isBestTrickPhase ?? false) && ($scores ?? collect())->isNotEmpty()) ? 'true' : 'false' }})" style="display:none;text-align:center;">
+                    <div x-show="phase === 'NEXT' && !isBestTrick" style="display:none;text-align:center;">
                         <p class="kicker" style="margin-bottom:8px;font-size:11px;" x-text="(isBestTrick ? 'PERCOBAAN ' : 'RUN ') + (runNumber || '—')"></p>
                         <p class="mono dim" style="font-size:12px;letter-spacing:0.14em;" x-text="divisionLabel"></p>
                         <template x-if="bestScore">
@@ -320,12 +320,11 @@
                         // Best Trick: begitu REVEAL, layar publik langsung leaderboard penuh
                         // (tanpa kartu skor). Saat NEXT/RUNNING leaderboard ada di
                         // kolom kanan kartu rider.
-                        // Overlay (livePhaseOverlay) yang memutuskan kapan disembunyikan lewat event 'lsc-bt'.
+                        // Overlay (livePhaseOverlay) menyembunyikan kartu sendiri lewat getter btHide.
                         $btLeaderboard = ($isBestTrickPhase ?? false) && $displayPhase === 'REVEALING';
                     @endphp
                     @if(!$displayPhase || $btLeaderboard)
-                    <div class="col" style="gap:20px;"
-                         @if($btLeaderboard) x-data="{ show: true }" x-on:lsc-bt.window="show = $event.detail" x-show="show" x-cloak @endif>
+                    <div class="col" style="gap:20px;">
 
                     {{-- Fixed-height freeform zone — selalu dapat ruang di atas
                          leaderboard/"ADVANCING TO FINAL" biar Operator punya tempat naruh
@@ -665,20 +664,7 @@ function livePhaseOverlay() {
             return this.isBestTrick && this.phase === 'REVEALING';
         },
 
-        _syncBt() {
-            this._emitBt();
-        },
-
-        _emitBt() {
-            window.dispatchEvent(new CustomEvent('lsc-bt', { detail: this.btHide }));
-        },
-
         readData() {
-            this._readData();
-            this._syncBt();
-        },
-
-        _readData() {
             const el = document.getElementById('live-data');
             if (!el) return;
             const serverPhase = el.dataset.phase || '';

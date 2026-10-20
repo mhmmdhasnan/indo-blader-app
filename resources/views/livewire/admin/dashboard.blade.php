@@ -5,7 +5,7 @@
     <aside class="admin-side" :class="{ 'is-open': sidebarOpen }" style="border-right:2px solid var(--ink);background:var(--bg-2);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;">
         <div style="padding:20px 18px;border-bottom:2px solid var(--ink);">
             <x-logo :size="9" />
-            <span class="badge badge-lime" style="margin-top:12px;font-size:9px;">ADMIN CONSOLE</span>
+            <span class="badge badge-lime" style="margin-top:12px;font-size:9px;">{{ auth()->user()->isRegistrar() ? 'REGISTRAR CONSOLE' : 'ADMIN CONSOLE' }}</span>
         </div>
 
         {{-- ── GLOBAL EVENT SELECTOR ── --}}
@@ -61,6 +61,18 @@
                     ['users',         '👤', 'Users'],
                 ],
             ];
+            // Registrar hanya melihat Overview, Registrations, Payments, dan Semua Rider.
+            $isRegistrar = auth()->user()->isRegistrar();
+            if ($isRegistrar) {
+                $navGroups = [
+                    'MAIN' => [['overview', '◧', 'Overview']],
+                    'PENDAFTARAN' => [
+                        ['registrations', '✓', 'Registrations'],
+                        ['payments',      '₨', 'Payments'],
+                        ['riders_all',    '👤', 'Semua Rider'],
+                    ],
+                ];
+            }
             @endphp
 
             @foreach($navGroups as $groupLabel => $items)
@@ -328,7 +340,7 @@
                                             <button wire:click="pendingRegistration({{ $reg->id }})" class="mono dim" style="font-size:11px;text-decoration:underline;">undo</button>
                                         @endif
                                         <select x-data
-                                            @change="if (confirm('Pindahkan {{ addslashes($reg->name) }} ke divisi ' + $el.options[$el.selectedIndex].text + '?{{ in_array($reg->id, $scoredRegIds ?? [], true) ? ' ⚠ RIDER INI SUDAH PUNYA NILAI di divisi lama — nilainya TIDAK ikut pindah dan tetap tercatat di divisi lama.' : '' }} Group/heat di divisi lama dilepas.')) { $wire.moveRegistrationDivision({{ $reg->id }}, parseInt($el.value)) } else { $el.value = '' }"
+                                            @change="if (confirm('Pindahkan {{ addslashes($reg->name) }} ke divisi ' + $el.options[$el.selectedIndex].text + '?{{ in_array($reg->id, $scoredRegIds ?? [], true) ? ' ⚠ RIDER INI SUDAH PUNYA NILAI di divisi lama — nilainya TIDAK ikut pindah dan tetap tercatat di divisi lama.' : '' }} Group/heat di divisi lama dilepas.')) { $wire.moveRegistrationDivision({{ $reg->id }}, parseInt($el.value)).then(() => { $el.value = '' }) } else { $el.value = '' }"
                                             class="input-field" style="font-size:10px;padding:4px 6px;max-width:120px;{{ in_array($reg->id, $scoredRegIds ?? [], true) ? 'border-color:var(--red);' : '' }}" title="Pindah ke divisi lain">
                                             <option value="">Pindah divisi…</option>
                                             @foreach(($reg->event?->divisions ?? collect())->where('id', '!=', $reg->division_id) as $div)
@@ -1950,14 +1962,31 @@
                                 <div class="col" style="gap:14px;">
                                     <div>
                                         <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">ROLE</span>
-                                        <select wire:model="userRole" class="input-field" style="width:100%;">
+                                        <select wire:model.live="userRole" class="input-field" style="width:100%;">
                                             <option value="rider">Rider</option>
                                             <option value="judge">Judge</option>
                                             <option value="head_judge">Head Judge</option>
+                                            <option value="registrar">Registrar (Panitia Registrasi)</option>
                                             <option value="admin">Admin</option>
                                         </select>
                                         @error('userRole') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
                                     </div>
+                                    @if($userRole === 'registrar')
+                                        <div>
+                                            <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">EVENT YANG BOLEH DIKELOLA</span>
+                                            <div class="col" style="gap:6px;max-height:160px;overflow-y:auto;padding:10px;border:2px solid var(--line);border-radius:3px;">
+                                                @forelse($events as $ev)
+                                                    <label class="flex" style="align-items:center;gap:8px;font-size:12px;cursor:pointer;">
+                                                        <input type="checkbox" wire:model="userEventIds" value="{{ $ev->id }}">
+                                                        {{ $ev->title }}
+                                                    </label>
+                                                @empty
+                                                    <span class="mono dim" style="font-size:11px;">Belum ada event.</span>
+                                                @endforelse
+                                            </div>
+                                            <p class="mono dim" style="font-size:10px;margin-top:4px;">Registrar hanya melihat Overview, Registrations, Payments, dan Semua Rider untuk event yang dicentang.</p>
+                                        </div>
+                                    @endif
                                     <div>
                                         <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">
                                             PASSWORD {{ $userId ? '(kosongkan jika tidak diubah)' : '' }}
@@ -1989,7 +2018,7 @@
 
                     {{-- User table (admin / head judge / judge — rider punya tabel sendiri di bawah) --}}
                     @php
-                        $staffUsers = $users->whereIn('role', ['admin', 'head_judge', 'judge'])->values();
+                        $staffUsers = $users->whereIn('role', ['admin', 'registrar', 'head_judge', 'judge'])->values();
                         $riderUsers = $users->where('role', 'rider')->values();
                     @endphp
                     @if(isset($users) && $users->count())
@@ -2022,6 +2051,7 @@
                                         match($u->role) {
                                             'admin'      => 'lime',
                                             'head_judge' => 'red',
+                                            'registrar'  => 'lime',
                                             'judge'      => 'out',
                                             default      => 'solid',
                                         }
