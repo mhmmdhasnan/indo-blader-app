@@ -107,7 +107,13 @@
             </div>
         @endif
 
-        @if($tab === 'SCHEDULE')
+        @if($tab === 'SCHEDULE' && empty($schedule))
+            <div class="panel center col" style="padding:40px;gap:8px;text-align:center;max-width:620px;">
+                <span class="kicker">SCHEDULE</span>
+                <span class="display" style="font-size:clamp(28px,5vw,40px);color:var(--ink-dim);">TBA</span>
+                <p class="dim" style="font-size:13px;">Jadwal akan diumumkan lebih lanjut oleh penyelenggara.</p>
+            </div>
+        @elseif($tab === 'SCHEDULE')
             <div class="col" style="gap:30px;">
                 @foreach($schedule as $day)
                     <div>
@@ -141,11 +147,6 @@
                         <x-cat-badge :cat="$cat" />
                         <h3 class="display" style="font-size:30px;margin:14px 0 8px;">{{ ucfirst(strtolower($cat)) === 'Flat' ? 'Flatland' : ucfirst(strtolower($cat)) }}</h3>
                         <p class="dim" style="font-size:14px;line-height:1.5;">{{ $info[$cat] ?? '' }}</p>
-                        <div class="flex" style="gap:16px;margin-top:16px;border-top:1px solid var(--line);padding-top:14px;">
-                            @foreach([['2','RUNS'],['60s','PER RUN'],['4','JUDGES']] as [$v,$l])
-                                <div class="col"><span class="display tnum" style="font-size:22px;">{{ $v }}</span><span class="mono dim" style="font-size:9px;">{{ $l }}</span></div>
-                            @endforeach
-                        </div>
                         @if(($divisionsByCategory[$cat] ?? collect())->isNotEmpty())
                             <div class="col" style="gap:8px;margin-top:16px;border-top:1px solid var(--line);padding-top:14px;">
                                 <span class="mono dim" style="font-size:9px;letter-spacing:0.12em;">DIVISIONS</span>
@@ -167,7 +168,13 @@
             </div>
         @endif
 
-        @if($tab === 'RULES')
+        @if($tab === 'RULES' && empty($rules))
+            <div class="panel center col" style="padding:40px;gap:8px;text-align:center;max-width:620px;">
+                <span class="kicker">RULES</span>
+                <span class="display" style="font-size:clamp(28px,5vw,40px);color:var(--ink-dim);">TBA</span>
+                <p class="dim" style="font-size:13px;">Peraturan akan diumumkan lebih lanjut oleh penyelenggara.</p>
+            </div>
+        @elseif($tab === 'RULES')
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" class="prof-grid">
                 @foreach($rules as $i => $rule)
                     <div class="flex" style="gap:16px;padding:18px 20px;border:2px solid var(--ink);border-radius:3px;align-items:flex-start;">

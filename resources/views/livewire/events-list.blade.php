@@ -49,10 +49,12 @@
                             <p class="dim" style="font-size:14px;line-height:1.5;max-width:480px;">{{ $ev->blurb }}</p>
                         </div>
                         <div class="event-card-right">
+                            @unless($ev->prize_hidden)
                             <div class="col" style="align-items:flex-end;gap:4px;">
                                 <span class="display tnum text-glow-lime" style="font-size:28px;color:var(--lime);">{{ $ev->prize_formatted }}</span>
                                 <span class="mono dim" style="font-size:9px;letter-spacing:0.16em;">PRIZE POOL</span>
                             </div>
+                            @endunless
                             <div style="width:100%;">
                                 <div class="between" style="margin-bottom:6px;">
                                     <span class="mono" style="font-size:10px;color:var(--ink-dim);">SLOTS</span>
