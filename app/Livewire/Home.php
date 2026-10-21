@@ -10,7 +10,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
-#[Title('FRAMEBLADESCORE — Aggressive Inline Indonesia')]
+#[Title('FRAMEBLADESCORE')]
 class Home extends Component
 {
     public function render()
