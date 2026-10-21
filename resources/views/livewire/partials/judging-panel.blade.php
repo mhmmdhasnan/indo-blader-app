@@ -362,7 +362,7 @@
                 {{-- Rider yang sudah disiapkan Operator (read-only untuk judge/head judge) --}}
                 @php
                     $lockedRider = $liveRiderId ? $judgeRiders->find($liveRiderId) : null;
-                    $lockedInitials = $lockedRider ? collect(explode(' ', $lockedRider->name))->map(fn($w) => strtoupper($w[0]))->take(2)->join('') : '?';
+                    $lockedInitials = $lockedRider ? collect(preg_split('/\s+/', trim($lockedRider->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->join('') : '?';
                 @endphp
                 <div class="flex" style="align-items:center;gap:12px;margin-bottom:20px;padding:12px;background:{{ $isRunning ? 'color-mix(in srgb,var(--red) 8%,transparent)' : 'var(--bg-2)' }};border:1px solid {{ $isRunning ? 'var(--red)' : 'var(--line)' }};border-radius:3px;">
                     <x-avatar :initials="$lockedInitials" :size="44" :ring="true" />

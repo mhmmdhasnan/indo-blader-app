@@ -135,7 +135,7 @@
             <div class="flex" style="align-items:center;gap:14px;">
                 <span class="badge badge-out"><span class="live-dot"></span>SYSTEM LIVE</span>
                 <div class="flex adm-head-user" style="align-items:center;gap:10px;">
-                    <x-avatar :initials="collect(explode(' ', auth()->user()->name))->map(fn($w)=>strtoupper($w[0]))->take(2)->implode('')" :size="36" />
+                    <x-avatar :initials="collect(preg_split('/\s+/', trim(auth()->user()->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')" :size="36" />
                     <div class="col">
                         <span class="label" style="font-size:13px;white-space:nowrap;">{{ auth()->user()->name }}</span>
                         <span class="mono dim" style="font-size:10px;">{{ strtoupper(auth()->user()->role) }}</span>
@@ -312,7 +312,7 @@
                                 {{-- Main row --}}
                                 <div class="adm-tbl-row" style="display:grid;grid-template-columns:1.6fr 1.2fr 1fr 100px 1fr;align-items:center;padding:12px 18px;">
                                     <div class="flex" style="align-items:center;gap:11px;min-width:0;">
-                                        <x-avatar :initials="collect(explode(' ',$reg->name))->map(fn($w)=>$w[0])->take(2)->implode('')" :src="$reg->photo_url" :size="32" />
+                                        <x-avatar :initials="collect(preg_split('/\s+/', trim($reg->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')" :src="$reg->photo_url" :size="32" />
                                         <div class="col">
                                             <span class="label" style="font-size:13px;">{{ $reg->name }}</span>
                                             <span class="mono dim" style="font-size:9px;">{{ strtoupper($reg->city) }} · {{ $reg->email }}</span>
@@ -368,7 +368,7 @@
                                                 @elseif($regEditAvatarUrl)
                                                     <img src="{{ $regEditAvatarUrl }}" style="width:48px;height:48px;object-fit:cover;border-radius:50%;border:2px solid var(--line);">
                                                 @else
-                                                    <x-avatar :initials="collect(explode(' ',$reg->name))->map(fn($w)=>$w[0])->take(2)->implode('')" :src="$reg->photo_url" :size="48" />
+                                                    <x-avatar :initials="collect(preg_split('/\s+/', trim($reg->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')" :src="$reg->photo_url" :size="48" />
                                                 @endif
                                                 <input type="file" wire:model="regEditPhoto" accept="image/*" class="input-field" style="font-size:11px;max-width:220px;">
                                             </div>
@@ -441,7 +441,7 @@
                         @foreach($divRegs as $reg)
                         <div class="adm-tbl-row adm-minw" style="display:grid;grid-template-columns:1.4fr 110px 120px 120px 1fr;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);min-width:700px;">
                             <div class="flex" style="align-items:center;gap:11px;">
-                                <x-avatar :initials="collect(explode(' ',$reg->name))->map(fn($w)=>$w[0])->take(2)->implode('')" :src="$reg->photo_url" :size="32" />
+                                <x-avatar :initials="collect(preg_split('/\s+/', trim($reg->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')" :src="$reg->photo_url" :size="32" />
                                 <span class="label" style="font-size:13px;">{{ $reg->name }}</span>
                             </div>
                             <span class="mono tnum" style="font-size:13px;">{{ ($reg->event?->entry_fee ?? 0) > 0 ? 'Rp ' . number_format($reg->event->entry_fee, 0, ',', '.') : 'Gratis' }}</span>
@@ -567,7 +567,7 @@
                                 <div style="border-bottom:1px solid var(--line);min-width:800px;">
                                     <div style="display:grid;grid-template-columns:1.6fr 1fr 1.2fr 1fr 140px;align-items:center;padding:12px 18px;">
                                         <div class="flex" style="align-items:center;gap:11px;min-width:0;">
-                                            <x-avatar :initials="collect(explode(' ',$u->name))->map(fn($w)=>strtoupper($w[0]))->take(2)->implode('')" :size="32" />
+                                            <x-avatar :initials="collect(preg_split('/\s+/', trim($u->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')" :size="32" />
                                             <span class="label" style="font-size:13px;">{{ $u->name }}</span>
                                         </div>
                                         <span class="mono dim" style="font-size:12px;">{{ '@' . $u->username }}</span>
@@ -2035,7 +2035,7 @@
                                 <div style="display:grid;grid-template-columns:1.8fr 1.3fr 2fr 130px 100px 120px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);min-width:760px;">
                                     <div class="flex" style="align-items:center;gap:10px;">
                                         <x-avatar
-                                            :initials="collect(explode(' ', $u->name))->map(fn($w)=>strtoupper($w[0]))->take(2)->implode('')"
+                                            :initials="collect(preg_split('/\s+/', trim($u->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')"
                                             :size="32"
                                         />
                                         <div class="col" style="gap:2px;">
@@ -2094,7 +2094,7 @@
                                         <div style="display:grid;grid-template-columns:1.8fr 1.3fr 2fr 100px 120px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);min-width:680px;">
                                             <div class="flex" style="align-items:center;gap:10px;">
                                                 <x-avatar
-                                                    :initials="collect(explode(' ', $u->name))->map(fn($w)=>strtoupper($w[0]))->take(2)->implode('')"
+                                                    :initials="collect(preg_split('/\s+/', trim($u->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')"
                                                     :size="32"
                                                 />
                                                 <span class="label" style="font-size:13px;">{{ $u->name }}</span>

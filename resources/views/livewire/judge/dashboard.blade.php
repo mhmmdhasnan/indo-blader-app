@@ -119,7 +119,7 @@
             <div class="flex" style="align-items:center;gap:14px;">
                 <span class="badge badge-out"><span class="live-dot"></span>SYSTEM LIVE</span>
                 <div class="flex adm-head-user" style="align-items:center;gap:10px;">
-                    <x-avatar :initials="collect(explode(' ', auth()->user()->name))->map(fn($w)=>strtoupper($w[0]))->take(2)->implode('')" :size="36" />
+                    <x-avatar :initials="collect(preg_split('/\s+/', trim(auth()->user()->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')" :size="36" />
                     <div class="col">
                         <span class="label" style="font-size:13px;white-space:nowrap;">{{ auth()->user()->name }}</span>
                         <span class="mono dim" style="font-size:10px;">{{ auth()->user()->role === 'head_judge' ? 'HEAD JUDGE' : 'JUDGE' }}</span>

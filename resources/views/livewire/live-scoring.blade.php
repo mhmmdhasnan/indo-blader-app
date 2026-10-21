@@ -8,7 +8,7 @@
          data-score="{{ $revealScore ? number_format($revealScore, 1) : '' }}"
          data-accumulated="{{ ($revealAccumulatedTotal ?? null) !== null ? number_format($revealAccumulatedTotal, 1) : '' }}"
          data-rider="{{ $liveRider?->name ?? '' }}"
-         data-initials="{{ $liveRider ? collect(explode(' ', $liveRider->name))->map(fn($w) => strtoupper($w[0]))->take(2)->join('') : '' }}"
+         data-initials="{{ $liveRider ? collect(preg_split('/\s+/', trim($liveRider->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->join('') : '' }}"
          data-avatar="{{ $liveRider?->avatar ? asset('storage/' . $liveRider->avatar) : '' }}"
          data-event="{{ $event?->title ?? '' }}"
          data-run="{{ $event?->live_run_number ?? '' }}"

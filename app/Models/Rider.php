@@ -73,8 +73,8 @@ class Rider extends Model
 
     public function getInitialsAttribute(): string
     {
-        return collect(explode(' ', $this->name))
-            ->map(fn ($w) => strtoupper($w[0]))
+        return collect(preg_split('/\s+/', trim((string) $this->name), -1, PREG_SPLIT_NO_EMPTY))
+            ->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))
             ->take(2)
             ->implode('');
     }
