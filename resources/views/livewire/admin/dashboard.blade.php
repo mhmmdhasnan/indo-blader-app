@@ -211,7 +211,7 @@
             {{-- ── REGISTRATIONS ── --}}
             @if($view === 'registrations')
                 <div class="col" style="gap:16px;">
-                    <div class="flex gap-s" style="align-items:center;">
+                    <div class="flex gap-s" style="align-items:center;flex-wrap:wrap;">
                         <button wire:click="openImport" class="btn btn-sm btn-lime" @if(!$activeEventId) disabled title="Pilih event dulu" @endif>⬆ Import dari Excel</button>
                         <button wire:click="approveAllRegistrations"
                             wire:confirm="Approve semua registrasi PENDING yang payment-nya sudah VERIFIED?"
@@ -295,22 +295,22 @@
                             </div>
                         @endforeach
                     </div>
+                    @forelse($registrations->groupBy(fn ($r) => $r->division?->name ?? 'Tanpa Divisi')->sortKeys() as $divName => $divRegs)
                     <div class="panel" style="overflow:hidden;overflow-x:auto;">
-                        <div class="adm-tbl-head adm-minw" style="display:grid;grid-template-columns:1.6fr 1.2fr 1fr 100px 1fr;padding:12px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);min-width:800px;">
-                            @foreach(['RIDER','EVENT','DIVISI','STATUS','ACTION'] as $h)
+                        <div class="between" style="padding:11px 18px;background:var(--bg);border-bottom:2px solid var(--ink);gap:8px;flex-wrap:wrap;">
+                            <span class="mono" style="font-size:12px;letter-spacing:0.14em;color:{{ $divName === 'Tanpa Divisi' ? 'var(--red)' : 'var(--lime)' }};">{{ strtoupper($divName) }}</span>
+                            <span class="mono dim" style="font-size:10px;">{{ $divRegs->count() }} rider · {{ $divRegs->where('status','APPROVED')->count() }} approved</span>
+                        </div>
+                        <div class="adm-tbl-head adm-minw" style="display:grid;grid-template-columns:1.6fr 1.2fr 100px 1.4fr;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--bg-2);min-width:720px;">
+                            @foreach(['RIDER','EVENT','STATUS','ACTION'] as $h)
                                 <span class="mono dim" style="font-size:10px;letter-spacing:0.12em;">{{ $h }}</span>
                             @endforeach
                         </div>
-                        @forelse($registrations->groupBy(fn ($r) => $r->division?->name ?? 'Tanpa Divisi')->sortKeys() as $divName => $divRegs)
-                        <div class="between adm-minw" style="padding:9px 18px;background:var(--bg);border-bottom:1px solid var(--line);border-top:1px solid var(--line);min-width:800px;">
-                            <span class="mono" style="font-size:11px;letter-spacing:0.14em;color:var(--lime);">{{ strtoupper($divName) }}</span>
-                            <span class="mono dim" style="font-size:10px;">{{ $divRegs->count() }} rider · {{ $divRegs->where('status','APPROVED')->count() }} approved</span>
-                        </div>
                         @foreach($divRegs as $reg)
                             @php $isEditingReg = $regEditId === $reg->id; @endphp
-                            <div class="adm-minw" style="border-bottom:1px solid var(--line);min-width:800px;">
+                            <div class="adm-minw" style="border-bottom:1px solid var(--line);min-width:720px;">
                                 {{-- Main row --}}
-                                <div class="adm-tbl-row" style="display:grid;grid-template-columns:1.6fr 1.2fr 1fr 100px 1fr;align-items:center;padding:12px 18px;">
+                                <div class="adm-tbl-row" style="display:grid;grid-template-columns:1.6fr 1.2fr 100px 1.4fr;align-items:center;padding:12px 18px;">
                                     <div class="flex" style="align-items:center;gap:11px;min-width:0;">
                                         <x-avatar :initials="collect(preg_split('/\s+/', trim($reg->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')" :src="$reg->photo_url" :size="32" />
                                         <div class="col">
@@ -319,9 +319,6 @@
                                         </div>
                                     </div>
                                     <span class="dim" style="font-size:12px;">{{ $reg->event?->title }}</span>
-                                    <span class="mono" style="font-size:11px;color:{{ $reg->division_id ? 'var(--lime)' : 'var(--red)' }};">
-                                        {{ $reg->division?->name ?? '— belum diset' }}
-                                    </span>
                                     <span class="badge badge-{{ $reg->status_variant }}">{{ $reg->status }}</span>
                                     <div class="flex gap-s" style="align-items:center;flex-wrap:wrap;">
                                         @if($reg->status === 'PENDING')
@@ -411,10 +408,10 @@
                                 @endif
                             </div>
                         @endforeach
-                        @empty
-                            <div class="center" style="padding:40px;color:var(--ink-dim);">No registrations yet.</div>
-                        @endforelse
                     </div>
+                    @empty
+                        <div class="panel center" style="padding:40px;color:var(--ink-dim);">No registrations yet.</div>
+                    @endforelse
                 </div>
             @endif
 
@@ -809,6 +806,21 @@
                                             <img src="{{ $evBannerFile->temporaryUrl() }}" style="margin-top:6px;width:100%;max-width:300px;height:100px;object-fit:cover;border:1px solid var(--lime);">
                                         @endif
                                         <span class="mono dim" style="font-size:9px;display:block;margin-top:4px;">Maks. 5MB. Format: JPG, PNG, WebP.</span>
+                                    </div>
+                                    <div>
+                                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">LOGO EVENT</span>
+                                        @if($evLogoPath && !$evLogoFile)
+                                            <div style="margin-bottom:8px;">
+                                                <img src="{{ Storage::url($evLogoPath) }}" style="height:64px;max-width:200px;object-fit:contain;border:1px solid var(--line);background:var(--bg-2);padding:4px;">
+                                                <span class="mono dim" style="font-size:9px;display:block;">Logo saat ini. Upload baru untuk ganti.</span>
+                                            </div>
+                                        @endif
+                                        <input type="file" wire:model="evLogoFile" accept="image/*" class="input-field" style="width:100%;font-size:11px;">
+                                        @error('evLogoFile') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
+                                        @if($evLogoFile)
+                                            <img src="{{ $evLogoFile->temporaryUrl() }}" style="margin-top:6px;height:64px;max-width:200px;object-fit:contain;border:1px solid var(--lime);background:var(--bg-2);padding:4px;">
+                                        @endif
+                                        <span class="mono dim" style="font-size:9px;display:block;margin-top:4px;">Dipakai di gambar download daftar competitor. Maks. 2MB, PNG transparan disarankan.</span>
                                     </div>
                                     <label class="flex label" style="gap:8px;align-items:center;font-size:12px;cursor:pointer;">
                                         <input type="checkbox" wire:model="evFeatured" style="accent-color:var(--lime);">

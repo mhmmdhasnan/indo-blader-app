@@ -133,6 +133,8 @@ class Dashboard extends Component
     public bool   $evFeatured   = false;
     public        $evBannerFile = null;
     public string $evBannerPath = '';
+    public        $evLogoFile = null;
+    public string $evLogoPath = '';
     public int    $evRunDuration = 60;
     public array  $evRules      = [];
     public array  $evSchedule   = [];
@@ -549,6 +551,8 @@ class Dashboard extends Component
         $this->evFeatured          = false;
         $this->evBannerFile        = null;
         $this->evBannerPath        = '';
+        $this->evLogoFile          = null;
+        $this->evLogoPath          = '';
         $this->evRunDuration       = 60;
         $this->evRules             = [];
         $this->evSchedule          = [];
@@ -578,6 +582,8 @@ class Dashboard extends Component
         $this->evFeatured   = (bool) $ev->featured;
         $this->evBannerFile  = null;
         $this->evBannerPath  = $ev->banner ?? '';
+        $this->evLogoFile    = null;
+        $this->evLogoPath    = $ev->logo ?? '';
         $this->evRunDuration = $ev->run_duration ?? 60;
         $this->evRules       = $ev->rules ?? [];
         $this->evSchedule    = $ev->schedule ?? [];
@@ -620,6 +626,7 @@ class Dashboard extends Component
             'evPrize'      => 'required|integer|min:0',
             'evEntryFee'   => 'required|integer|min:0',
             'evBannerFile' => 'nullable|image|max:5120',
+            'evLogoFile'   => 'nullable|image|max:2048',
             'evRunDuration'=> 'required|integer|min:30|max:300',
             'evRules'         => 'nullable|array',
             'evRules.*'       => 'nullable|string|max:300',
@@ -639,6 +646,7 @@ class Dashboard extends Component
             'evStatus'     => 'status',
             'evPrize'      => 'prize',
             'evBannerFile' => 'banner',
+            'evLogoFile'   => 'logo',
         ]);
 
         $rules = array_values(array_filter($this->evRules, fn ($r) => trim((string) $r) !== ''));
@@ -647,6 +655,11 @@ class Dashboard extends Component
         $bannerPath = $this->evBannerPath;
         if ($this->evBannerFile) {
             $bannerPath = $this->evBannerFile->store('banners', 'public');
+        }
+
+        $logoPath = $this->evLogoPath;
+        if ($this->evLogoFile) {
+            $logoPath = $this->evLogoFile->store('logos', 'public');
         }
 
         $data = [
@@ -668,6 +681,7 @@ class Dashboard extends Component
             'blurb'      => $this->evBlurb,
             'featured'     => $this->evFeatured,
             'banner'       => $bannerPath ?: null,
+            'logo'         => $logoPath ?: null,
             'run_duration' => $this->evRunDuration,
             'rules'        => $rules,
             'schedule'     => $schedule,
@@ -689,6 +703,7 @@ class Dashboard extends Component
         }
 
         $this->evBannerFile = null;
+        $this->evLogoFile   = null;
         $this->evEditing    = false;
         $this->evId         = 0;
     }
@@ -704,6 +719,8 @@ class Dashboard extends Component
         $this->evId         = 0;
         $this->evBannerFile = null;
         $this->evBannerPath = '';
+        $this->evLogoFile   = null;
+        $this->evLogoPath   = '';
     }
 
     // ─── Sponsor CRUD ─────────────────────────────────────────────────────────

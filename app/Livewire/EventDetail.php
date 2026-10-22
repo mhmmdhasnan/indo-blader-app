@@ -45,7 +45,18 @@ class EventDetail extends Component
             ->get()
             ->groupBy(fn ($div) => $div->discipline ?: 'OTHER');
 
-        return view('livewire.event-detail', compact('riders', 'schedule', 'rules', 'prizeSplit', 'divisionsByCategory'))
+        $competitors = collect();
+        if ($this->tab === 'COMPETITOR') {
+            $competitors = $this->event->registrations()
+                ->with('division:id,name')
+                ->where('status', '!=', 'REJECTED')
+                ->orderBy('name')
+                ->get(['id', 'event_id', 'division_id', 'name', 'city', 'status', 'photo'])
+                ->groupBy(fn ($r) => $r->division?->name ?? 'Tanpa Divisi')
+                ->sortKeys();
+        }
+
+        return view('livewire.event-detail', compact('riders', 'schedule', 'rules', 'prizeSplit', 'divisionsByCategory', 'competitors'))
             ->title($this->title);
     }
 

@@ -54,7 +54,7 @@
     {{-- Tabs --}}
     <div style="border-bottom:2px solid var(--ink);background:var(--bg);">
         <div class="wrap flex" style="gap:0;overflow-x:auto;">
-            @foreach(['OVERVIEW','SCHEDULE','CATEGORIES','RULES','PRIZE','LOCATION'] as $t)
+            @foreach(['OVERVIEW','COMPETITOR','SCHEDULE','CATEGORIES','RULES','PRIZE','LOCATION'] as $t)
                 <button wire:click="$set('tab','{{ $t }}')" class="label" style="
                     font-size:12px;padding:18px 20px;border-bottom:3px solid {{ $tab === $t ? 'var(--lime)' : 'transparent' }};
                     color:{{ $tab === $t ? 'var(--ink)' : 'var(--ink-dim)' }};white-space:nowrap;transition:color .15s;
@@ -134,6 +134,41 @@
                         </div>
                     </div>
                 @endforeach
+            </div>
+        @endif
+
+        @if($tab === 'COMPETITOR')
+            <div x-data="competitorPoster(@js(trim($event->title . ($event->city ? ' · ' . $event->city : ''))), @js($event->logo ? Storage::url($event->logo) : null), @js($competitors->map(fn ($regs) => $regs->map(fn ($r) => ['name' => $r->name, 'city' => $r->city])->values())))">
+            @if($competitors->isNotEmpty())
+                <div class="flex gap-s" style="margin-bottom:16px;align-items:center;flex-wrap:wrap;">
+                    <button type="button" @click="downloadAll()" class="btn btn-sm btn-lime">⬇ Download semua divisi</button>
+                    <span class="mono dim" style="font-size:10px;">Ukuran 1080×1350, siap upload ke Instagram</span>
+                </div>
+            @endif
+            @forelse($competitors as $divName => $divRegs)
+                <div class="panel" style="margin-bottom:16px;overflow:hidden;">
+                    <div class="between" style="padding:12px 18px;background:var(--bg-2);border-bottom:2px solid var(--ink);gap:8px;flex-wrap:wrap;">
+                        <span class="mono" style="font-size:12px;letter-spacing:0.14em;color:var(--lime);">{{ strtoupper($divName) }}</span>
+                        <div class="flex gap-s" style="align-items:center;">
+                            <span class="mono dim" style="font-size:10px;">{{ $divRegs->count() }} rider</span>
+                            <button type="button" @click="download(@js($divName))" class="btn btn-sm btn-ghost" style="font-size:10px;">⬇ Download</button>
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));">
+                        @foreach($divRegs as $reg)
+                            <div class="flex" style="align-items:center;gap:11px;padding:12px 18px;border-bottom:1px solid var(--line);min-width:0;">
+                                <x-avatar :initials="collect(preg_split('/\s+/', trim($reg->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')" :src="$reg->photo_url" :size="32" />
+                                <div class="col" style="min-width:0;">
+                                    <span class="label" style="font-size:13px;">{{ $reg->name }}</span>
+                                    <span class="mono dim" style="font-size:9px;">{{ strtoupper($reg->city) }}</span>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @empty
+                <div class="panel center" style="padding:40px;color:var(--ink-dim);">Belum ada rider yang terdaftar.</div>
+            @endforelse
             </div>
         @endif
 
@@ -243,4 +278,114 @@
         @endif
 
     </div>
+
+<script>
+    function competitorPoster(eventTitle, logoUrl, data) {
+        const PER_PAGE = 30;
+        const W = 1080, H = 1350;
+        const slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        const fit = (ctx, text, max) => {
+            if (ctx.measureText(text).width <= max) return text;
+            while (text.length > 1 && ctx.measureText(text + '…').width > max) text = text.slice(0, -1);
+            return text + '…';
+        };
+        const loadLogo = () => new Promise((resolve) => {
+            if (!logoUrl) return resolve(null);
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => resolve(null);
+            img.src = logoUrl;
+        });
+        const draw = (division, names, page, pages, logo) => {
+            const c = document.createElement('canvas');
+            c.width = W; c.height = H;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#0c0c0e'; ctx.fillRect(0, 0, W, H);
+            ctx.fillStyle = '#c6ff3a'; ctx.fillRect(0, 0, W, 16);
+            ctx.textBaseline = 'alphabetic';
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#c6ff3a';
+            ctx.font = '600 30px ui-monospace, Menlo, Consolas, monospace';
+            ctx.fillText(fit(ctx, eventTitle.toUpperCase(), W - 120), 60, 100);
+
+            // Nama divisi di kiri, logo di kanan, keduanya sejajar vertikal.
+            let lw = 0, lhh = 0;
+            if (logo) {
+                const lh = 150;
+                lw = Math.min(260, logo.width * lh / logo.height);
+                lhh = logo.height * lw / logo.width;
+            }
+            const textMax = W - 120 - (logo ? lw + 30 : 0);
+            ctx.fillStyle = '#f4f1e8';
+            let size = 150;
+            do { ctx.font = size + "px 'Bebas Neue', Impact, sans-serif"; size -= 6; } while (ctx.measureText(division.toUpperCase()).width > textMax && size > 50);
+            const baseY = 250, capCy = baseY - (size + 6) * 0.35;
+            ctx.fillText(division.toUpperCase(), 60, baseY);
+            if (logo) ctx.drawImage(logo, W - 60 - lw, capCy - lhh / 2, lw, lhh);
+
+            ctx.fillStyle = '#9a978d';
+            ctx.font = '28px ui-monospace, Menlo, Consolas, monospace';
+            ctx.fillText('COMPETITOR LIST · ' + data[division].length + ' RIDER' + (pages > 1 ? ' · ' + page + '/' + pages : ''), 60, 305);
+            const lineY = 335;
+            ctx.fillStyle = '#c6ff3a'; ctx.fillRect(60, lineY, W - 120, 4);
+
+            const cols = names.length > 15 ? 2 : 1;
+            const rows = Math.ceil(names.length / cols);
+            const colW = (W - 120) / cols;
+            const top = lineY + 55, bottom = H - 60;
+            const rowH = Math.min(70, (bottom - top) / rows);
+            const startNo = (page - 1) * PER_PAGE;
+            names.forEach((n, i) => {
+                const col = Math.floor(i / rows), row = i % rows;
+                const x = 60 + col * colW, y = top + row * rowH + rowH * 0.65;
+                ctx.fillStyle = '#c6ff3a';
+                ctx.font = '600 24px ui-monospace, Menlo, Consolas, monospace';
+                ctx.fillText(String(startNo + i + 1).padStart(2, '0'), x, y);
+                ctx.fillStyle = '#f4f1e8';
+                ctx.font = '600 ' + Math.min(34, rowH * 0.5) + 'px -apple-system, Segoe UI, sans-serif';
+                const avail = colW - 90;
+                let cityTxt = '', cityW = 0;
+                if (n.city) {
+                    ctx.font = Math.min(22, rowH * 0.36) + 'px ui-monospace, Menlo, Consolas, monospace';
+                    cityTxt = n.city.toUpperCase();
+                    cityW = ctx.measureText(cityTxt).width + 16;
+                }
+                ctx.font = '600 ' + Math.min(34, rowH * 0.5) + 'px -apple-system, Segoe UI, sans-serif';
+                const nameTxt = fit(ctx, n.name, avail - cityW);
+                ctx.fillStyle = '#f4f1e8';
+                ctx.fillText(nameTxt, x + 62, y);
+                if (cityTxt) {
+                    const nx = x + 62 + ctx.measureText(nameTxt).width + 16;
+                    ctx.fillStyle = '#9a978d';
+                    ctx.font = Math.min(22, rowH * 0.36) + 'px ui-monospace, Menlo, Consolas, monospace';
+                    ctx.fillText(cityTxt, nx, y);
+                }
+            });
+            return c;
+        };
+        const save = (canvas, name) => new Promise((resolve) => canvas.toBlob((b) => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(b); a.download = name;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+            resolve();
+        }, 'image/png'));
+        return {
+            async download(division) {
+                try { await document.fonts.load("100px 'Bebas Neue'"); } catch (e) {}
+                const logo = await loadLogo();
+                const names = data[division] || [];
+                const pages = Math.max(1, Math.ceil(names.length / PER_PAGE));
+                for (let p = 1; p <= pages; p++) {
+                    const slice = names.slice((p - 1) * PER_PAGE, p * PER_PAGE);
+                    await save(draw(division, slice, p, pages, logo), 'competitor-' + slug(division) + (pages > 1 ? '-' + p : '') + '.png');
+                    await new Promise((r) => setTimeout(r, 300));
+                }
+            },
+            async downloadAll() {
+                for (const d of Object.keys(data)) await this.download(d);
+            },
+        };
+    }
+</script>
 </div>
