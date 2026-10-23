@@ -57,6 +57,7 @@
                     ['scoring',       '⊙', 'Scoring Setup'],
                     ['ranking_admin', '▲', 'Rankings'],
                     ['sponsors',      '🏳', 'Sponsors'],
+                    ['marquee',       '⇄', 'Marquee'],
                     ['riders_all',    '👤', 'Semua Rider'],
                     ['users',         '👤', 'Users'],
                 ],
@@ -127,7 +128,7 @@
                             'overview' => 'Overview', 'registrations' => 'Registrations', 'payments' => 'Payments',
                             'riders_all' => 'Semua Rider', 'riders' => 'Riders', 'events' => 'Events', 'judging' => 'Judge Panel', 'brackets' => 'Brackets',
                             'categories' => 'Categories', 'qualification' => 'Qualification', 'tricks' => 'Tricks',
-                            'submissions' => 'Submissions', 'ranking_admin' => 'Rankings', 'sponsors' => 'Sponsors', 'users' => 'Users',
+                            'submissions' => 'Submissions', 'ranking_admin' => 'Rankings', 'sponsors' => 'Sponsors', 'marquee' => 'Marquee', 'users' => 'Users',
                         ])->get($view, 'Overview') }}
                     </h1>
                 </div>
@@ -1181,6 +1182,32 @@
             @endif
 
             {{-- ── SPONSORS ── --}}
+            @if($view === 'marquee')
+                <div class="panel col" style="padding:22px;gap:16px;max-width:640px;">
+                    <span class="kicker">MARQUEE HOMEPAGE</span>
+                    <span class="mono dim" style="font-size:10px;">Teks berjalan di antara hero dan daftar event di beranda.</span>
+                    @if(session('marqueeSaved'))
+                        <div class="mono" style="font-size:11px;color:var(--lime);">✓ {{ session('marqueeSaved') }}</div>
+                    @endif
+                    <label class="flex label" style="gap:8px;align-items:center;font-size:12px;cursor:pointer;">
+                        <input type="checkbox" wire:model.live="mqEnabled" style="accent-color:var(--lime);">
+                        Tampilkan marquee di homepage
+                    </label>
+                    <div>
+                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">TEKS (SATU BARIS = SATU ITEM)</span>
+                        <textarea wire:model="mqItems" rows="8" class="input-field" style="width:100%;font-family:inherit;" placeholder="REGISTRATION OPEN&#10;AUG 22–24 · JAKARTA"></textarea>
+                        @error('mqItems') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
+                    </div>
+                    <div style="max-width:200px;">
+                        <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">KECEPATAN (DETIK PER PUTARAN)</span>
+                        <input wire:model="mqSpeed" type="number" min="5" max="300" class="input-field" style="width:100%;">
+                        <span class="mono dim" style="font-size:9px;display:block;margin-top:4px;">Angka lebih besar = lebih lambat.</span>
+                        @error('mqSpeed') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
+                    </div>
+                    <div><button wire:click="saveMarquee" class="btn btn-lime">✓ Simpan Marquee</button></div>
+                </div>
+            @endif
+
             @if($view === 'sponsors')
                 <div class="col" style="gap:16px;">
                     @if($spEditing)
@@ -1206,7 +1233,7 @@
                                                 <input type="checkbox" wire:model="spActive" style="accent-color:var(--lime);">
                                                 Tampilkan di publik
                                             </label>
-                                            <span class="mono dim" style="font-size:9px;display:block;margin-top:4px;">Homepage, idle screen &amp; live score.</span>
+                                            <span class="mono dim" style="font-size:9px;display:block;margin-top:4px;">Idle screen &amp; live score.</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1248,6 +1275,28 @@
                         <div class="between">
                             <span class="kicker">{{ $sponsors->count() }} SPONSOR</span>
                             <button wire:click="openCreateSponsor" class="btn btn-lime btn-sm">+ Tambah Sponsor</button>
+                        </div>
+                    @endif
+
+                    {{-- Kolom PRESENTED BY (homepage) --}}
+                    @if($sponsors->isNotEmpty() && ! $spEditing)
+                        <div class="panel" style="padding:16px;">
+                            <span class="kicker" style="display:block;margin-bottom:4px;">PRESENTED BY (HOMEPAGE)</span>
+                            <span class="mono dim" style="font-size:10px;display:block;margin-bottom:12px;">Klik logo untuk memasukkan / mengeluarkannya dari strip "Presented by" di beranda. Idle screen &amp; live score tidak terpengaruh.</span>
+                            <div class="flex" style="gap:10px;flex-wrap:wrap;">
+                                @foreach($sponsors->where('is_active', true) as $sp)
+                                    <button wire:click="toggleSponsorHome({{ $sp->id }})" title="{{ $sp->name }}"
+                                        style="height:64px;min-width:110px;padding:8px 12px;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--bg-2);cursor:pointer;
+                                               border:2px solid {{ $sp->show_on_home ? 'var(--lime)' : 'var(--line)' }};opacity:{{ $sp->show_on_home ? '1' : '0.45' }};">
+                                        @if($sp->logo)
+                                            <img src="{{ $sp->logo_url }}" alt="{{ $sp->name }}" style="max-height:100%;max-width:120px;object-fit:contain;pointer-events:none;">
+                                        @else
+                                            <span class="display" style="font-size:14px;">{{ $sp->name }}</span>
+                                        @endif
+                                        <span class="mono" style="font-size:12px;color:{{ $sp->show_on_home ? 'var(--lime)' : 'var(--ink-faint)' }};">{{ $sp->show_on_home ? '✓' : '+' }}</span>
+                                    </button>
+                                @endforeach
+                            </div>
                         </div>
                     @endif
 

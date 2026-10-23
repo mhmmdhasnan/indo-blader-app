@@ -7,10 +7,11 @@ use Illuminate\Support\Facades\Storage;
 
 class Sponsor extends Model
 {
-    protected $fillable = ['name', 'logo', 'sort_order', 'is_active'];
+    protected $fillable = ['name', 'logo', 'sort_order', 'is_active', 'show_on_home'];
 
     protected $casts = [
-        'is_active' => 'boolean',
+        'is_active'    => 'boolean',
+        'show_on_home' => 'boolean',
     ];
 
     public function getLogoUrlAttribute(): ?string

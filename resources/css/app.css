@@ -582,4 +582,5 @@ select.input-field option {
 /* ── LIVE FULLSCREEN ─────────────────────────────────────────── */
 html.is-fullscreen footer,
 html.is-fullscreen .nav-fs-hide { display: none !important; }
+[x-cloak] { display: none !important; }
 html.is-fullscreen main { padding: 0 !important; }
