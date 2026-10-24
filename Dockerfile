@@ -25,7 +25,7 @@ ENV VITE_REVERB_APP_KEY=$VITE_REVERB_APP_KEY
 RUN npm run build
 
 # ---- Stage 2: PHP application ----
-FROM php:8.3-fpm-alpine AS app
+FROM php:8.3.36-fpm-alpine AS app
 WORKDIR /var/www/html
 
 RUN apk add --no-cache \
