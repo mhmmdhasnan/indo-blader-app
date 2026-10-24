@@ -20,6 +20,7 @@ use App\Models\Rider;
 use App\Models\RiderCategory;
 use App\Models\ScoringCriterion;
 use App\Models\Sponsor;
+use App\Models\Setting;
 use App\Models\SponsorPlacement;
 use App\Models\Trick;
 use App\Models\User;
@@ -138,6 +139,11 @@ class Dashboard extends Component
     public int    $evRunDuration = 60;
     public array  $evRules      = [];
     public array  $evSchedule   = [];
+
+    // Marquee homepage
+    public bool   $mqEnabled = true;
+    public int    $mqSpeed   = 30;
+    public string $mqItems   = '';
 
     // Sponsor CRUD
     public bool   $spEditing    = false;
@@ -723,6 +729,41 @@ class Dashboard extends Component
         $this->evLogoPath   = '';
     }
 
+    // ─── Marquee homepage ─────────────────────────────────────────────────────
+
+    public function updatedView(string $view): void
+    {
+        if ($view === 'marquee') {
+            $this->loadMarquee();
+        }
+    }
+
+    public function loadMarquee(): void
+    {
+        $mq = Setting::marquee();
+        $this->mqEnabled = $mq['enabled'];
+        $this->mqSpeed   = $mq['speed'];
+        $this->mqItems   = implode("\n", $mq['items']);
+    }
+
+    public function saveMarquee(): void
+    {
+        $this->validate([
+            'mqSpeed' => 'required|integer|min:5|max:300',
+            'mqItems' => 'nullable|string|max:3000',
+        ], [], ['mqSpeed' => 'kecepatan', 'mqItems' => 'teks marquee']);
+
+        $items = collect(preg_split('/\R/', $this->mqItems))
+            ->map(fn ($t) => trim($t))->filter()->values()->all();
+
+        Setting::set('marquee_enabled', $this->mqEnabled ? '1' : '0');
+        Setting::set('marquee_speed', (string) $this->mqSpeed);
+        Setting::set('marquee_items', json_encode($items, JSON_UNESCAPED_UNICODE));
+
+        $this->mqItems = implode("\n", $items);
+        session()->flash('marqueeSaved', 'Marquee disimpan.');
+    }
+
     // ─── Sponsor CRUD ─────────────────────────────────────────────────────────
 
     public function openCreateSponsor(): void
@@ -786,6 +827,12 @@ class Dashboard extends Component
     {
         $sp = Sponsor::findOrFail($id);
         $sp->update(['is_active' => ! $sp->is_active]);
+    }
+
+    public function toggleSponsorHome(int $id): void
+    {
+        $sp = Sponsor::findOrFail($id);
+        $sp->update(['show_on_home' => ! $sp->show_on_home]);
     }
 
     public function deleteSponsor(int $id): void

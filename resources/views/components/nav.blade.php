@@ -85,7 +85,7 @@ $current = Route::currentRouteName();
     </div>
 
     {{-- Mobile menu --}}
-    <div class="nav-fs-hide" x-data="{ open: false }" @toggle-menu.window="open = !open" x-show="open" x-transition
+    <div class="nav-fs-hide" x-data="{ open: false }" @toggle-menu.window="open = !open" x-show="open" x-cloak x-transition
         style="background:var(--bg);border-bottom:2px solid var(--ink);padding:10px 20px 20px;">
         @foreach($navLinks as $link)
             <a href="{{ route($link['route']) }}" class="display" style="display:block;font-size:28px;padding:10px 0;border-bottom:1px solid var(--line);">

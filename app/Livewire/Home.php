@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\Event;
 use App\Models\Rider;
+use App\Models\Setting;
 use App\Models\Sponsor;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -18,8 +19,10 @@ class Home extends Component
         $featured   = Event::with('divisions')->where('featured', true)->orderByDesc('date')->first();
         $events     = Event::with('divisions')->whereIn('status', ['LIVE', 'OPEN', 'SOON'])->orderBy('date')->take(3)->get();
         $topRiders  = Rider::orderByDesc('points')->take(6)->get();
-        $sponsors   = Sponsor::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
+        $sponsors   = Sponsor::where('is_active', true)->where('show_on_home', true)->orderBy('sort_order')->orderBy('name')->get();
 
-        return view('livewire.home', compact('featured', 'events', 'topRiders', 'sponsors'));
+        $marquee    = Setting::marquee();
+
+        return view('livewire.home', compact('featured', 'events', 'topRiders', 'sponsors', 'marquee'));
     }
 }

@@ -108,16 +108,24 @@
     </section>
     @endif
 
-    {{-- ── MARQUEE ── --}}
-    <div class="marquee" style="background:var(--ink);color:var(--bg);padding:11px 0;--mq:30s;border-top:2px solid var(--ink);border-bottom:2px solid var(--ink);">
+    {{-- ── MARQUEE (diatur dari admin → Marquee) ── --}}
+    @if($marquee['enabled'] && count($marquee['items']))
+    @php
+        // Ulang sampai cukup lebar, lalu gandakan untuk loop mulus (animasi geser -50%).
+        $mqItems = $marquee['items'];
+        while (count($mqItems) < 8) { $mqItems = array_merge($mqItems, $marquee['items']); }
+        $mqItems = array_merge($mqItems, $mqItems);
+    @endphp
+    <div class="marquee" style="background:var(--ink);color:var(--bg);padding:11px 0;--mq:{{ $marquee['speed'] }}s;border-top:2px solid var(--ink);border-bottom:2px solid var(--ink);">
         <div class="marquee-inner">
-            @foreach(["FRAMEBLADESCORE NATIONALS '26", "AUG 22–24 · JAKARTA", "STREET · PARK · VERT", "Rp 250 JT PRIZE POOL", "REGISTRATION OPEN", "FRAMEBLADESCORE NATIONALS '26", "AUG 22–24 · JAKARTA", "STREET · PARK · VERT", "Rp 250 JT PRIZE POOL", "REGISTRATION OPEN"] as $item)
+            @foreach($mqItems as $item)
                 <span class="display flex" style="align-items:center;font-size:16px;padding:0 22px;white-space:nowrap;">
                     {{ $item }}<span style="margin:0 0 0 22px;color:var(--lime);font-size:12px;">✦</span>
                 </span>
             @endforeach
         </div>
     </div>
+    @endif
 
     {{-- ── UPCOMING EVENTS ── --}}
     <section class="section wrap" id="events">
