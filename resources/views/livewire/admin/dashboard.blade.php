@@ -313,10 +313,10 @@
                                 {{-- Main row --}}
                                 <div class="adm-tbl-row" style="display:grid;grid-template-columns:1.6fr 1.2fr 100px 1.4fr;align-items:center;padding:12px 18px;">
                                     <div class="flex" style="align-items:center;gap:11px;min-width:0;">
-                                        <x-avatar :initials="collect(preg_split('/\s+/', trim($reg->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')" :src="$reg->photo_url" :size="32" />
+                                        <x-avatar :initials="collect(preg_split('/\s+/', trim($reg->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')" :src="$reg->photo_url" :size="52" />
                                         <div class="col">
-                                            <span class="label" style="font-size:13px;">{{ $reg->name }}</span>
-                                            <span class="mono dim" style="font-size:9px;">{{ strtoupper($reg->city) }} · {{ $reg->email }}</span>
+                                            <span class="label" style="font-size:16px;">{{ $reg->name }}@if($reg->dob) <span class="mono" style="font-size:12px;color:var(--lime);">· {{ $reg->dob->age }} th</span>@endif</span>
+                                            <span class="mono dim" style="font-size:12px;">{{ strtoupper($reg->city) }} · {{ $reg->email }}</span>
                                         </div>
                                     </div>
                                     <span class="dim" style="font-size:12px;">{{ $reg->event?->title }}</span>

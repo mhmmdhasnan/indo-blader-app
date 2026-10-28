@@ -1180,26 +1180,16 @@ class Dashboard extends Component
     }
 
     /**
-     * Registrasi lain di event & divisi tujuan yang orangnya sama dengan $reg
-     * (akun sama, email sama, atau nama sama) — dipakai untuk mencegah rider
-     * ganda saat memindahkan divisi.
+     * Registrasi lain di event & divisi tujuan yang atasnya sama dengan $reg — dipakai
+     * untuk mencegah rider ganda saat memindahkan divisi. Dicocokkan lewat nama saja:
+     * akun/email bisa sama karena orang tua mendaftarkan beberapa anak.
      */
     private function registrationInDivision(Registration $reg, int $divisionId): ?Registration
     {
-        $email = trim((string) $reg->email);
-
         return Registration::where('event_id', $reg->event_id)
             ->where('division_id', $divisionId)
             ->where('id', '!=', $reg->id)
-            ->where(function ($q) use ($reg, $email) {
-                $q->whereRaw('LOWER(name) = ?', [mb_strtolower(trim($reg->name))]);
-                if ($reg->user_id) {
-                    $q->orWhere('user_id', $reg->user_id);
-                }
-                if ($email !== '') {
-                    $q->orWhereRaw('LOWER(email) = ?', [mb_strtolower($email)]);
-                }
-            })
+            ->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower(trim($reg->name))])
             ->first();
     }
 
