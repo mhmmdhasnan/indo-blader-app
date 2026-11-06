@@ -16,7 +16,7 @@ class Home extends Component
 {
     public function render()
     {
-        $heroEvents = Event::with(['divisions', 'categories'])->where('featured', true)->orderBy('date')->take(5)->get();
+        $heroEvents = Event::with('divisions')->where('featured', true)->orderBy('date')->take(5)->get();
         $events     = Event::with('divisions')->whereIn('status', ['LIVE', 'OPEN', 'SOON'])->orderBy('date')->take(3)->get();
         $topRiders  = Rider::orderByDesc('points')->take(6)->get();
         $sponsors   = Sponsor::where('is_active', true)->where('show_on_home', true)->orderBy('sort_order')->orderBy('name')->get();
