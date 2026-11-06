@@ -17,7 +17,7 @@ class JudgeScoreObserver
     public function saved(JudgeScore $score): void
     {
         if ($score->wasChanged(self::LIVE_FIELDS)) {
-            LiveScoreUpdated::dispatch($score->event_id);
+            LiveScoreUpdated::push($score->event_id);
         }
     }
 }

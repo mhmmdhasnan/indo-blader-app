@@ -15,7 +15,7 @@ class EventDivisionObserver
     public function saved(EventDivision $division): void
     {
         if ($division->wasChanged(self::LIVE_FIELDS)) {
-            LiveScoreUpdated::dispatch($division->event_id);
+            LiveScoreUpdated::push($division->event_id);
         }
     }
 }

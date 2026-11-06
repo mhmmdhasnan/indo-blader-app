@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Events\LiveScoreUpdated;
 use App\Models\DivisionFinalist;
 use App\Models\DivisionGroup;
 use App\Models\Event;
@@ -12,6 +13,7 @@ use App\Models\Rider;
 use App\Models\Setting;
 use App\Models\SponsorPlacement;
 use App\Services\LiveScoreboardService;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
@@ -33,19 +35,6 @@ class LiveScoring extends Component
         $this->eventId = $this->resolveActiveEvent()?->id ?? 0;
     }
 
-    /**
-     * Fired by LiveScoreUpdated (see App\Observers) whenever the run phase,
-     * timer, active division/group, or a judge score actually changes —
-     * replaces polling every viewer's browser on a fixed timer regardless of
-     * whether anything moved. No body needed: Livewire re-renders (calling
-     * render() below) any time a listened-for event fires.
-     */
-    #[On('echo:live-scoring.{eventId},.updated')]
-    public function onLiveScoreUpdated(): void
-    {
-        //
-    }
-
     private function resolveActiveEvent(): ?Event
     {
         $settingId = Setting::get('active_event_id');
@@ -65,7 +54,41 @@ class LiveScoring extends Component
         return $reg?->division;
     }
 
+    /**
+     * Every spectator sees the same screen, so a burst of N viewers refreshing
+     * after one score change should cost one build, not N. The payload is cached
+     * under the version LiveScoreUpdated::push() bumps on every change (a stale
+     * in-flight build lands under the old version and is never served), and a
+     * lock makes concurrent misses wait for the first builder instead of all
+     * hitting MySQL. The short TTL covers changes that don't push (sponsors,
+     * active event setting, title, ...).
+     */
     public function render()
+    {
+        $cache = Cache::store('file');
+        $key   = 'live-scoring:view:' . LiveScoreUpdated::version();
+
+        // Stored as a pre-serialized string: Laravel 13's cache refuses to
+        // unserialize Eloquent models by default (they'd come back as incomplete
+        // objects), and this payload is only ever written by this method.
+        $raw = $cache->get($key);
+        if ($raw === null) {
+            $raw = $cache->lock($key . ':lock', 10)->block(8, function () use ($cache, $key) {
+                $hit = $cache->get($key);
+                if ($hit !== null) {
+                    return $hit;
+                }
+                $built = serialize($this->buildViewData());
+                $cache->put($key, $built, 5);
+
+                return $built;
+            });
+        }
+
+        return view('livewire.live-scoring', unserialize($raw));
+    }
+
+    private function buildViewData(): array
     {
         $event      = $this->resolveActiveEvent();
         $idleScreen = (bool) $event?->idle_screen;
@@ -253,11 +276,11 @@ class LiveScoring extends Component
             }
         }
 
-        return view('livewire.live-scoring', compact(
+        return compact(
             'event', 'idleScreen', 'idlePlacements', 'nextupPlacements', 'leaderboardPlacements', 'divisions', 'division', 'stage', 'groups', 'selectedGroupId', 'scores', 'scoreSections', 'judgeScores',
             'liveRider', 'displayPhase', 'liveStartedAt', 'runDuration', 'revealScore', 'revealAccumulatedTotal',
             'liveRiderBestScore', 'liveDivisionLabel', 'isBestTrickPhase', 'showingQualRecap',
             'qualificationAnnounced', 'finalAnnounced', 'finalistRegIds', 'finalistNames', 'podium', 'jamActive', 'jamDuration', 'jamRows'
-        ));
+        );
     }
 }

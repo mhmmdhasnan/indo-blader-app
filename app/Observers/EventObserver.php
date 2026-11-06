@@ -19,7 +19,7 @@ class EventObserver
     public function saved(Event $event): void
     {
         if ($event->wasChanged(self::LIVE_FIELDS)) {
-            LiveScoreUpdated::dispatch($event->id);
+            LiveScoreUpdated::push($event->id);
         }
     }
 }

@@ -145,6 +145,9 @@ class Dashboard extends Component
     public int    $mqSpeed   = 30;
     public string $mqItems   = '';
 
+    /** @var array<int, string> Role yang sedang diizinkan membuka /live */
+    public array  $liveAccess = [];
+
     // Sponsor CRUD
     public bool   $spEditing    = false;
     public int    $spId         = 0;
@@ -736,6 +739,25 @@ class Dashboard extends Component
         if ($view === 'marquee') {
             $this->loadMarquee();
         }
+        if ($view === 'live_access') {
+            $this->liveAccess = Setting::liveAccessRoles();
+        }
+    }
+
+    // ─── Akses halaman /live per role ─────────────────────────────────────────
+
+    public function toggleLiveAccess(string $role): void
+    {
+        abort_unless(auth()->user()->isAdmin(), 403);
+        abort_unless(array_key_exists($role, Setting::LIVE_ACCESS_ROLES) && $role !== 'admin', 422);
+
+        $roles = Setting::liveAccessRoles();
+        $roles = in_array($role, $roles)
+            ? array_values(array_diff($roles, [$role]))
+            : [...$roles, $role];
+
+        Setting::set('live_access_roles', json_encode($roles));
+        $this->liveAccess = Setting::liveAccessRoles();
     }
 
     public function loadMarquee(): void

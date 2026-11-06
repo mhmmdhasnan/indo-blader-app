@@ -58,6 +58,7 @@
                     ['ranking_admin', '▲', 'Rankings'],
                     ['sponsors',      '🏳', 'Sponsors'],
                     ['marquee',       '⇄', 'Marquee'],
+                    ['live_access',   '◉', 'Akses Live'],
                     ['riders_all',    '👤', 'Semua Rider'],
                     ['users',         '👤', 'Users'],
                 ],
@@ -128,7 +129,7 @@
                             'overview' => 'Overview', 'registrations' => 'Registrations', 'payments' => 'Payments',
                             'riders_all' => 'Semua Rider', 'riders' => 'Riders', 'events' => 'Events', 'judging' => 'Judge Panel', 'brackets' => 'Brackets',
                             'categories' => 'Categories', 'qualification' => 'Qualification', 'tricks' => 'Tricks',
-                            'submissions' => 'Submissions', 'ranking_admin' => 'Rankings', 'sponsors' => 'Sponsors', 'marquee' => 'Marquee', 'users' => 'Users',
+                            'submissions' => 'Submissions', 'ranking_admin' => 'Rankings', 'sponsors' => 'Sponsors', 'marquee' => 'Marquee', 'live_access' => 'Akses Live', 'users' => 'Users',
                         ])->get($view, 'Overview') }}
                     </h1>
                 </div>
@@ -1205,6 +1206,24 @@
                         @error('mqSpeed') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
                     </div>
                     <div><button wire:click="saveMarquee" class="btn btn-lime">✓ Simpan Marquee</button></div>
+                </div>
+            @endif
+
+            @if($view === 'live_access')
+                <div class="panel col" style="padding:22px;gap:14px;max-width:560px;">
+                    <span class="kicker">AKSES HALAMAN /LIVE</span>
+                    <span class="mono dim" style="font-size:10px;">Nyalakan role yang boleh membuka halaman live score. Berlaku untuk pembukaan halaman berikutnya; tab yang sudah terbuka tidak ikut terputus.</span>
+                    @foreach(\App\Models\Setting::LIVE_ACCESS_ROLES as $role => $label)
+                        @php $on = in_array($role, $liveAccess) || $role === 'admin'; @endphp
+                        <div class="flex" style="align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line, rgba(255,255,255,.08));">
+                            <span style="font-size:13px;">{{ $label }}@if($role === 'admin') <span class="mono dim" style="font-size:9px;">· selalu aktif</span>@endif</span>
+                            <button type="button" role="switch" aria-checked="{{ $on ? 'true' : 'false' }}"
+                                    @if($role !== 'admin') wire:click="toggleLiveAccess('{{ $role }}')" @else disabled @endif
+                                    style="width:44px;height:24px;border-radius:12px;border:0;position:relative;cursor:{{ $role === 'admin' ? 'not-allowed' : 'pointer' }};opacity:{{ $role === 'admin' ? '.5' : '1' }};background:{{ $on ? 'var(--lime)' : 'rgba(255,255,255,.18)' }};">
+                                <span style="position:absolute;top:3px;left:{{ $on ? '23px' : '3px' }};width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;"></span>
+                            </button>
+                        </div>
+                    @endforeach
                 </div>
             @endif
 

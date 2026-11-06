@@ -1,4 +1,4 @@
-<div wire:poll.30s x-data="liveFullscreen()">
+<div wire:poll.60s x-data="liveFullscreen()">
     {{-- Hidden data bridge: Livewire updates these attrs; Alpine reads them via MutationObserver --}}
     <div id="live-data"
          data-phase="{{ $displayPhase ?? '' }}"
@@ -477,6 +477,16 @@ function liveFullscreen() {
         isFullscreen: false,
 
         init() {
+            // Refresh on a broadcast after a small random delay, so N viewers don't
+            // all hit the server in the same instant. Kept well under a second:
+            // the REVEALING overlay is time-sensitive.
+            if (window.Echo && this.$wire.eventId) {
+                const channel = `live-scoring.${this.$wire.eventId}`;
+                window.Echo.channel(channel).listen('.updated', () => {
+                    setTimeout(() => this.$wire.$refresh(), Math.random() * 600);
+                });
+            }
+
             const onChange = () => {
                 this.isFullscreen = !!document.fullscreenElement;
                 document.documentElement.classList.toggle('is-fullscreen', this.isFullscreen);
