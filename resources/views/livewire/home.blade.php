@@ -11,7 +11,7 @@
       <div style="display:grid;">
       @foreach($heroEvents as $featured)
       <div style="grid-area:1/1;position:relative;transition:opacity .6s ease, visibility .6s;"
-           :style="i === {{ $loop->index }} ? 'opacity:1;visibility:visible;z-index:1' : 'opacity:0;visibility:hidden;pointer-events:none;z-index:0'">
+           :style="i === {{ $loop->index }} ? { opacity: 1, visibility: 'visible', zIndex: 1, pointerEvents: 'auto' } : { opacity: 0, visibility: 'hidden', zIndex: 0, pointerEvents: 'none' }">
         @if($featured->banner)
             <div style="position:absolute;inset:0;background:url('{{ Storage::url($featured->banner) }}') center/cover no-repeat;"></div>
             <div style="position:absolute;inset:0;background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 50%,transparent) 0%,color-mix(in srgb,var(--bg) 65%,transparent) 55%,var(--bg) 100%);"></div>
@@ -36,7 +36,7 @@
             </div>
 
             <div class="rise" style="animation-delay:60ms;">
-                <h1 class="display" style="font-size:clamp(54px,11.5vw,168px);letter-spacing:0.005em;margin:0 0 4px;">
+                <h1 class="display" style="font-size:{{ mb_strlen($featured->title) > 16 ? 'clamp(40px,7vw,104px)' : 'clamp(54px,11.5vw,168px)' }};letter-spacing:0.005em;margin:0 0 4px;">
                     <span style="-webkit-text-stroke:2px var(--ink);color:transparent;">{{ $featured->title }}</span>
                     <span style="color:var(--lime);display:block;" class="text-glow-lime">{{ $featured->edition }}</span>
                 </h1>
@@ -103,7 +103,7 @@
                     <button type="button" class="btn btn-ghost" style="padding:4px 10px;" @click="go(i - 1)" aria-label="Sebelumnya">←</button>
                     @foreach($heroEvents as $e)
                         <button type="button" @click="go({{ $loop->index }})" aria-label="Slide {{ $loop->iteration }}"
-                            :style="i === {{ $loop->index }} ? 'background:var(--lime);width:28px;' : 'background:var(--line-strong);width:12px;'"
+                            :style="i === {{ $loop->index }} ? { background: 'var(--lime)', width: '28px' } : { background: 'var(--line-strong)', width: '12px' }"
                             style="height:8px;border:0;padding:0;cursor:pointer;transition:width .25s,background .25s;"></button>
                     @endforeach
                     <button type="button" class="btn btn-ghost" style="padding:4px 10px;" @click="go(i + 1)" aria-label="Berikutnya">→</button>
