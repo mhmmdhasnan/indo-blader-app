@@ -16,13 +16,13 @@ class Home extends Component
 {
     public function render()
     {
-        $featured   = Event::with('divisions')->where('featured', true)->orderByDesc('date')->first();
+        $heroEvents = Event::with(['divisions', 'categories'])->where('featured', true)->orderBy('date')->take(5)->get();
         $events     = Event::with('divisions')->whereIn('status', ['LIVE', 'OPEN', 'SOON'])->orderBy('date')->take(3)->get();
         $topRiders  = Rider::orderByDesc('points')->take(6)->get();
         $sponsors   = Sponsor::where('is_active', true)->where('show_on_home', true)->orderBy('sort_order')->orderBy('name')->get();
 
         $marquee    = Setting::marquee();
 
-        return view('livewire.home', compact('featured', 'events', 'topRiders', 'sponsors', 'marquee'));
+        return view('livewire.home', compact('heroEvents', 'events', 'topRiders', 'sponsors', 'marquee'));
     }
 }

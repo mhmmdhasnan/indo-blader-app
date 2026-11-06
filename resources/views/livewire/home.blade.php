@@ -1,7 +1,17 @@
 <div>
     {{-- ── HERO ── --}}
-    @if($featured)
-    <section style="position:relative;border-bottom:2px solid var(--ink);overflow:hidden;">
+    @if($heroEvents->isNotEmpty())
+    {{-- Semua event yang ditandai "featured" jadi slide; auto-geser tiap 6 detik (pause saat di-hover). --}}
+    <section style="position:relative;border-bottom:2px solid var(--ink);overflow:hidden;"
+        x-data="{ i: 0, n: {{ $heroEvents->count() }}, hold: false, t: null,
+                  go(k) { this.i = (k + this.n) % this.n },
+                  destroy() { clearInterval(this.t) } }"
+        x-init="if (n > 1) t = setInterval(() => { if (!hold) go(i + 1) }, 6000)"
+        @mouseenter="hold = true" @mouseleave="hold = false">
+      <div style="display:grid;">
+      @foreach($heroEvents as $featured)
+      <div style="grid-area:1/1;position:relative;transition:opacity .6s ease, visibility .6s;"
+           :style="i === {{ $loop->index }} ? 'opacity:1;visibility:visible;z-index:1' : 'opacity:0;visibility:hidden;pointer-events:none;z-index:0'">
         @if($featured->banner)
             <div style="position:absolute;inset:0;background:url('{{ Storage::url($featured->banner) }}') center/cover no-repeat;"></div>
             <div style="position:absolute;inset:0;background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 50%,transparent) 0%,color-mix(in srgb,var(--bg) 65%,transparent) 55%,var(--bg) 100%);"></div>
@@ -50,8 +60,8 @@
                 <div class="between" style="align-items:flex-end;gap:24px;flex-wrap:wrap;border-top:2px solid var(--line-strong);padding-top:22px;">
                     <div class="col" style="align-items:flex-start;gap:10px;">
                         <span class="kicker">EVENT STARTS IN</span>
-                        <div class="flex" style="gap:18px;align-items:flex-start;" id="hero-countdown" data-target="{{ $featured->date->timestamp }}">
-                            @foreach([['cd-d','DAYS'],['cd-h','HRS'],['cd-m','MIN'],['cd-s','SEC']] as [$id,$lbl])
+                        <div class="flex" style="gap:18px;align-items:flex-start;" id="hero-countdown-{{ $loop->index }}" data-target="{{ $featured->date->timestamp }}">
+                            @foreach([['cd-d-'.$loop->index,'DAYS'],['cd-h-'.$loop->index,'HRS'],['cd-m-'.$loop->index,'MIN'],['cd-s-'.$loop->index,'SEC']] as [$id,$lbl])
                                 <div class="col center countdown-item" style="min-width:76px;">
                                     <span id="{{ $id }}" class="display tnum" style="font-size:clamp(36px,5vw,60px);line-height:1;">00</span>
                                     <span class="mono" style="font-size:10px;letter-spacing:0.2em;color:var(--ink-dim);margin-top:4px;">{{ $lbl }}</span>
@@ -61,8 +71,8 @@
                         </div>
                         <script>
                             (function () {
-                                const target = parseInt(document.getElementById('hero-countdown').dataset.target) * 1000;
-                                const els = { d: document.getElementById('cd-d'), h: document.getElementById('cd-h'), m: document.getElementById('cd-m'), s: document.getElementById('cd-s') };
+                                const target = parseInt(document.getElementById('hero-countdown-{{ $loop->index }}').dataset.target) * 1000;
+                                const els = { d: document.getElementById('cd-d-{{ $loop->index }}'), h: document.getElementById('cd-h-{{ $loop->index }}'), m: document.getElementById('cd-m-{{ $loop->index }}'), s: document.getElementById('cd-s-{{ $loop->index }}') };
                                 function pad(n) { return String(n).padStart(2, '0'); }
                                 function tick() {
                                     const remaining = Math.max(0, Math.floor((target - Date.now()) / 1000));
@@ -78,14 +88,28 @@
                     </div>
                     <div class="col hero-edition" style="align-items:flex-end;position:relative;">
                         <span class="display" style="font-size:clamp(54px,8vw,104px);color:transparent;-webkit-text-stroke:2px var(--line-strong);line-height:0.78;">{{ $featured->edition }}</span>
-                        <span class="mono" style="font-size:10px;letter-spacing:0.24em;color:var(--ink-dim);">{{ strtoupper($featured->city) }}</span>
-                        <div style="position:absolute;top:-14px;right:calc(100% + 16px);">
-                            <span class="sticker" style="--rot:-8deg;font-size:13px;">EST. 2020</span>
-                        </div>
-                    </div>
+                        <span class="mono" style="font-size:10px;letter-spacing:0.24em;color:var(--ink-dim);">{{ strtoupper($featured->city) }}</span>                    </div>
                 </div>
             </div>
         </div>
+      </div>
+      @endforeach
+      </div>
+
+        {{-- Slide controls --}}
+        <template x-if="n > 1">
+            <div style="position:absolute;left:0;right:0;bottom:84px;z-index:5;pointer-events:none;">
+                <div class="wrap flex" style="gap:8px;align-items:center;justify-content:center;pointer-events:auto;">
+                    <button type="button" class="btn btn-ghost" style="padding:4px 10px;" @click="go(i - 1)" aria-label="Sebelumnya">←</button>
+                    @foreach($heroEvents as $e)
+                        <button type="button" @click="go({{ $loop->index }})" aria-label="Slide {{ $loop->iteration }}"
+                            :style="i === {{ $loop->index }} ? 'background:var(--lime);width:28px;' : 'background:var(--line-strong);width:12px;'"
+                            style="height:8px;border:0;padding:0;cursor:pointer;transition:width .25s,background .25s;"></button>
+                    @endforeach
+                    <button type="button" class="btn btn-ghost" style="padding:4px 10px;" @click="go(i + 1)" aria-label="Berikutnya">→</button>
+                </div>
+            </div>
+        </template>
 
         {{-- Sponsor strip --}}
         @if($sponsors->isNotEmpty())
