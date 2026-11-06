@@ -1,4 +1,13 @@
-<div class="admin-root" x-data="{ sidebarOpen: false }">
+<div class="admin-root" :class="{ 'side-collapsed': collapsed }"
+     x-data="{ sidebarOpen: false, collapsed: localStorage.getItem('judgeSideCollapsed') === '1' }"
+     x-effect="localStorage.setItem('judgeSideCollapsed', collapsed ? '1' : '0')">
+<style>
+/* Desktop: sidebar bisa disembunyikan (hamburger di header). Mobile tetap pakai drawer. */
+@media (min-width: 901px) {
+    .admin-root.side-collapsed { grid-template-columns: 1fr; }
+    .admin-root.side-collapsed .admin-side { display: none !important; }
+}
+</style>
     <div class="admin-overlay" :class="{ 'is-open': sidebarOpen }" @click="sidebarOpen = false"></div>
 
     {{-- ── SIDEBAR ── --}}
@@ -96,7 +105,9 @@
     <div style="min-width:0;display:flex;flex-direction:column;">
         <header class="between admin-topbar" style="padding:16px 26px;border-bottom:2px solid var(--ink);position:sticky;top:0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);z-index:20;">
             <div class="flex" style="align-items:center;gap:14px;">
-                <button class="admin-burger center" @click="sidebarOpen = !sidebarOpen" style="width:38px;height:38px;border:2px solid var(--ink);border-radius:3px;flex-shrink:0;" aria-label="Menu">
+                <button class="admin-burger center" @click="window.innerWidth > 900 ? (collapsed = !collapsed) : (sidebarOpen = !sidebarOpen)"
+                    style="display:flex !important;width:38px;height:38px;border:2px solid var(--ink);border-radius:3px;flex-shrink:0;"
+                    :aria-label="collapsed ? 'Tampilkan menu' : 'Sembunyikan menu'" :aria-expanded="!collapsed" title="Tampilkan / sembunyikan menu">
                     <div class="col" style="gap:4px;">
                         <span style="width:16px;height:2px;background:var(--ink);display:block;"></span>
                         <span style="width:16px;height:2px;background:var(--ink);display:block;"></span>

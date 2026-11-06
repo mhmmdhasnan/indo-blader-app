@@ -167,9 +167,17 @@ class Dashboard extends Component
         $this->criteriaScoresB = [];
 
         foreach ($criteria as $c) {
-            $this->criteriaScores[$c->key]  = 90.0;
+            // Live: kartu mulai kosong (keypad) — tidak ada nilai awal yang tampak sah. Knockout tetap slider 90.
+            $this->criteriaScores[$c->key]  = $mode === 'LIVE' ? null : 90.0;
             $this->criteriaScoresB[$c->key] = 90.0;
         }
+    }
+
+    /** Semua kriteria live sudah terisi angka? (nilai kosong tidak boleh dihitung sebagai 0) */
+    private function criteriaFilled(array $scores): bool
+    {
+        $keys = $this->loadCriteria('LIVE')->pluck('key');
+        return $keys->isNotEmpty() && $keys->every(fn ($k) => is_numeric($scores[$k] ?? null));
     }
 
     private function loadCriteria(string $mode): \Illuminate\Database\Eloquent\Collection
@@ -197,6 +205,11 @@ class Dashboard extends Component
         $riderId = $this->resolveRiderIdFromRegistration($this->liveRiderId);
         if (!$riderId) {
             $this->addError('liveRiderId', 'Rider tidak ditemukan untuk peserta ini.');
+            return;
+        }
+
+        if (!$this->criteriaFilled($this->criteriaScores)) {
+            $this->addError('criteriaScores', 'Isi nilai semua kriteria dulu (tekan OK di keypad).');
             return;
         }
 
@@ -636,7 +649,7 @@ class Dashboard extends Component
         $this->jamScores = [];
         foreach ($registrations as $reg) {
             foreach ($criteria as $c) {
-                $this->jamScores[$reg->id][$c->key] = 90.0;
+                $this->jamScores[$reg->id][$c->key] = null;
             }
         }
     }
@@ -691,6 +704,11 @@ class Dashboard extends Component
         // Hanya rider yang memang ada di heat ini
         if (!$this->jamHeatRegistrations($division)->contains('id', $registrationId)) return;
 
+        if (!$this->criteriaFilled($this->jamScores[$registrationId] ?? [])) {
+            $this->addError('jamScores.' . $registrationId, 'Isi nilai semua kriteria dulu (tekan OK di keypad).');
+            return;
+        }
+
         $riderId = $this->resolveRiderIdFromRegistration($registrationId);
         if (!$riderId) return;
 
@@ -714,6 +732,26 @@ class Dashboard extends Component
         app(ScoringService::class)->submitScore($score, $this->jamScores[$registrationId] ?? []);
     }
 
+    /**
+     * KIRIM SEMUA (layar Judge): kirim setiap rider heat yang kriterianya sudah terisi lengkap.
+     * Kartu yang masih kosong dilewati begitu saja (tanpa error) — judge bisa kirim sebagian dulu.
+     */
+    public function submitAllJamScores(): void
+    {
+        if (auth()->user()->isOperator()) return;
+
+        $event    = Event::find($this->judgeEventId);
+        $division = $this->activeJamDivision();
+        if (!$event || !$event->live_jam || $event->live_phase !== 'RUNNING' || !$division) return;
+
+        $this->resetErrorBag();
+        foreach ($this->jamHeatRegistrations($division) as $reg) {
+            if ($this->criteriaFilled($this->jamScores[$reg->id] ?? [])) {
+                $this->submitJamScore($reg->id);   // yang sudah DONE dilewati di dalamnya
+            }
+        }
+    }
+
     /** Hapus skor heat jamming yang sedang berjalan (dipakai saat heat dibatalkan). */
     private function deleteJamHeatScores(Event $event): void
     {
@@ -735,7 +773,7 @@ class Dashboard extends Component
 
     public function startRun(): void
     {
-        if (!auth()->user()->isHeadJudge()) return;
+        if (!$this->canControlLiveSession()) return;
         if (!$this->judgeEventId || !$this->liveRiderId) {
             $this->addError('liveRiderId', 'Pilih event dan rider terlebih dahulu.');
             return;
@@ -759,10 +797,71 @@ class Dashboard extends Component
         $this->initCriteria();
     }
 
-    public function revealScore(): void
+    /** Peringatan "masih ada judge yang belum selesai" — dihitung server saat tombol diklik, bukan dari tampilan yang bisa basi. */
+    public ?string $revealWarning = null;
+
+    /**
+     * Reveal. Tanpa $force, ditolak (dengan peringatan inline) kalau masih ada judge yang belum selesai;
+     * status judge dibaca ulang dari database saat itu juga.
+     */
+    public function revealScore(bool $force = false): void
     {
         if (!auth()->user()->isHeadJudge()) return;
-        Event::findOrFail($this->judgeEventId)->update(['live_phase' => 'REVEALING']);
+
+        $event = Event::findOrFail($this->judgeEventId);
+
+        if (!$force) {
+            $pending = $this->pendingJudgeSummary($event);
+            if ($pending !== '') {
+                $this->revealWarning = $pending;
+                return;
+            }
+        }
+
+        $this->revealWarning = null;
+        $event->update(['live_phase' => 'REVEALING']);
+    }
+
+    public function cancelRevealWarning(): void
+    {
+        $this->revealWarning = null;
+    }
+
+    /** "Ican 4 rider, Asmo 1 rider" / "Ican" — kosong kalau semua judge sudah selesai. */
+    private function pendingJudgeSummary(Event $event): string
+    {
+        $judges = EventJudgeAssignment::where('event_id', $event->id)->with('user')->get();
+        if ($judges->isEmpty() || $event->live_phase !== 'RUNNING') return '';
+
+        if ($event->live_jam) {
+            $division = \App\Models\EventDivision::find($event->active_division_id);
+            if (!$division) return '';
+            $stage    = $division->live_stage === 'FINAL' ? 'FINAL' : 'QUALIFICATION';
+            $riderIds = $this->jamHeatRegistrations($division)
+                ->map(fn ($reg) => $this->resolveRiderIdFromRegistration($reg->id))->filter()->values();
+            $total = $riderIds->count();
+            if ($total === 0) return '';
+
+            $done = JudgeScore::where('event_id', $event->id)->where('division_id', $division->id)
+                ->whereIn('rider_id', $riderIds)->where('run_number', $event->live_run_number ?: 1)
+                ->where('scoring_mode', 'LIVE')->where('live_stage', $stage)->where('status', 'DONE')
+                ->selectRaw('judge_user_id, count(*) as c')->groupBy('judge_user_id')->pluck('c', 'judge_user_id');
+
+            return $judges->map(function ($aj) use ($done, $total) {
+                $left = $total - min((int) ($done[$aj->user_id] ?? 0), $total);
+                return $left > 0 ? ($aj->user?->name ?? '—') . ' ' . $left . ' rider' : null;
+            })->filter()->implode(', ');
+        }
+
+        $doneIds = JudgeScore::where('event_id', $event->id)
+            ->where('division_id', $this->currentLiveDivisionId($event))
+            ->where('rider_id', $event->live_rider_id)->where('run_number', $event->live_run_number)
+            ->where('scoring_mode', $this->currentIsBestTrick($event) ? 'BEST_TRICK' : 'LIVE')
+            ->where('live_stage', $this->currentLiveStage($event))->where('status', 'DONE')
+            ->pluck('judge_user_id')->all();
+
+        return $judges->reject(fn ($aj) => in_array($aj->user_id, $doneIds))
+            ->map(fn ($aj) => $aj->user?->name ?? '—')->implode(', ');
     }
 
     public function endSession(): void
@@ -1070,7 +1169,7 @@ class Dashboard extends Component
             // Initialize criteria arrays if empty
             if (empty($this->criteriaScores)) {
                 foreach ($criteria as $c) {
-                    $this->criteriaScores[$c->key]  = 90.0;
+                    $this->criteriaScores[$c->key]  = $mode === 'LIVE' ? null : 90.0;
                     $this->criteriaScoresB[$c->key] = 90.0;
                 }
             }

@@ -186,6 +186,15 @@ class Dashboard extends Component
     public bool   $clIsActive    = true;
 
     // Registration edit
+    // Halaman Registrations / Payments: filter tampilan + pilihan baris untuk aksi massal
+    public string  $regStatusFilter   = 'ALL';   // ALL | PENDING | APPROVED | REJECTED
+    public string  $regSearch         = '';
+    public int     $regDivisionFilter = 0;
+    public array   $selectedRegIds    = [];
+    public string  $payStatusFilter   = 'ALL';   // ALL | PENDING | VERIFIED | UNPAID
+    // Halaman Events: filter tabel divisi
+    public string  $divSearch         = '';
+    public string  $divPhaseFilter    = 'ALL';   // ALL | OPEN | DONE
     public int     $regEditId         = 0;
     public string  $regEditName       = '';
     public string  $regEditEmail      = '';
@@ -1268,6 +1277,88 @@ class Dashboard extends Component
         }
     }
 
+    // ─── Registrations: pilih banyak + aksi massal ───────────────────────────
+
+    /** Centang / lepas semua baris satu divisi (header tabel). */
+    public function toggleRegSelection(array $ids): void
+    {
+        $ids      = array_map('intval', $ids);
+        $selected = array_map('intval', $this->selectedRegIds);
+        $this->selectedRegIds = count(array_diff($ids, $selected)) === 0
+            ? array_values(array_diff($selected, $ids))
+            : array_values(array_unique(array_merge($selected, $ids)));
+    }
+
+    public function clearRegSelection(): void
+    {
+        $this->selectedRegIds = [];
+    }
+
+    /** Registrasi terpilih, dibatasi ke event aktif (id dari browser tidak dipercaya begitu saja). */
+    private function selectedRegistrations(): \Illuminate\Database\Eloquent\Collection
+    {
+        if (!$this->activeEventId) {
+            return new \Illuminate\Database\Eloquent\Collection();
+        }
+
+        return Registration::with('event')
+            ->where('event_id', $this->activeEventId)
+            ->whereIn('id', array_map('intval', $this->selectedRegIds))
+            ->get();
+    }
+
+    public function approveSelectedRegistrations(): void
+    {
+        $regs = $this->selectedRegistrations();
+        $approved = 0;
+        foreach ($regs as $reg) {
+            if ($reg->status === 'APPROVED') continue;
+            if ($reg->payment_status !== 'VERIFIED') continue;
+            $reg->update(['status' => 'APPROVED']);
+            NotificationService::send($reg, 'registration_approved', 'Registration Approved',
+                "Your registration for {$reg->event->title} has been approved. Entry: {$reg->entry_code}.");
+            $approved++;
+        }
+
+        $blocked = $regs->where('status', '!=', 'APPROVED')->count() - $approved;
+        session()->flash('bulkRegistration', "{$approved} registrasi di-approve" . ($blocked > 0 ? ", {$blocked} dilewati (payment belum VERIFIED)." : '.'));
+        $this->selectedRegIds = [];
+    }
+
+    public function moveSelectedRegistrations(int $divisionId): void
+    {
+        $regs = $this->selectedRegistrations();
+        if (!$divisionId || !EventDivision::where('id', $divisionId)->where('event_id', $this->activeEventId)->exists()) {
+            $this->addError('bulkRegistration', 'Divisi tujuan tidak valid untuk event ini.');
+            return;
+        }
+
+        $moved = 0; $skipped = [];
+        foreach ($regs as $reg) {
+            if ($reg->division_id === $divisionId) continue;
+            if ($dup = $this->registrationInDivision($reg, $divisionId)) {
+                $skipped[] = $reg->name;
+                continue;
+            }
+            $this->applyRegistrationDivision($reg, $divisionId);
+            $moved++;
+        }
+
+        session()->flash('bulkRegistration', "{$moved} rider dipindah" . ($skipped ? ', dilewati karena sudah ada di divisi tujuan: ' . implode(', ', $skipped) . '.' : '.'));
+        $this->selectedRegIds = [];
+    }
+
+    public function deleteSelectedRegistrations(): void
+    {
+        $regs = $this->selectedRegistrations();
+        foreach ($regs as $reg) {
+            $this->deleteRegistration($reg->id);   // ikut mengembalikan slot divisi
+        }
+
+        session()->flash('bulkRegistration', $regs->count() . ' registrasi dihapus.');
+        $this->selectedRegIds = [];
+    }
+
     public function openQuickAdd(int $userId): void
     {
         $previous = Registration::where('user_id', $userId)
@@ -1711,7 +1802,7 @@ class Dashboard extends Component
 
     public function reopenQualification(int $divisionId): void
     {
-        EventDivision::findOrFail($divisionId)->update(['live_stage' => 'QUALIFICATION']);
+        EventDivision::findOrFail($divisionId)->update(['live_stage' => 'QUALIFICATION', 'best_trick_active' => false]);
     }
 
     public function reopenCompletedFinal(int $divisionId): void

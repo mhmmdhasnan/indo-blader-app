@@ -8,7 +8,7 @@
             <span class="mono" style="font-size:11px;color:var(--lime);">RUN {{ $activeEvent?->live_run_number ?: $liveRunNumber }} · {{ $jamHeatRegs->count() }} RIDER · {{ $jamDivision->jam_duration }}s</span>
         </div>
         @if(!$isRunning)
-            <p class="mono dim" style="font-size:11px;margin-top:8px;">Heat belum dimulai. Form nilai tiap rider muncul saat Head Judge menekan START HEAT.</p>
+            <p class="mono dim" style="font-size:11px;margin-top:8px;">Heat belum dimulai. Form nilai tiap rider muncul saat heat dimulai.</p>
             <div class="flex gap-s" style="flex-wrap:wrap;margin-top:10px;">
                 @foreach($jamHeatRegs as $reg)
                     <span class="badge badge-out">{{ $reg->name }}</span>
@@ -24,38 +24,36 @@
                     $done  = $jamSubmitted[$reg->id] ?? false;
                     $total = count($jamScores[$reg->id] ?? []) ? round(array_sum(array_filter($jamScores[$reg->id], 'is_numeric')) / max(1, count($jamScores[$reg->id])), 1) : 0;
                 @endphp
-                <div class="panel" style="padding:16px;" wire:key="jam-rider-{{ $reg->id }}">
+                <div class="panel" style="padding:16px;border:2px solid {{ $done ? 'var(--lime)' : 'var(--ink)' }};" wire:key="jam-rider-{{ $reg->id }}">
                     <div class="between" style="margin-bottom:12px;">
-                        <span class="display" style="font-size:20px;">{{ $reg->name }}</span>
-                        <span class="display tnum" style="font-size:22px;color:var(--lime);">{{ number_format($total, 1) }}</span>
+                        <span class="flex" style="align-items:center;gap:12px;min-width:0;">
+                            <x-avatar :initials="collect(preg_split('/\s+/', trim($reg->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')" :src="$reg->photo_url" :size="56" />
+                            <span class="display" style="font-size:32px;line-height:1.05;letter-spacing:.02em;">{{ $reg->name }}</span>
+                        </span>
+                        <span class="flex" style="align-items:center;gap:8px;">
+                            @if($done)<span class="badge badge-lime" style="font-size:11px;">TERKIRIM</span>@endif
+                            <span class="display tnum" style="font-size:32px;color:var(--lime);">{{ number_format($total, 1) }}</span>
+                        </span>
                     </div>
-                    @foreach($criteria as $crit)
-                        @php $val = $jamScores[$reg->id][$crit->key] ?? 90.0; @endphp
-                        <div style="margin-bottom:12px;">
-                            <div class="between" style="margin-bottom:4px;">
-                                <span class="mono" style="font-size:10px;letter-spacing:0.12em;">{{ strtoupper($crit->name) }}</span>
-                                <span class="mono tnum" style="font-size:12px;color:var(--lime);">{{ number_format($val, 1) }}</span>
-                            </div>
-                            <div class="flex gap-s" style="align-items:center;">
-                                <input type="range" min="0" max="100" step="0.1"
-                                    wire:model.live="jamScores.{{ $reg->id }}.{{ $crit->key }}"
-                                    style="flex:1;accent-color:var(--lime);" />
-                                <input type="number" min="0" max="100" step="0.1"
-                                    wire:model.live.debounce.400ms="jamScores.{{ $reg->id }}.{{ $crit->key }}"
-                                    class="input-field" style="width:60px;text-align:center;font-size:11px;padding:4px;" />
-                            </div>
-                        </div>
-                    @endforeach
+                    @if($done)
+                        @foreach($criteria as $crit)
+                            <div class="between" style="margin-bottom:4px;"><span class="mono" style="font-size:10px;letter-spacing:0.12em;">{{ strtoupper($crit->name) }}</span>
+                                <span class="mono tnum" style="font-size:12px;color:var(--lime);">{{ is_numeric($jamScores[$reg->id][$crit->key] ?? null) ? number_format($jamScores[$reg->id][$crit->key], 1) : '—' }}</span></div>
+                        @endforeach
+                    @else
+                        @include('livewire.partials.score-input', ['criteria' => $criteria, 'modelPrefix' => 'jamScores.' . $reg->id, 'scores' => $jamScores[$reg->id] ?? [], 'name' => $reg->name, 'max' => 100])
+                    @endif
                     @if($done)
                         {{-- Terkunci seperti live score biasa; revisi lewat tombol Edit Head Judge. --}}
                         <span class="badge badge-lime">✓ SUBMITTED</span>
                     @else
-                        <button wire:click="submitJamScore({{ $reg->id }})" class="btn btn-lime btn-sm" @if($criteria->isEmpty()) disabled @endif>Submit Score</button>
+                        <button wire:click="submitJamScore({{ $reg->id }})" class="btn btn-lime btn-sm" style="margin-top:10px;" @if($criteria->isEmpty()) disabled @endif>Submit Score</button>
+                        @error('jamScores.' . $reg->id) <p class="mono" style="font-size:11px;color:var(--red);margin-top:6px;">{{ $message }}</p> @enderror
                     @endif
 
                     {{-- Nilai judge lain yang sudah submit untuk rider ini --}}
                     @php $riderScores = ($jamAllScores ?? [])[$reg->id] ?? collect(); @endphp
-                    @if($riderScores->isNotEmpty())
+                    @if(($isHeadJudge ?? false) && $riderScores->isNotEmpty())
                         <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);">
                             <span class="mono dim" style="font-size:9px;letter-spacing:0.12em;">NILAI JUDGE</span>
                             @foreach($riderScores as $js)
