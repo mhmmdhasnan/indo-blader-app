@@ -16,6 +16,7 @@
 <body>
     <div class="grain" aria-hidden="true"></div>
     {{ $slot }}
+    <x-confirm-dialog />
     @livewireScripts
 </body>
 </html>

@@ -15,8 +15,10 @@ class LiveScoreboardService
     public function registrationsForStage(EventDivision $division, string $stage, ?int $groupId = null): Collection
     {
         if ($stage === 'FINAL') {
-            // Final is always one combined pool, regardless of qualification groups.
-            $regIds = DivisionFinalist::where('event_division_id', $division->id)->pluck('registration_id');
+            // Final = satu kolam gabungan; kalau final dibagi heat dan $groupId (heat final) diberikan, hanya heat itu.
+            $regIds = DivisionFinalist::where('event_division_id', $division->id)
+                ->when($groupId, fn ($q) => $q->where('division_group_id', $groupId))
+                ->pluck('registration_id');
         } else {
             $regIds = Registration::where('division_id', $division->id)
                 ->where('status', 'APPROVED')
@@ -129,7 +131,7 @@ class LiveScoreboardService
      */
     public function buildQualificationSections(EventDivision $division): Collection
     {
-        $groups = DivisionGroup::where('event_division_id', $division->id)->orderBy('name')->get();
+        $groups = DivisionGroup::where('event_division_id', $division->id)->where('stage', 'QUALIFICATION')->orderBy('name')->get();
 
         if ($groups->isEmpty()) {
             return collect([[

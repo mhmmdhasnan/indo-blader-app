@@ -1,4 +1,16 @@
-<div class="col" style="gap:16px;" wire:poll.5s="syncLiveState">
+<div class="col" style="gap:16px;" wire:poll.5s="syncLiveState"
+     x-data="{
+        init() {
+            // Realtime: pilihan Operator (run/rider/heat) & perubahan fase langsung dicerminkan lewat websocket.
+            // Poll 5 detik di atas tetap jalan sebagai cadangan kalau koneksi putus.
+            const id = this.$wire.judgeEventId;
+            if (!window.Echo || !id) return;
+            let t = null;
+            const sync = () => { clearTimeout(t); t = setTimeout(() => this.$wire.syncLiveState(), 40); };
+            window.Echo.channel('operator-pick.' + id).listen('.picked', sync);
+            window.Echo.channel('live-scoring.' + id).listen('.updated', sync);
+        }
+     }">
 
     @php
         $isHeadJudge = auth()->user()->isHeadJudge();
@@ -250,7 +262,6 @@
                 <span class="mono dim" style="font-size:10px;display:block;margin-bottom:5px;">RUN NUMBER</span>
                 <select wire:model.live="liveRunNumber" class="input-field" style="max-width:140px;">
                     <option value="1">Run 1</option>
-                    <option value="2">Run 2</option>
                 </select>
             </div>
             @if($jamHeatRegs->isEmpty())
@@ -292,7 +303,7 @@
                     <select wire:model.live="liveRunNumber" class="input-field" style="max-width:120px;">
                         <option value="1">{{ $isBestTrickDivision ? 'Percobaan 1' : 'Run 1' }}</option>
                         <option value="2">{{ $isBestTrickDivision ? 'Percobaan 2' : 'Run 2' }}</option>
-                        <option value="3">{{ $isBestTrickDivision ? 'Percobaan 3' : 'Run 3' }}</option>
+                        @if(!$isBestTrickDivision)<option value="3">Run 3</option>@endif
                     </select>
                 </div>
                 <button wire:click="showNextRider($wire.liveRiderId, $wire.liveRunNumber)"

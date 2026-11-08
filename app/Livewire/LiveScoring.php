@@ -7,6 +7,7 @@ use App\Models\DivisionFinalist;
 use App\Models\DivisionGroup;
 use App\Models\Event;
 use App\Models\EventDivision;
+use App\Models\EventJudgeAssignment;
 use App\Models\JudgeScore;
 use App\Models\Registration;
 use App\Models\Rider;
@@ -65,6 +66,9 @@ class LiveScoring extends Component
      */
     public function render()
     {
+        // Admin bisa mengganti event aktif saat /live sudah terbuka: ikuti, supaya klien pindah channel.
+        $this->eventId = $this->resolveActiveEvent()?->id ?? 0;
+
         $cache = Cache::store('file');
         $key   = 'live-scoring:view:' . LiveScoreUpdated::version();
 
@@ -85,7 +89,8 @@ class LiveScoring extends Component
             });
         }
 
-        return view('livewire.live-scoring', unserialize($raw));
+        // serverNow sengaja di luar cache: dipakai klien untuk menyinkronkan jam timer dengan server.
+        return view('livewire.live-scoring', unserialize($raw) + ['serverNow' => (int) round(microtime(true) * 1000)]);
     }
 
     private function buildViewData(): array
@@ -106,9 +111,8 @@ class LiveScoring extends Component
             : $divisions->first();
         $stage = $division?->live_stage === 'FINAL' ? 'FINAL' : 'QUALIFICATION';
 
-        $groups = ($division && $stage === 'QUALIFICATION')
-            ? DivisionGroup::where('event_division_id', $division->id)->orderBy('name')->get()
-            : collect();
+        // Heat tahap sekarang: group kualifikasi, atau heat final kalau final dibagi heat.
+        $groups = $division ? $division->stageGroups() : collect();
 
         $selectedGroupId = $event?->active_group_id ?? 0;
 
@@ -125,10 +129,14 @@ class LiveScoring extends Component
         $liveRiderBestScore = null;
         $liveDivisionLabel = $event?->title ?? 'FRAMEBLADESCORE';
         $isBestTrickPhase = false;
+        $liveRiderPhoto   = null;
         $showingQualRecap = false;
         $jamActive   = false;
         $jamRows     = collect();
         $jamDuration = $event?->live_duration ?? 180;
+        $heatRail    = [];   // rel heat di phase banner: [['name','state' => done|current|upcoming], ...]
+        $jamJudges   = [];   // progres juri saat TIME'S UP: [['n','done'], ...]
+        $nextHeat    = null; // ['label' => 'HEAT 4', 'names' => 'A · B'] — heat berikutnya (UP NEXT)
 
         // Pengumuman kualifikasi & final ini SENGAJA independen dari $stage saat ini —
         // begitu admin pilih finalis, live_stage divisi langsung pindah ke FINAL, jadi
@@ -150,7 +158,8 @@ class LiveScoring extends Component
 
         if ($event) {
             if ($divisions->isNotEmpty() && $division) {
-                $groupId = ($stage === 'QUALIFICATION' && $groups->contains('id', $selectedGroupId))
+                // Selama Best Trick aktif, leaderboard publik = gabungan semua finalis (bukan satu heat final).
+                $groupId = (!$division->best_trick_active && $groups->contains('id', $selectedGroupId))
                     ? $selectedGroupId
                     : null;
 
@@ -168,7 +177,7 @@ class LiveScoring extends Component
                 // panel resting-state ini adalah rekap "siapa yang lanjut ke final beserta
                 // skor kualifikasi mereka" — bukan progres skor final (progres final tetap
                 // kelihatan lewat overlay saat run-nya aktif/di-reveal).
-                if ($stage === 'FINAL' && $qualificationAnnounced && $finalistRegIds->isNotEmpty()) {
+                if ($stage === 'FINAL' && $qualificationAnnounced && $finalistRegIds->isNotEmpty() && $event->live_phase !== 'NEXT') {
                     $scores = app(LiveScoreboardService::class)->buildLeaderboard($division, 'QUALIFICATION', null)
                         ->filter(fn ($row) => $finalistRegIds->contains($row['registration']->id))
                         ->values();
@@ -200,6 +209,22 @@ class LiveScoring extends Component
                     ->values();
             }
 
+            // Heat rail (divisi dengan >1 group/heat saat kualifikasi): ✓ selesai · ● sedang dipilih · sisanya menunggu.
+            if ($division && $groups->count() > 1) {
+                $railSections = ($stage === 'QUALIFICATION')
+                    ? ($scoreSections->isNotEmpty() ? $scoreSections : app(LiveScoreboardService::class)->buildQualificationSections($division))
+                    : $groups->map(fn ($g) => ['group' => $g, 'leaderboard' => app(LiveScoreboardService::class)->buildLeaderboard($division, 'FINAL', $g->id)]);
+                $heatRail = $railSections->filter(fn ($sec) => $sec['group'] !== null)->values()->map(function ($sec, $i) use ($selectedGroupId, $division) {
+                    $done = $sec['leaderboard']->isNotEmpty()
+                        && $sec['leaderboard']->every(fn ($row) => $row['run1'] !== null && ($division->format === 'JAMMING' || $row['run2'] !== null));   // selesai = semua rider sudah punya Run 1 DAN Run 2
+
+                    return [
+                        'name'  => 'H' . ($i + 1),
+                        'state' => $done ? 'done' : ((int) $sec['group']->id === (int) $selectedGroupId ? 'current' : 'upcoming'),
+                    ];
+                })->all();
+            }
+
             // Heat Jamming Season: tidak ada rider tunggal — seluruh heat tampil bersama
             // (timer + ranking heat), jadi kartu esports per-rider dilewati.
             $jamActive = (bool) ($event->live_jam && $event->live_phase && $division?->format === 'JAMMING');
@@ -211,18 +236,54 @@ class LiveScoring extends Component
 
             if ($jamActive) {
                 $jamRows       = app(LiveScoreboardService::class)->buildLeaderboard(
-                    $division, $stage, ($stage === 'QUALIFICATION' && $groups->contains('id', $selectedGroupId)) ? $selectedGroupId : null
+                    $division, $stage, $groups->contains('id', $selectedGroupId) ? $selectedGroupId : null
                 );
                 $displayPhase  = $event->live_phase;
                 $liveStartedAt = $event->live_started_at?->timestamp;
+
+                // Progres juri: juri "selesai" kalau sudah menilai semua rider di heat ini (run yang sedang jalan).
+                if ($groups->count() > 1 && $selectedGroupId) {
+                    $idx       = $groups->search(fn ($g) => (int) $g->id === (int) $selectedGroupId);
+                    $nextGroup = $idx !== false ? $groups->get($idx + 1) : null;
+                    if ($nextGroup) {
+                        $nextHeat = [
+                            'label' => ($stage === 'FINAL' ? 'FINAL HEAT ' : 'HEAT ') . ($idx + 2),
+                            'names' => app(LiveScoreboardService::class)
+                                ->buildLeaderboard($division, $stage, $nextGroup->id)
+                                ->map(fn ($r) => $r['rider']->name)->sort(SORT_NATURAL | SORT_FLAG_CASE)->take(8)->implode(' · '),
+                        ];
+                    }
+                }
+
+                $heatSize = $jamRows->count();
+                if ($heatSize > 0) {
+                    $progress = JudgeScore::where('event_id', $event->id)
+                        ->where('division_id', $division->id)
+                        ->whereIn('rider_id', $jamRows->map(fn ($r) => $r['rider']->id)->filter()->values())
+                        ->where('run_number', $event->live_run_number ?: 1)
+                        ->where('scoring_mode', 'LIVE')
+                        ->where('live_stage', $stage)
+                        ->where('status', 'DONE')
+                        ->selectRaw('judge_user_id, count(*) as c')->groupBy('judge_user_id')
+                        ->pluck('c', 'judge_user_id');
+                    $jamJudges = EventJudgeAssignment::where('event_id', $event->id)->orderBy('id')->pluck('user_id')
+                        ->values()
+                        ->map(fn ($uid, $i) => ['n' => $i + 1, 'done' => ($progress[$uid] ?? 0) >= $heatSize])
+                        ->all();
+                }
             }
 
             $liveDivision = $liveRider ? $this->resolveLiveRiderDivision($event, $liveRider) : null;
+            // Foto: utamakan yang diunggah saat registrasi (event ini), baru avatar profil rider.
+            $liveRiderPhoto = $liveRider
+                ? (Registration::forLiveRider($event, $liveRider)?->photo_url
+                    ?: ($liveRider->avatar ? asset('storage/' . $liveRider->avatar) : null))
+                : null;
             $liveStage    = $liveDivision?->live_stage ?? 'QUALIFICATION';
             $isBestTrickPhase = $liveDivision?->best_trick_active ?? false;
             $liveScoringMode  = $isBestTrickPhase ? 'BEST_TRICK' : 'LIVE';
             $liveDivisionLabel = $liveDivision
-                ? strtoupper($liveDivision->name) . ' · ' . ($liveDivision->live_stage === 'FINAL' ? 'FINAL' : 'KUALIFIKASI')
+                ? strtoupper($liveDivision->name) . ' · ' . ($isBestTrickPhase ? 'BEST TRICK' : ($liveDivision->live_stage === 'FINAL' ? 'FINAL' : 'KUALIFIKASI'))
                 : strtoupper($event->title ?? 'FRAMEBLADESCORE');
 
             if ($event->live_phase === 'REVEALING' && $event->live_rider_id && $event->live_run_number) {
@@ -278,9 +339,9 @@ class LiveScoring extends Component
 
         return compact(
             'event', 'idleScreen', 'idlePlacements', 'nextupPlacements', 'leaderboardPlacements', 'divisions', 'division', 'stage', 'groups', 'selectedGroupId', 'scores', 'scoreSections', 'judgeScores',
-            'liveRider', 'displayPhase', 'liveStartedAt', 'runDuration', 'revealScore', 'revealAccumulatedTotal',
+            'liveRider', 'liveRiderPhoto', 'displayPhase', 'liveStartedAt', 'runDuration', 'revealScore', 'revealAccumulatedTotal',
             'liveRiderBestScore', 'liveDivisionLabel', 'isBestTrickPhase', 'showingQualRecap',
-            'qualificationAnnounced', 'finalAnnounced', 'finalistRegIds', 'finalistNames', 'podium', 'jamActive', 'jamDuration', 'jamRows'
+            'qualificationAnnounced', 'finalAnnounced', 'finalistRegIds', 'finalistNames', 'podium', 'jamActive', 'jamDuration', 'jamRows', 'heatRail', 'jamJudges', 'nextHeat'
         );
     }
 }

@@ -54,6 +54,9 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // Halaman /simulator + sesi multi-login per panel. Aktifkan HANYA di lingkungan dev.
+    'simulator' => (bool) env('SIMULATOR_ENABLED', false),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

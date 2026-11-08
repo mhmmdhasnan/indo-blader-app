@@ -82,7 +82,7 @@
     <div class="between" style="padding:8px 0 12px;border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap;">
         <span class="oc-lbl">
             {{ $activeDivName ? $activeDivName : 'Menunggu Operator memilih divisi' }}
-            @if($activeDiv) · {{ $jcIsFinal ? 'Final' : ($jcGroup ?: ($jcIsJamDiv ? 'Heat' : 'Kualifikasi')) }} · {{ $jcRunLabel }} {{ $liveRunNumber }}@endif
+            @if($activeDiv) · {{ $jcIsFinal ? 'Final' . ($jcGroup && ($judgeGroups ?? collect())->count() > 1 ? ' · ' . preg_replace('/^Final\s+/i', '', $jcGroup) : '') : ($jcGroup ?: ($jcIsJamDiv ? 'Heat' : 'Kualifikasi')) }} · {{ $jcRunLabel }} {{ $liveRunNumber }}@endif
         </span>
         <span class="oc-lbl">Nilai tidak bisa dilihat judge lain</span>
     </div>

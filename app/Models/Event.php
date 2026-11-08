@@ -14,7 +14,7 @@ class Event extends Model
         'status', 'type', 'categories', 'prize', 'prize_hidden', 'entry_fee', 'featured', 'blurb', 'banner', 'logo',
         'schedule', 'rules',
         'run_duration', 'live_rider_id', 'live_run_number', 'live_phase', 'live_started_at',
-        'active_division_id', 'active_group_id', 'idle_screen', 'live_jam', 'live_duration',
+        'active_division_id', 'active_group_id', 'active_run_number', 'active_registration_id', 'idle_screen', 'live_jam', 'live_duration',
     ];
 
     protected $casts = [

@@ -315,6 +315,10 @@
                                                         <p class="mono dim" style="font-size:12px;">Belum ada skor kualifikasi untuk divisi ini.</p>
                                                     @endforelse
                                                     <div class="flex gap-s">
+                                                        <label class="flex gap-s" style="align-items:center;" title="1 = satu kolam gabungan. Lebih dari 1 = finalis dibagi rata ke heat (pola snake menurut peringkat kualifikasi). Peringkat akhir tetap gabungan semua heat.">
+                                                            <span class="mono dim" style="font-size:10px;">HEAT FINAL</span>
+                                                            <input type="number" min="1" max="8" wire:model="finalistHeatCount" class="input-field" style="width:60px;font-size:12px;padding:4px 8px;">
+                                                        </label>
                                                         <button wire:click="openFinalPhase({{ $div->id }})" class="btn btn-sm btn-lime">Simpan &amp; Buka Final</button>
                                                         <button wire:click="cancelFinalistPicker" class="btn btn-sm btn-ghost">Batal</button>
                                                     </div>

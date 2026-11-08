@@ -11,6 +11,9 @@
     $hjHeatRegs  = $jamHeatRegs ?? collect();
     $hjBestTrick = (bool) ($isBestTrickPhase ?? false) || (bool) ($activeDiv?->best_trick_active ?? false);
     $hjRunLabel  = $hjBestTrick ? 'PERCOBAAN' : 'RUN';
+    // Warna per nomor run supaya Head Judge langsung tahu run berapa yang sedang disiapkan/berjalan.
+    $hjRunColor  = [1 => '#5ec8ff', 2 => '#b78cff', 3 => '#ff7ac8'][(int) $liveRunNumber] ?? '#5ec8ff';
+    $hjRunChip   = '<span class="mono" style="display:inline-block;background:' . $hjRunColor . ';color:#0a0a0b;font-weight:700;font-size:15px;letter-spacing:.1em;padding:3px 12px;">' . e($hjRunLabel . ' ' . (int) $liveRunNumber) . '</span>';
     $hjIsFinal   = ($activeDiv?->live_stage ?? null) === 'FINAL';
 
     // Variabel yang dipakai partial live-scoring (sebelumnya dihitung di judging-panel)
@@ -37,7 +40,9 @@
     }
     $hjDoneCount = collect($hjProgress)->filter(fn ($p) => $p[1] > 0 && $p[0] >= $p[1])->count();
     $hjPending   = $hjJudges->filter(fn ($aj) => ($hjProgress[$aj->user_id][0] ?? 0) < ($hjProgress[$aj->user_id][1] ?? 1));
-    $hjAllDone   = $hjJudges->count() > 0 && $hjPending->isEmpty();
+    // Event tanpa judge ter-assign (Admin → Event → Judge): tidak ada yang bisa ditunggu, reveal tidak boleh terlihat terkunci.
+    $hjNoJudges  = $hjJudges->isEmpty();
+    $hjAllDone   = $hjNoJudges || $hjPending->isEmpty();
     $hjPendingTxt = $hjPending->map(function ($aj) use ($hjProgress, $hjIsJamRun) {
         $left = ($hjProgress[$aj->user_id][1] ?? 1) - ($hjProgress[$aj->user_id][0] ?? 0);
         return ($aj->user?->name ?? '—') . ($hjIsJamRun ? ' ' . $left . ' rider' : '');
@@ -47,12 +52,17 @@
     $hjCanStart = false;
     if (!$judgeEventId)                { $hjStatus = 'Tidak ada event aktif.'; }
     elseif ($hjPhase === 'REVEALING')  { $hjStatus = 'Skor sedang tampil di layar publik.'; }
+    elseif (!$isRunning && ($liveSetupProblem ?? null)) { $hjStatus = $liveSetupProblem; }
+    elseif ($isRunning && $hjNoJudges) { $hjStatus = 'Belum ada judge yang di-assign ke event ini (Admin → Event). Reveal tetap bisa.'; }
     elseif ($isRunning)                { $hjStatus = $hjAllDone ? 'Semua judge sudah selesai. Reveal sekarang.' : 'Menunggu ' . $hjPending->count() . ' judge lagi: ' . $hjPendingTxt; }
     elseif (!$judgeDivisionId)         { $hjStatus = 'Menunggu Operator memilih divisi.'; }
     elseif ($hjIsJamDiv && $hjHeatRegs->isEmpty()) { $hjStatus = 'Menunggu Operator memilih heat.'; }
+    elseif ($hjIsJamDiv && ($judgeGroups ?? collect())->isNotEmpty() && !($judgeGroups ?? collect())->contains('id', $judgeGroupId)) { $hjStatus = 'Menunggu Operator memilih heat.'; }
     elseif ($hjIsJamDiv)               { $hjCanStart = true; $hjStatus = 'Siap: ' . $hjHeatRegs->count() . ' rider, ' . $hjDuration . ' dtk. ' . $hjRunLabel . ' ' . $liveRunNumber . ' (diatur Operator).'; }
     elseif (!$liveRiderId)             { $hjStatus = 'Menunggu Operator memilih rider & run.'; }
     else                               { $hjCanStart = true; $hjStatus = 'Siap: ' . ($hjReadyRider?->name ?? 'rider') . ' · ' . $hjRunLabel . ' ' . $liveRunNumber; }
+
+    if (!$isRunning && ($liveSetupProblem ?? null)) { $hjCanStart = false; }
 
     // Mode scoring (Live / Knockout) hanya kalau Head Judge ditugaskan di keduanya
     $hjAssignedMode = $judgeAssignment?->scoring_mode ?? 'BOTH';
@@ -77,14 +87,14 @@
         </div>
         <div class="col" style="gap:2px;">
             <span class="oc-lbl">Divisi · mengikuti Operator</span>
-            <span class="mono" style="font-size:13px;">{{ $hjDivName ? strtoupper($hjDivName) . ($hjIsFinal ? ' · FINAL' : ($hjGroupName ? ' · ' . strtoupper($hjGroupName) : '')) : 'Semua divisi' }}</span>
+            <span class="mono" style="font-size:13px;">{{ $hjDivName ? strtoupper($hjDivName) . ($hjIsFinal ? ' · FINAL' . ($hjGroupName ? ' · ' . strtoupper($hjGroupName) : '') : ($hjGroupName ? ' · ' . strtoupper($hjGroupName) : '')) : 'Semua divisi' }}</span>
         </div>
         <div class="oc-steps" aria-label="Fase">
             @foreach([1 => '01 PERSIAPAN', 2 => '02 RUN', 3 => '03 PENILAIAN', 4 => '04 REVEAL'] as $n => $name)
                 <div class="oc-st {{ $hjStep === $n ? 'on' : ($hjStep > $n ? 'done' : '') }}">{{ $name }}</div>
             @endforeach
         </div>
-        @if($isRunning && $hjAllDone)
+        @if($isRunning && $hjAllDone && !$hjNoJudges)
             <span class="badge badge-lime">SEMUA SELESAI</span>
         @elseif($isRunning)
             <span class="badge badge-red"><span class="live-dot" style="margin-right:5px;"></span>MENUNGGU JUDGE</span>
@@ -108,9 +118,9 @@
         {{-- ── KIRI: Status run + Nilai saya ── --}}
         <div class="col" style="gap:16px;min-width:0;">
 
-            <section class="oc-card">
+            <section class="oc-card" style="border-top:6px solid {{ $hjRunColor }};">
                 <div class="between">
-                    <span class="oc-lbl">Status run · {{ $hjRunLabel }} {{ $liveRunNumber }}{{ $hjIsJamDiv ? ' · ' . $hjHeatRegs->count() . ' rider' : '' }}</span>
+                    <span class="oc-lbl" style="display:flex;align-items:center;gap:10px;">Status run · {!! $hjRunChip !!}{{ $hjIsJamDiv ? ' · ' . $hjHeatRegs->count() . ' rider' : '' }}</span>
                     @if($isRunning)<span class="badge badge-red">RUNNING</span>@elseif($hjPhase === 'REVEALING')<span class="badge badge-lime">REVEAL</span>@else<span class="badge badge-out">STANDBY</span>@endif
                 </div>
 
@@ -175,28 +185,66 @@
         {{-- ── KANAN: Rangkuman nilai judge ── --}}
         <section class="oc-card" style="min-width:0;">
             <div class="between">
-                <span class="oc-lbl">Rangkuman nilai judge</span>
+                <span class="oc-lbl">Rangkuman nilai judge · {{ $summaryHeat === 'all' ? 'semua heat' : (($summaryHeat !== '' || ($activeEvent?->active_group_id ?: ($judgeGroupId ?? 0))) ? 'per heat' : 'semua heat') }}</span>
                 <span class="oc-lbl">{{ ($headJudgeSummary ?? collect())->count() }} entri</span>
             </div>
-            @forelse(($headJudgeSummary ?? collect()) as $row)
-                <div style="padding:10px 0;border-top:1px solid var(--line);">
-                    <div class="between" style="gap:12px;">
-                        <div class="col" style="gap:2px;min-width:0;">
-                            <span style="font-weight:700;font-size:15px;">{{ $row['rider']?->name ?? '—' }}</span>
-                            <span class="oc-lbl" style="font-size:12px;">
-                                {{ $row['mode'] === 'BEST_TRICK' ? 'Best trick · percobaan ' . $row['run'] : 'Run ' . $row['run'] . ' · ' . ($row['stage'] === 'FINAL' ? 'Final' : 'Kualifikasi') }}
-                            </span>
-                        </div>
-                        <span class="display tnum" style="font-size:40px;line-height:40px;color:var(--lime);">{{ number_format($row['avg'], 1) }}</span>
+            @if(($summaryHeatOptions ?? collect())->isNotEmpty())
+                <div style="margin-top:8px;">
+                    <select wire:model.live="summaryHeat" class="oc-sel" style="width:100%;padding:8px 10px;background:var(--bg-2);color:var(--ink);border:2px solid var(--line-strong);font-family:var(--font-mono);font-size:13px;">
+                        <option value="">Ikuti heat Operator</option>
+                        <option value="all">Semua heat</option>
+                        @foreach($summaryHeatOptions as $opt)
+                            <option value="{{ $opt['id'] }}">{{ $opt['name'] }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+            @php $hjSummary = ($headJudgeSummary ?? collect()); $hjHeats = $hjSummary->groupBy(fn ($r) => $r['heat'] ?? ''); @endphp
+            @forelse($hjHeats as $heatName => $heatRows)
+                @if($heatName !== '')
+                    <div class="between" style="margin-top:14px;padding:6px 10px;background:var(--bg-2);border-left:4px solid var(--lime);">
+                        <span class="oc-lbl" style="color:var(--ink);font-weight:700;">{{ strtoupper($heatName) }}</span>
+                        <span class="oc-lbl">{{ $heatRows->pluck('rider.id')->unique()->count() }} rider</span>
                     </div>
-                    <div class="flex" style="flex-wrap:wrap;gap:6px;margin-top:6px;">
-                        @foreach($row['judges'] as $j)
-                            <span class="mono" style="font-size:13px;padding:2px 8px;background:var(--bg-2);">{{ $j['name'] }} · {{ number_format($j['total'], 1) }}</span>
+                @endif
+                @php
+                    // Skor kembar antar rider (heat + mode + run yang sama) → peringatan untuk Head Judge.
+                    $tieKey   = fn ($r) => ($r['mode'] ?? '') . '|' . ($r['run'] ?? '') . '|' . number_format($r['avg'], 1);
+                    $tieCount = $heatRows->groupBy($tieKey)->map(fn ($g) => $g->pluck('rider.id')->unique()->count());
+                    $tieGroups = $heatRows->groupBy($tieKey)->filter(fn ($g) => $g->pluck('rider.id')->unique()->count() > 1);
+                @endphp
+                @if($tieGroups->isNotEmpty())
+                    <div style="margin-top:8px;padding:8px 10px;border:2px solid #ffb020;background:color-mix(in srgb,#ffb020 12%,transparent);">
+                        <span class="oc-lbl" style="color:#ffb020;font-weight:700;">⚠ SKOR SAMA</span>
+                        @foreach($tieGroups as $tg)
+                            <div class="mono" style="font-size:12px;margin-top:4px;">
+                                {{ number_format($tg->first()['avg'], 1) }} — {{ $tg->map(fn ($r) => $r['rider']?->name ?? '—')->unique()->implode(' & ') }}
+                                ({{ $tg->first()['mode'] === 'BEST_TRICK' ? 'percobaan ' : 'run ' }}{{ $tg->first()['run'] }})
+                            </div>
                         @endforeach
                     </div>
-                </div>
+                @endif
+                @foreach($heatRows as $row)
+                    @php $isTie = ($tieCount[$tieKey($row)] ?? 1) > 1; @endphp
+                    <div style="padding:10px 0;border-top:1px solid var(--line);{{ $isTie ? 'border-left:4px solid #ffb020;padding-left:10px;' : '' }}">
+                        <div class="between" style="gap:12px;">
+                            <div class="col" style="gap:2px;min-width:0;">
+                                <span style="font-weight:700;font-size:15px;">{{ $row['rider']?->name ?? '—' }}</span>
+                                <span class="oc-lbl" style="font-size:12px;">
+                                    {{ $row['mode'] === 'BEST_TRICK' ? 'Best trick · percobaan ' . $row['run'] : 'Run ' . $row['run'] . ' · ' . ($row['stage'] === 'FINAL' ? 'Final' : 'Kualifikasi') }}
+                                </span>
+                            </div>
+                            <span class="display tnum" style="font-size:40px;line-height:40px;color:{{ $isTie ? '#ffb020' : 'var(--lime)' }};">{{ number_format($row['avg'], 1) }}@if($isTie)<span class="mono" style="display:block;font-size:11px;line-height:12px;letter-spacing:.1em;text-align:right;">SAMA</span>@endif</span>
+                        </div>
+                        <div class="flex" style="flex-wrap:wrap;gap:6px;margin-top:6px;">
+                            @foreach($row['judges'] as $j)
+                                <span class="mono" style="font-size:13px;padding:2px 8px;background:var(--bg-2);">{{ $j['name'] }} · {{ number_format($j['total'], 1) }}</span>
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
             @empty
-                <p class="mono dim" style="font-size:12px;">Belum ada nilai masuk untuk divisi ini.</p>
+                <p class="mono dim" style="font-size:12px;">Belum ada nilai masuk untuk heat/divisi ini.</p>
             @endforelse
             <p class="oc-lbl" style="margin-top:auto;font-size:12px;">Rata sementara, final setelah semua judge kirim</p>
         </section>
@@ -205,7 +253,7 @@
     {{-- ── ACTION BAR ── --}}
     <div class="oc-bar">
         <p class="mono" style="font-size:14px;">
-            <b style="display:block;">{{ $hjStatus }}</b>
+            <b style="display:block;">{!! $hjRunChip !!} {{ $hjStatus }}</b>
             @if($isRunning && !$hjAllDone)<span class="oc-lbl">Reveal sebelum semua judge selesai akan meminta konfirmasi</span>@endif
         </p>
 
@@ -213,8 +261,16 @@
             <button type="button" wire:click="endSession" wire:key="hj-back" class="oc-btn pri">← KEMBALI KE LEADERBOARD</button>
 
         @elseif($isRunning)
-            <button type="button" wire:click="endSession" wire:key="hj-cancel" class="oc-btn out"
-                wire:confirm="{{ $hjIsJamRun ? 'Batalkan heat? Semua skor heat ini akan dihapus.' : 'Batalkan run? Skor run ini akan dihapus.' }}">BATAL {{ $hjIsJamRun ? 'HEAT' : 'RUN' }}</button>
+            <div x-data="{ ask: false }" style="display:contents;">
+                <button type="button" x-show="!ask" @click="ask = true" wire:key="hj-cancel" class="oc-btn out">BATAL {{ $hjIsJamRun ? 'HEAT' : 'RUN' }}</button>
+                <span x-show="ask" x-cloak class="oc-ask">
+                    <span class="mono" style="font-size:13px;">Nilai yang sudah masuk diapakan?</span>
+                    <button type="button" wire:click="endSession(true)" wire:key="hj-cancel-del" class="oc-btn dng"
+                        wire:confirm="{{ $hjIsJamRun ? 'Hapus semua skor heat ini dan batalkan?' : 'Hapus skor run ini dan batalkan?' }}">🗑 HAPUS NILAI</button>
+                    <button type="button" wire:click="endSession(false)" wire:key="hj-cancel-keep" class="oc-btn sec">💾 SIMPAN NILAI</button>
+                    <button type="button" @click="ask = false" class="oc-btn out">KEMBALI</button>
+                </span>
+            </div>
             {{-- Tanpa wire:confirm: cek "judge belum selesai" dilakukan server saat klik (revealScore), peringatannya tampil inline di bawah. --}}
             <button type="button" wire:click="revealScore" wire:key="hj-reveal" class="oc-btn pri {{ $hjAllDone ? '' : 'wait' }}">✓ REVEAL SCORE</button>
 
@@ -223,7 +279,8 @@
                 <button type="button" wire:click="endSession" wire:key="hj-cancel-preview" class="oc-btn sec">✗ BATAL PREVIEW</button>
             @endif
             @if($hjIsJamDiv)
-                <button type="button" wire:click="startJamHeat" wire:key="hj-start-heat" class="oc-btn pri" @if(!$hjCanStart) disabled @endif>▶ MULAI HEAT</button>
+                <button type="button" wire:click="startJamHeat" wire:key="hj-start-heat-{{ ($heatAlreadyRan ?? false) ? 1 : 0 }}-{{ $liveRunNumber }}" class="oc-btn pri" @if(!$hjCanStart) disabled @endif
+                    @if($heatAlreadyRan ?? false) wire:confirm="Heat ini sudah punya nilai untuk RUN {{ $liveRunNumber }}. Mulai lagi? Nilai yang sudah ada tidak otomatis terhapus." @endif>▶ MULAI HEAT</button>
             @else
                 <button type="button" wire:click="startRun"
                     wire:key="hj-start-{{ $liveRiderId }}-{{ $liveRunNumber }}-{{ ($riderAlreadyRan ?? false) ? 1 : 0 }}"
@@ -239,6 +296,7 @@
             <button type="button" wire:click="revealScore(true)" class="oc-btn sec" style="border-color:#ffb020;color:#ffb020;">REVEAL TETAP</button>
         </div>
     @endif
+    @error('liveSetup') <p class="oc-err">{{ $message }}</p> @enderror
     @error('judgeGroupId') <p class="oc-err">{{ $message }}</p> @enderror
     @error('judgeDivisionId') <p class="oc-err">{{ $message }}</p> @enderror
     @error('liveRiderId') <p class="oc-err">{{ $message }}</p> @enderror

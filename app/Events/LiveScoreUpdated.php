@@ -2,6 +2,7 @@
 
 namespace App\Events;
 
+use App\Models\Event;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
@@ -41,6 +42,24 @@ class LiveScoreUpdated implements ShouldBroadcastNow
     public function broadcastOn(): array
     {
         return [new Channel("live-scoring.{$this->eventId}")];
+    }
+
+    /**
+     * Bawa state waktu-kritis langsung di pesan websocket, supaya klien bisa memperbarui
+     * chip/timer tanpa menunggu refresh HTTP, dan menyinkronkan jamnya dengan server ('t', ms).
+     */
+    public function broadcastWith(): array
+    {
+        $e = Event::query()->whereKey($this->eventId)
+            ->first(['id', 'live_phase', 'live_jam', 'live_started_at', 'live_duration', 'run_duration']);
+
+        return [
+            'phase'    => $e?->live_phase,
+            'jam'      => (bool) $e?->live_jam,
+            'started'  => $e?->live_started_at?->timestamp,
+            'duration' => $e?->live_jam ? ($e->live_duration ?? 180) : ($e?->run_duration ?? 60),
+            't'        => (int) round(microtime(true) * 1000),
+        ];
     }
 
     public function broadcastAs(): string

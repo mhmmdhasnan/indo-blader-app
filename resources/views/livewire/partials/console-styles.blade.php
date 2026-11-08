@@ -23,6 +23,10 @@
 .oc-title{font-size:36px;line-height:36px;letter-spacing:.02em}
 .oc-timer{font-size:var(--oc-timer,96px);line-height:var(--oc-timer-lh,88px);letter-spacing:.02em}
 .oc-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;background:var(--bg-2);font-weight:700;font-size:14px}
+.oc-modal{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.74)}
+.oc-modal-box{width:min(1120px,100%);max-height:calc(100vh - 32px);overflow-y:auto;background:var(--bg);color:var(--ink);border:2px solid var(--lime);padding:22px 24px;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+.oc-modal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;align-items:start}
+@media (max-width:640px){.oc-modal{padding:0}.oc-modal-box{max-height:100vh;height:100%;padding:16px;border-width:0}}
 .oc-ghost{min-height:48px;padding:0 16px;background:transparent;border:2px solid var(--ink);color:inherit;font:700 13px var(--font-mono,monospace);letter-spacing:.1em;cursor:pointer;text-align:left;width:100%}
 .oc-bar{position:sticky;bottom:0;z-index:20;margin-top:var(--oc-gap);min-height:88px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 16px;border:2px solid var(--ink);background:var(--bg-1,var(--bg))}
 .oc-bar p{flex:1;min-width:200px;margin:0}
@@ -42,6 +46,7 @@
 .oc-segs{display:flex;gap:4px}.oc-segs i{flex:1;height:12px;border:2px solid var(--ink-3,#8a8a90);min-width:8px}.oc-segs i.f{background:var(--lime);border-color:var(--lime)}
 .oc-tg{font:700 12px var(--font-mono,monospace);letter-spacing:.08em;text-align:center;padding:2px 8px;border:2px solid}
 .oc-tg.ok{color:var(--lime);border-color:var(--lime)}.oc-tg.wt{color:#ffb020;border-color:#ffb020}
+.oc-ask{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .oc-hj{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;align-items:start;flex:1}
 @media (max-width:1100px){.oc-hj{grid-template-columns:1fr}.oc-jr{grid-template-columns:100px 1fr 50px 100px}}
 </style>

@@ -47,6 +47,14 @@ class EventDivision extends Model
         return $this->hasMany(DivisionGroup::class, 'event_division_id');
     }
 
+    /** Heat yang berlaku untuk tahap divisi sekarang: group kualifikasi, atau heat final. */
+    public function stageGroups(): \Illuminate\Database\Eloquent\Collection
+    {
+        return $this->groups()
+            ->where('stage', $this->live_stage === 'FINAL' ? 'FINAL' : 'QUALIFICATION')
+            ->orderBy('name')->get();
+    }
+
     public function getIsFinalStageAttribute(): bool
     {
         return $this->live_stage === 'FINAL';

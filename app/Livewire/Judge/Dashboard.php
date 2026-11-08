@@ -46,6 +46,8 @@ class Dashboard extends Component
     public int    $jamRunSynced    = 0; // run heat jamming yang form nilainya sudah di-init di komponen ini
     public int    $judgeDivisionId = 0;
     public int    $judgeGroupId    = 0;
+    /** Head Judge: filter heat di Rangkuman nilai. '' = ikuti pilihan Operator, 'all' = semua heat, selain itu id group. */
+    public string $summaryHeat     = '';
     public ?float $bestTrickScore  = null; // typed 0-10 score for the Best Trick phase
     public array  $jamScores       = [];   // Jamming heat: [registration_id => [criteria_key => nilai]]
     // Operator: durasi timer jamming (detik) untuk divisi aktif. Sengaja tanpa type `int`:
@@ -85,6 +87,8 @@ class Dashboard extends Component
             $this->selectedEventId = $active->id;
             $this->judgeDivisionId = $active->active_division_id ?? 0;
             $this->judgeGroupId    = $active->active_group_id ?? 0;
+            $this->liveRunNumber   = (int) ($active->active_run_number ?: 1);
+            $this->liveRiderId     = (int) ($active->active_registration_id ?: 0);
             $this->initCriteria();
         }
     }
@@ -129,21 +133,72 @@ class Dashboard extends Component
     {
         $this->judgeGroupId = 0;
         $this->jamDuration  = 0;
+        $this->phaseModalOpen     = false;   // dialog/panel fase milik divisi sebelumnya ditutup
+        $this->finalistPickerOpen = false;
+        $this->groupManagerOpen   = false;
+        $this->selectedFinalistRegIds = [];
 
         if ($this->judgeEventId && auth()->user()->isOperator()) {
             Event::find($this->judgeEventId)?->update([
-                'active_division_id' => $this->judgeDivisionId ?: null,
-                'active_group_id'    => null,
+                'active_division_id'     => $this->judgeDivisionId ?: null,
+                'active_group_id'        => null,
+                'active_registration_id' => null,
             ]);
+            $this->liveRiderId = 0;
         }
+    }
+
+    /** Operator memilih run / rider: simpan ke event supaya Head Judge & Judge ikut melihatnya. */
+    public function updatedLiveRunNumber(): void
+    {
+        $this->persistOperatorPick();
+    }
+
+    public function updatedLiveRiderId(): void
+    {
+        $this->persistOperatorPick();
+    }
+
+    private function persistOperatorPick(): void
+    {
+        if (!$this->judgeEventId || !auth()->user()->isOperator()) return;
+
+        // Query update (tanpa observer): pilihan ini tidak perlu mem-broadcast ke layar publik.
+        Event::whereKey($this->judgeEventId)->update([
+            'active_run_number'      => $this->liveRunNumber ?: null,
+            'active_registration_id' => $this->liveRiderId ?: null,
+        ]);
+
+        // Dorong ke Head Judge / Judge lewat websocket supaya layar mereka berubah seketika.
+        try {
+            \App\Events\OperatorPickUpdated::dispatch($this->judgeEventId);
+        } catch (\Throwable $e) {
+            // Websocket mati tidak boleh menggagalkan klik Operator — Head Judge tetap sinkron lewat poll 5 detik.
+            report($e);
+        }
+    }
+
+    /**
+     * Pengaman: Head Judge / Judge tidak boleh memulai run dengan pilihan basi dari layarnya sendiri.
+     * Kalau Operator sudah memilih run/rider, itulah yang dipakai server.
+     */
+    private function adoptOperatorPick(): void
+    {
+        if (!$this->judgeEventId || auth()->user()->isOperator()) return;
+
+        $event = Event::find($this->judgeEventId);
+        if ($event?->active_run_number) $this->liveRunNumber = (int) $event->active_run_number;
+        if ($event?->active_registration_id) $this->liveRiderId = (int) $event->active_registration_id;
     }
 
     public function updatedJudgeGroupId(): void
     {
         if ($this->judgeEventId && auth()->user()->isOperator()) {
             Event::find($this->judgeEventId)?->update([
-                'active_group_id' => $this->judgeGroupId ?: null,
+                'active_group_id'        => $this->judgeGroupId ?: null,
+                'active_registration_id' => null,
             ]);
+            $this->liveRiderId = 0;
         }
     }
 
@@ -189,6 +244,27 @@ class Dashboard extends Component
         }
         // Fallback to all active global criteria
         return ScoringCriterion::where('is_active', true)->orderBy('display_order')->get();
+    }
+
+    /**
+     * Syarat pertandingan boleh jalan: Admin sudah mengatur Kriteria Event (kecuali Best Trick, yang
+     * memakai satu nilai langsung) dan meng-assign minimal satu Judge ke event. Null kalau lengkap.
+     */
+    private function liveSetupProblem(): ?string
+    {
+        if (!$this->judgeEventId) return null;
+        $event = Event::find($this->judgeEventId);
+        if (!$event) return null;
+
+        $missing = [];
+        $division = $this->judgeDivisionId ? \App\Models\EventDivision::find($this->judgeDivisionId) : null;
+        $isBestTrick = (bool) ($division?->best_trick_active);
+        if (!$isBestTrick && $event->criteriaFor('LIVE')->isEmpty()) $missing[] = 'Kriteria Event';
+        if (!EventJudgeAssignment::where('event_id', $event->id)->exists()) $missing[] = 'Judge Event';
+
+        return $missing
+            ? 'Pertandingan belum bisa dimulai: ' . implode(' dan ', $missing) . ' belum di-setup. Minta Admin mengaturnya di Admin → Event.'
+            : null;
     }
 
     // ─── Scoring ─────────────────────────────────────────────────────────────
@@ -404,6 +480,305 @@ class Dashboard extends Component
         JudgeScore::findOrFail($scoreId)->update(['status' => 'WAITING']);
     }
 
+    // ─── Operator: fase divisi (Kualifikasi → Final → Best Trick), hanya event aktif ──
+
+    /** Pesan penolakan kartu Fase divisi: properti biasa (bukan ErrorBag) supaya tidak hilang oleh poll 5 detik. */
+    public ?string $phaseError    = null;
+    public ?string $finalistError = null;
+
+    public bool  $phaseModalOpen         = false;   // dialog lebar "Atur fase divisi"
+    public bool  $finalistPickerOpen     = false;
+    public array $selectedFinalistRegIds = [];
+    public int   $finalistTopN           = 8;
+    public int   $finalistHeatCount      = 1;
+    public string $finalistSplitMode     = 'auto';   // auto | manual
+    public array  $finalistHeatOf        = [];       // manual: id registrasi => nomor heat
+
+    /**
+     * Divisi yang boleh diubah fasenya oleh Operator: harus milik event aktif, dan tidak boleh
+     * ada run/heat yang sedang berjalan atau sedang ditampilkan (perubahan fase akan mengacaukan layar publik).
+     * Mengembalikan null (dan mengisi pesan error) kalau tidak boleh.
+     */
+    private function phaseDivision(int $divisionId, bool $allowCompleted = false): ?\App\Models\EventDivision
+    {
+        $this->phaseError = null;
+        if (!auth()->user()->isOperator()) return null;
+
+        $division = \App\Models\EventDivision::find($divisionId);
+        if (!$division || !$this->judgeEventId || (int) $division->event_id !== (int) $this->judgeEventId) {
+            $this->phaseError = ('Divisi ini bukan bagian dari event yang sedang aktif.');
+            return null;
+        }
+        $livePhase = Event::find($this->judgeEventId)?->live_phase;
+        if (in_array($livePhase, ['RUNNING', 'NEXT'], true)) {
+            $this->phaseError = ($livePhase === 'RUNNING'
+                ? 'Selesaikan atau batalkan run/heat yang sedang berjalan dulu sebelum mengubah fase divisi.'
+                : 'Batalkan preview rider dulu sebelum mengubah fase divisi.');
+            return null;
+        }
+        if ($livePhase === 'REVEALING') {
+            // Skor yang masih tampil di layar publik tidak menghalangi: layar dikembalikan ke leaderboard
+            // (sama seperti tombol KEMBALI KE LEADERBOARD) lalu perubahan fase dilanjutkan.
+            $this->endSession(false);
+        }
+        if ($division->live_final_completed_at && !$allowCompleted) {
+            $this->phaseError = ('Final divisi ini sudah diselesaikan (ranking sudah dihitung). Buka ulang dulu (BUKA ULANG) untuk mengubahnya.');
+            return null;
+        }
+
+        return $division;
+    }
+
+    /** Heat/rider terpilih milik fase sebelumnya dibersihkan juga di event, supaya Head Judge & layar publik ikut. */
+    private function clearHeatPick(): void
+    {
+        $this->judgeGroupId = 0;
+        $this->liveRiderId  = 0;
+        Event::find($this->judgeEventId)?->update(['active_group_id' => null, 'active_registration_id' => null]);
+    }
+
+    public function openPhaseModal(): void
+    {
+        if (!auth()->user()->isOperator()) return;
+
+        $this->phaseError  = null;
+        $this->phaseModalOpen = true;
+    }
+
+    public function closePhaseModal(): void
+    {
+        $this->phaseModalOpen = false;
+        $this->phaseError     = null;
+        $this->cancelFinalistPicker();
+        $this->groupManagerOpen = false;
+    }
+
+    public function openFinalistPicker(int $divisionId): void
+    {
+        if (!($division = $this->phaseDivision($divisionId))) return;
+
+        $this->phaseError = null;
+        $this->finalistPickerOpen     = true;
+        $this->selectedFinalistRegIds = \App\Models\DivisionFinalist::where('event_division_id', $division->id)
+            ->pluck('registration_id')->map(fn ($id) => (int) $id)->all();
+        $this->finalistHeatCount      = max(1, \App\Models\DivisionGroup::where('event_division_id', $division->id)->where('stage', 'FINAL')->count());
+
+        // Pembagian heat final yang sudah ada (mis. setelah "kembali ke kualifikasi") dimuat sebagai titik awal manual.
+        $this->finalistSplitMode = 'auto';
+        $this->finalistHeatOf    = [];
+        if ($this->finalistHeatCount > 1) {
+            $names = \App\Models\DivisionGroup::where('event_division_id', $division->id)->where('stage', 'FINAL')->orderBy('name')->pluck('id')->values();
+            foreach (\App\Models\DivisionFinalist::where('event_division_id', $division->id)->whereNotNull('division_group_id')->get() as $f) {
+                $idx = $names->search($f->division_group_id);
+                if ($idx !== false) $this->finalistHeatOf[$f->registration_id] = $idx + 1;
+            }
+            $this->finalistSplitMode = 'manual';
+        }
+    }
+
+    /** Isi pembagian heat dengan pola otomatis (snake) sebagai titik awal; setelah itu bebas diubah manual. */
+    public function autoFillFinalistHeats(int $divisionId): void
+    {
+        if (!($division = $this->phaseDivision($divisionId))) return;
+
+        $ids = array_map('intval', $this->selectedFinalistRegIds);
+        $this->finalistHeatOf    = app(\App\Services\DivisionPhaseService::class)
+            ->autoAssignment($division, $ids, max(1, $this->finalistHeatCount));
+        $this->finalistSplitMode = 'manual';
+        $this->finalistError = null;
+    }
+
+    /** Pindahkan finalis ke heat final lain (setelah final dibuka, sebelum finalis itu punya nilai final). */
+    public function moveFinalistHeat(int $registrationId, int $groupId): void
+    {
+        $registration = Registration::find($registrationId);
+        if (!$registration || !($division = $this->phaseDivision((int) $registration->division_id))) return;
+
+        if ($division->live_stage !== 'FINAL') {
+            $this->phaseError = ('Heat final hanya bisa diatur saat divisi di fase Final.');
+            return;
+        }
+        if ($message = app(\App\Services\DivisionPhaseService::class)->moveFinalist($division, $registrationId, $groupId)) {
+            $this->phaseError = ($message);
+            return;
+        }
+        $this->phaseError = null;
+    }
+
+    public function cancelFinalistPicker(): void
+    {
+        $this->finalistPickerOpen     = false;
+        $this->selectedFinalistRegIds = [];
+        $this->finalistHeatOf         = [];
+        $this->finalistSplitMode      = 'auto';
+        $this->finalistError = null;
+    }
+
+    public function autoSelectTopFinalists(int $divisionId): void
+    {
+        if (!($division = $this->phaseDivision($divisionId))) return;
+
+        $this->selectedFinalistRegIds = app(\App\Services\DivisionPhaseService::class)
+            ->topRegistrationIds($division, $this->finalistTopN);
+    }
+
+    public function openFinalPhase(int $divisionId): void
+    {
+        if (!($division = $this->phaseDivision($divisionId))) return;
+
+        $this->finalistError = null;
+
+        if (empty($this->selectedFinalistRegIds)) {
+            $this->finalistError = ('Pilih minimal 1 finalis.');
+            return;
+        }
+
+        // Hanya peserta divisi ini yang boleh jadi finalis.
+        $valid = Registration::where('division_id', $division->id)->where('status', 'APPROVED')
+            ->whereIn('id', $this->selectedFinalistRegIds)->pluck('id')->all();
+        if (count($valid) !== count(array_unique($this->selectedFinalistRegIds))) {
+            $this->finalistError = ('Ada finalis yang bukan peserta approved di divisi ini.');
+            return;
+        }
+
+        $service = app(\App\Services\DivisionPhaseService::class);
+        $heatOf  = null;
+        if ($this->finalistSplitMode === 'manual' && $this->finalistHeatCount > 1) {
+            $heatOf = [];
+            foreach ($valid as $id) $heatOf[(int) $id] = (int) ($this->finalistHeatOf[$id] ?? 0);
+            if ($message = $service->validateManualAssignment($valid, min($this->finalistHeatCount, count($valid)), $heatOf)) {
+                $this->finalistError = ($message);
+                return;
+            }
+        }
+
+        $service->openFinal($division, $valid, $this->finalistHeatCount, $heatOf);
+
+        $this->clearHeatPick();   // heat lama (kualifikasi) tidak berlaku di final
+        $this->cancelFinalistPicker();
+    }
+
+    public function reopenQualification(int $divisionId): void
+    {
+        if (!($division = $this->phaseDivision($divisionId))) return;
+
+        app(\App\Services\DivisionPhaseService::class)->reopenQualification($division);
+        $this->clearHeatPick();
+    }
+
+    public function startBestTrickPhase(int $divisionId): void
+    {
+        if (!($division = $this->phaseDivision($divisionId))) return;
+
+        if ($division->live_stage !== 'FINAL') {
+            $this->phaseError = ('Best Trick hanya bisa dimulai saat divisi sudah di fase Final.');
+            return;
+        }
+        app(\App\Services\DivisionPhaseService::class)->setBestTrick($division, true);
+    }
+
+    public function endBestTrickPhase(int $divisionId): void
+    {
+        if (!($division = $this->phaseDivision($divisionId))) return;
+
+        app(\App\Services\DivisionPhaseService::class)->setBestTrick($division, false);
+    }
+
+    public function completeLiveFinal(int $divisionId): void
+    {
+        if (!($division = $this->phaseDivision($divisionId))) return;
+
+        if ($division->live_stage !== 'FINAL') {
+            $this->phaseError = ('Final hanya bisa diselesaikan saat divisi sudah di fase Final.');
+            return;
+        }
+        app(\App\Services\DivisionPhaseService::class)->completeFinal($division);
+    }
+
+    /** Batalkan poin final yang sudah dihitung dan kembali ke kualifikasi. */
+    public function reopenCompletedFinal(int $divisionId): void
+    {
+        if (!($division = $this->phaseDivision($divisionId, true))) return;
+
+        app(\App\Services\DivisionPhaseService::class)->reopenCompletedFinal($division);
+        $this->clearHeatPick();
+    }
+
+    /** Hapus semua nilai divisi ini dan kembalikan ke kualifikasi awal. */
+    public function resetDivisionScores(int $divisionId): void
+    {
+        if (!($division = $this->phaseDivision($divisionId, true))) return;
+
+        app(\App\Services\DivisionPhaseService::class)->resetScores($division);
+        $this->cancelFinalistPicker();
+        $this->groupManagerOpen = false;
+        $this->clearHeatPick();
+    }
+
+    // ─── Operator: kelola group kualifikasi ─────────────────────────────────────
+
+    public bool   $groupManagerOpen = false;
+    public string $newGroupName     = '';
+
+    public function openGroupManager(int $divisionId): void
+    {
+        if (!$this->phaseDivision($divisionId)) return;
+
+        $this->phaseError = null;
+        $this->groupManagerOpen = true;
+        $this->newGroupName     = '';
+    }
+
+    public function closeGroupManager(): void
+    {
+        $this->groupManagerOpen = false;
+        $this->newGroupName     = '';
+    }
+
+    public function createGroup(int $divisionId): void
+    {
+        if (!($division = $this->phaseDivision($divisionId))) return;
+
+        $this->validate(['newGroupName' => 'required|string|max:60'], [], ['newGroupName' => 'nama group']);
+
+        app(\App\Services\DivisionPhaseService::class)->createGroup($division, $this->newGroupName);
+        $this->newGroupName = '';
+    }
+
+    public function deleteGroup(int $groupId): void
+    {
+        $group = \App\Models\DivisionGroup::where('stage', 'QUALIFICATION')->find($groupId);
+        if (!$group || !$this->phaseDivision($group->event_division_id)) return;
+
+        $wasPicked = (int) Event::find($this->judgeEventId)?->active_group_id === (int) $group->id;
+        app(\App\Services\DivisionPhaseService::class)->deleteGroup($group);
+        if ($wasPicked || (int) $this->judgeGroupId === (int) $group->id) $this->clearHeatPick();
+    }
+
+    public function assignToGroup(int $registrationId, ?int $groupId): void
+    {
+        $registration = Registration::find($registrationId);
+        if (!$registration || !($division = $this->phaseDivision((int) $registration->division_id))) return;
+
+        $group = null;
+        if ($groupId) {
+            $group = \App\Models\DivisionGroup::where('stage', 'QUALIFICATION')
+                ->where('event_division_id', $division->id)->find($groupId);
+            if (!$group) return;   // group milik divisi lain / bukan group kualifikasi
+        }
+
+        app(\App\Services\DivisionPhaseService::class)->assignToGroup($registration, $group);
+    }
+
+    public function randomizeGroups(int $divisionId): void
+    {
+        if (!($division = $this->phaseDivision($divisionId))) return;
+
+        if (!app(\App\Services\DivisionPhaseService::class)->randomizeGroups($division)) {
+            $this->phaseError = ('Buat minimal 1 group dulu sebelum diacak.');
+        }
+    }
+
     // ─── Operator: public announcements ────────────────────────────────────────
 
     public function announceQualificationResults(int $divisionId): void
@@ -412,7 +787,7 @@ class Dashboard extends Component
 
         $division = \App\Models\EventDivision::findOrFail($divisionId);
         if (!\App\Models\DivisionFinalist::where('event_division_id', $divisionId)->exists()) {
-            $this->addError('judgeEventId', 'Pilih finalis dulu di Admin Panel sebelum mengumumkan hasil kualifikasi.');
+            $this->addError('judgeEventId', 'Pilih finalis dulu (kartu Fase divisi) sebelum mengumumkan hasil kualifikasi.');
             return;
         }
 
@@ -491,6 +866,21 @@ class Dashboard extends Component
             if ($this->judgeDivisionId !== $mirroredDivisionId || $this->judgeGroupId !== $mirroredGroupId) {
                 $this->judgeDivisionId = $mirroredDivisionId;
                 $this->judgeGroupId    = $mirroredGroupId;
+                $this->initCriteria();
+            }
+        }
+
+        // Run & rider yang dipilih Operator (belum ada sesi berjalan) ikut dicerminkan.
+        if ($event && !$event->live_phase) {
+            $pickRun = (int) ($event->active_run_number ?: 1);
+            $pickReg = (int) ($event->active_registration_id ?: 0);
+            if ($this->liveRunNumber !== $pickRun) {
+                $this->liveRunNumber = $pickRun;
+            }
+            if ($this->liveRiderId !== $pickReg) {
+                $this->liveRiderId    = $pickReg;
+                $this->bestTrickScore = null;
+                $this->scoreReopened  = false;
                 $this->initCriteria();
             }
         }
@@ -596,6 +986,11 @@ class Dashboard extends Component
         if ($runNumber >= 1 && $runNumber <= 3) {
             $this->liveRunNumber = $runNumber;
         }
+        // Best Trick: maksimal 2 percobaan.
+        if ($this->liveRunNumber > 2 && ($this->liveRiderId ? (bool) Registration::find($this->liveRiderId)?->division?->best_trick_active : false)) {
+            $this->liveRunNumber = 2;
+        }
+        $this->adoptOperatorPick();
 
         if (!$this->judgeEventId || !$this->liveRiderId) return;
 
@@ -620,10 +1015,22 @@ class Dashboard extends Component
         return ($division && $division->format === 'JAMMING' && !$division->best_trick_active) ? $division : null;
     }
 
-    /** Rider (registrasi) yang ikut heat aktif: group terpilih saat kualifikasi, semua finalis saat final. */
+    /**
+     * Heat (group) terpilih, hanya kalau memang milik tahap divisi sekarang (kualifikasi / final).
+     * Id group kualifikasi yang basi tidak boleh terbawa ke tahap final, dan sebaliknya.
+     */
+    private function stageGroupId(\App\Models\EventDivision $division): ?int
+    {
+        if (!$this->judgeGroupId) return null;
+
+        return $division->groups()->where('stage', $division->live_stage === 'FINAL' ? 'FINAL' : 'QUALIFICATION')
+            ->whereKey($this->judgeGroupId)->exists() ? $this->judgeGroupId : null;
+    }
+
+    /** Rider (registrasi) yang ikut heat aktif: heat terpilih (kualifikasi atau final); final tanpa heat = semua finalis. */
     private function jamHeatRegistrations(\App\Models\EventDivision $division): \Illuminate\Support\Collection
     {
-        $groupId = $division->live_stage !== 'FINAL' && $this->judgeGroupId ? $this->judgeGroupId : null;
+        $groupId = $this->stageGroupId($division);
 
         return app(\App\Services\LiveScoreboardService::class)
             ->registrationsForStage($division, $division->live_stage === 'FINAL' ? 'FINAL' : 'QUALIFICATION', $groupId)
@@ -656,16 +1063,15 @@ class Dashboard extends Component
 
     public function startJamHeat(): void
     {
-        if (!auth()->user()->isHeadJudge()) return;
+        if (!$this->canControlLiveSession()) return;
+        $this->adoptOperatorPick();
 
         $division = $this->activeJamDivision();
         if (!$this->judgeEventId || !$division) {
             $this->addError('judgeDivisionId', 'Pilih divisi Jamming Season terlebih dahulu.');
             return;
         }
-        if ($division->live_stage !== 'FINAL'
-            && !$this->judgeGroupId
-            && \App\Models\DivisionGroup::where('event_division_id', $division->id)->exists()) {
+        if (!$this->stageGroupId($division) && $division->stageGroups()->isNotEmpty()) {
             $this->addError('judgeGroupId', 'Pilih group (heat) terlebih dahulu.');
             return;
         }
@@ -676,7 +1082,12 @@ class Dashboard extends Component
             return;
         }
 
-        $jamRun = in_array($this->liveRunNumber, [1, 2], true) ? $this->liveRunNumber : 1;
+        if ($problem = $this->liveSetupProblem()) {
+            $this->addError('liveSetup', $problem);
+            return;
+        }
+
+        $jamRun = 1;
 
         Event::findOrFail($this->judgeEventId)->update([
             'live_rider_id'   => null,
@@ -690,6 +1101,41 @@ class Dashboard extends Component
         $this->scoreSubmitted = false;
         $this->initJamScores($registrations);
         $this->jamRunSynced = $jamRun;
+    }
+
+    /**
+     * Preview heat (Jamming) di layar publik: "NEXT UP" berisi kartu semua rider heat itu, sebelum heat dimulai.
+     * Dibatalkan lewat endSession (BATAL PREVIEW), atau berlanjut ke RUNNING lewat startJamHeat.
+     */
+    public function showNextHeat(): void
+    {
+        if (!$this->canControlLiveSession()) return;
+        $this->adoptOperatorPick();
+
+        $division = $this->activeJamDivision();
+        if (!$this->judgeEventId || !$division) {
+            $this->addError('judgeDivisionId', 'Pilih divisi Jamming Season terlebih dahulu.');
+            return;
+        }
+        if (!$this->stageGroupId($division) && $division->stageGroups()->isNotEmpty()) {
+            $this->addError('judgeGroupId', 'Pilih group (heat) terlebih dahulu.');
+            return;
+        }
+        if ($this->jamHeatRegistrations($division)->isEmpty()) {
+            $this->addError('judgeGroupId', 'Belum ada rider di heat ini.');
+            return;
+        }
+
+        $jamRun = 1;
+
+        Event::findOrFail($this->judgeEventId)->update([
+            'live_rider_id'   => null,
+            'live_run_number' => $jamRun,
+            'live_phase'      => 'NEXT',
+            'live_jam'        => true,
+            'live_duration'   => $division->jam_duration,
+            'live_started_at' => null,
+        ]);
     }
 
     /** Judge menyimpan nilai satu rider di heat jamming yang sedang berjalan. */
@@ -774,14 +1220,23 @@ class Dashboard extends Component
     public function startRun(): void
     {
         if (!$this->canControlLiveSession()) return;
+        $this->adoptOperatorPick();
         if (!$this->judgeEventId || !$this->liveRiderId) {
             $this->addError('liveRiderId', 'Pilih event dan rider terlebih dahulu.');
+            return;
+        }
+        if ($problem = $this->liveSetupProblem()) {
+            $this->addError('liveSetup', $problem);
             return;
         }
         $riderId = $this->resolveRiderIdFromRegistration($this->liveRiderId);
         if (!$riderId) {
             $this->addError('liveRiderId', 'Rider tidak ditemukan.');
             return;
+        }
+        // Best Trick: maksimal 2 percobaan.
+        if ($this->liveRunNumber > 2 && Registration::find($this->liveRiderId)?->division?->best_trick_active) {
+            $this->liveRunNumber = 2;
         }
         Event::findOrFail($this->judgeEventId)->update([
             'live_rider_id'   => $riderId,
@@ -864,7 +1319,11 @@ class Dashboard extends Component
             ->map(fn ($aj) => $aj->user?->name ?? '—')->implode(', ');
     }
 
-    public function endSession(): void
+    /**
+     * @param bool $deleteScores Saat membatalkan run/heat yang SEDANG BERJALAN: true = hapus skor yang
+     *                           sudah masuk (default), false = batalkan tapi simpan skornya.
+     */
+    public function endSession(bool $deleteScores = true): void
     {
         if (!$this->canControlLiveSession()) return;
 
@@ -873,7 +1332,9 @@ class Dashboard extends Component
         // Membatalkan run yang sedang berjalan (bukan sekadar batal preview atau
         // kembali dari layar reveal) juga menghapus skor yang sudah disubmit
         // untuk run itu, supaya tidak ada skor "nyangkut" kalau rider run ulang.
-        if ($event->live_jam && $event->live_phase === 'RUNNING') {
+        if (!$deleteScores) {
+            // Dipilih: batalkan sesi tanpa menghapus skor yang sudah masuk.
+        } elseif ($event->live_jam && $event->live_phase === 'RUNNING') {
             $this->deleteJamHeatScores($event);
         } elseif ($event->live_phase === 'RUNNING' && $event->live_rider_id && $event->live_run_number) {
             JudgeScore::where('event_id', $event->id)
@@ -1188,8 +1649,21 @@ class Dashboard extends Component
                 : collect();
 
             $selectedDivision = $this->judgeDivisionId ? \App\Models\EventDivision::find($this->judgeDivisionId) : null;
-            $data['judgeGroups'] = ($this->judgeDivisionId && $selectedDivision?->live_stage !== 'FINAL')
-                ? \App\Models\DivisionGroup::where('event_division_id', $this->judgeDivisionId)->orderBy('name')->get()
+            $data['judgeGroups'] = $selectedDivision ? $selectedDivision->stageGroups() : collect();
+
+            // Heat final beserta finalisnya, untuk panel "Atur heat final" (hanya saat divisi di fase Final).
+            $data['finalHeatOverview'] = ($selectedDivision && $selectedDivision->live_stage === 'FINAL')
+                ? app(\App\Services\DivisionPhaseService::class)->finalHeatOverview($selectedDivision) : collect();
+
+            // Kelola group kualifikasi di konsol Operator (hanya dihitung saat panel dibuka).
+            $data['phaseGroups']        = ($this->groupManagerOpen && $selectedDivision)
+                ? app(\App\Services\DivisionPhaseService::class)->qualificationGroups($selectedDivision) : collect();
+            $data['phaseRegistrations'] = ($this->groupManagerOpen && $selectedDivision)
+                ? Registration::where('division_id', $selectedDivision->id)->where('status', 'APPROVED')->orderBy('name')->get() : collect();
+
+            // Peringkat kualifikasi untuk pemilih finalis di konsol Operator (hanya dihitung saat pemilih dibuka).
+            $data['phaseRanking'] = ($this->finalistPickerOpen && $selectedDivision)
+                ? app(\App\Services\DivisionPhaseService::class)->qualificationRanking($selectedDivision)
                 : collect();
 
             $data['operatorLeaderboard']         = collect();
@@ -1197,7 +1671,9 @@ class Dashboard extends Component
             if ($selectedDivision && $this->scoringMode === 'live') {
                 $scoreboardSvc = app(\App\Services\LiveScoreboardService::class);
 
-                if ($selectedDivision->live_stage !== 'FINAL' && !$this->judgeGroupId && $data['judgeGroups']->isNotEmpty()) {
+                $opGroupId = $data['judgeGroups']->contains('id', $this->judgeGroupId) ? $this->judgeGroupId : null;
+
+                if ($selectedDivision->live_stage !== 'FINAL' && !$opGroupId && $data['judgeGroups']->isNotEmpty()) {
                     // "Semua" group selected and this division has groups — show one
                     // leaderboard table per group instead of one combined table.
                     $data['operatorLeaderboardSections'] = $scoreboardSvc->buildQualificationSections($selectedDivision);
@@ -1205,7 +1681,7 @@ class Dashboard extends Component
                     $data['operatorLeaderboard'] = $scoreboardSvc->buildLeaderboard(
                         $selectedDivision,
                         $selectedDivision->live_stage,
-                        ($selectedDivision->live_stage !== 'FINAL' && $this->judgeGroupId) ? $this->judgeGroupId : null
+                        $opGroupId
                     );
                 }
             }
@@ -1221,6 +1697,19 @@ class Dashboard extends Component
                     $this->jamDuration = $data['jamDivision']->jam_duration;
                 }
                 $data['jamHeatRegs'] = $this->jamHeatRegistrations($data['jamDivision']);
+
+                // Heat ini sudah punya nilai untuk nomor run yang akan dimulai? (dipakai untuk konfirmasi MULAI HEAT)
+                $ranRiderIds = $data['jamHeatRegs']
+                    ->map(fn ($reg) => $this->resolveRiderIdFromRegistration($reg->id))->filter()->values();
+                $data['heatAlreadyRan'] = !$data['jamIsLive'] && $ranRiderIds->isNotEmpty()
+                    && JudgeScore::where('event_id', $this->judgeEventId)
+                        ->where('division_id', $data['jamDivision']->id)
+                        ->whereIn('rider_id', $ranRiderIds)
+                        ->where('run_number', 1)
+                        ->where('scoring_mode', 'LIVE')
+                        ->where('live_stage', $data['jamDivision']->live_stage === 'FINAL' ? 'FINAL' : 'QUALIFICATION')
+                        ->where('status', 'DONE')
+                        ->exists();
 
                 if ($data['jamIsLive'] && !auth()->user()->isOperator()) {
                     $stageForJam = $data['jamDivision']->live_stage === 'FINAL' ? 'FINAL' : 'QUALIFICATION';
@@ -1265,6 +1754,11 @@ class Dashboard extends Component
                         $q->where('division_id', $this->judgeDivisionId);
                         if ($selectedDivision?->live_stage === 'FINAL') {
                             $q->whereIn('id', $finalistRegIds);
+                            // Best Trick melibatkan semua finalis: heat final yang masih terpilih tidak boleh mempersempit daftar rider.
+                            if (!$selectedDivision->best_trick_active
+                                && ($fg = $selectedDivision->groups()->where('stage', 'FINAL')->whereKey($this->judgeGroupId)->value('id'))) {
+                                $q->whereIn('id', \App\Models\DivisionFinalist::where('division_group_id', $fg)->pluck('registration_id'));
+                            }
                         } elseif ($this->judgeGroupId) {
                             $q->where('division_group_id', $this->judgeGroupId);
                         }
@@ -1301,30 +1795,75 @@ class Dashboard extends Component
                     ->sortBy(fn ($rows, $name) => [$name === ($selectedDivision?->name) ? 0 : 1, $name]);
             }
 
-            // Head Judge: rangkuman nilai SEMUA judge untuk divisi yang dipilih Operator,
-            // satu baris per rider + run (jamming ikut karena memakai scoring_mode LIVE).
+            // Head Judge: rangkuman nilai SEMUA judge per HEAT untuk divisi yang dipilih Operator.
+            // - stage mengikuti divisi (Kualifikasi / Final), jadi nilai stage lain tidak ikut tercampur;
+            // - heat (group) yang dipilih Operator → hanya heat itu; "Semua heat" → semua heat, dikelompokkan;
+            // - tiap heat diurutkan dari rata-rata tertinggi. Satu baris per rider + run.
             $data['headJudgeSummary'] = collect();
             if ($this->judgeEventId && $this->scoringMode === 'live' && auth()->user()->isHeadJudge() && !auth()->user()->isOperator()) {
                 $summaryDivisionId = $data['activeEvent']?->active_division_id ?: $this->judgeDivisionId;
-                if ($summaryDivisionId) {
+                $summaryDivision   = $summaryDivisionId ? \App\Models\EventDivision::find($summaryDivisionId) : null;
+                if ($summaryDivision) {
+                    $summaryStage = $summaryDivision->live_stage === 'FINAL' ? 'FINAL' : 'QUALIFICATION';
+
+                    // rider_id → [urutan heat, id group, nama heat] (kualifikasi saja; final = satu pool).
+                    $heatOf = [];
+                    if ($summaryStage === 'FINAL') {
+                        // Final: heat = group finalis (nama "Final Heat 2" → "Heat 2").
+                        $finGroups = $summaryDivision->stageGroups()->values();
+                        foreach ($summaryDivision->finalists()->whereNotNull('division_group_id')->get() as $fin) {
+                            $reg   = Registration::find($fin->registration_id);
+                            $rider = $reg ? (($reg->user_id ? Rider::where('user_id', $reg->user_id)->first() : null) ?: Rider::where('name', $reg->name)->first()) : null;
+                            $gi    = $finGroups->search(fn ($g) => (int) $g->id === (int) $fin->division_group_id);
+                            if ($rider && $gi !== false) {
+                                $heatOf[$rider->id] = [$gi, $fin->division_group_id, preg_replace('/^Final\s+/i', '', $finGroups[$gi]->name)];
+                            }
+                        }
+                    }
+                    if ($summaryStage === 'QUALIFICATION') {
+                        $sections = app(\App\Services\LiveScoreboardService::class)->buildQualificationSections($summaryDivision);
+                        foreach ($sections->values() as $order => $sec) {
+                            foreach ($sec['leaderboard'] as $lbRow) {
+                                if ($lbRow['rider']->id) {
+                                    $heatOf[$lbRow['rider']->id] = [$order, $sec['group']?->id, $sec['group']?->name ?? 'TANPA HEAT'];
+                                }
+                            }
+                        }
+                    }
+                    // Dropdown Head Judge menimpa pilihan Operator: 'all' = semua heat, id = heat itu saja.
+                    $pickedGroupId = $this->summaryHeat === 'all'
+                        ? 0
+                        : ($this->summaryHeat !== '' ? (int) $this->summaryHeat : (int) ($data['activeEvent']?->active_group_id ?: $this->judgeGroupId));
+                    $data['summaryHeatOptions'] = $summaryDivision->stageGroups()->map(fn ($g) => ['id' => $g->id, 'name' => $g->name])->values();
+
                     $data['headJudgeSummary'] = JudgeScore::with(['judge', 'rider'])
                         ->where('event_id', $this->judgeEventId)
                         ->where('division_id', $summaryDivisionId)
                         ->whereIn('scoring_mode', ['LIVE', 'BEST_TRICK'])
+                        ->where('live_stage', $summaryStage)
                         ->where('status', 'DONE')
                         ->whereNotNull('judge_user_id')
-                        ->orderByDesc('updated_at')
-                        ->limit(500)
                         ->get()
                         ->groupBy(fn ($sc) => $sc->rider_id . '|' . $sc->scoring_mode . '|' . $sc->live_stage . '|' . $sc->run_number)
-                        ->map(fn ($grp) => [
-                            'rider'  => $grp->first()->rider,
-                            'mode'   => $grp->first()->scoring_mode,
-                            'stage'  => $grp->first()->live_stage,
-                            'run'    => $grp->first()->run_number,
-                            'judges' => $grp->map(fn ($sc) => ['name' => $sc->judge?->name ?? '—', 'total' => $sc->total])->values(),
-                            'avg'    => round($grp->avg('total'), 1),
-                        ])->values();
+                        ->map(function ($grp) use ($heatOf) {
+                            $first = $grp->first();
+                            $heat  = $heatOf[$first->rider_id] ?? [999, null, null];
+
+                            return [
+                                'rider'      => $first->rider,
+                                'mode'       => $first->scoring_mode,
+                                'stage'      => $first->live_stage,
+                                'run'        => $first->run_number,
+                                'heat_order' => $heat[0],
+                                'heat_id'    => $heat[1],
+                                'heat'       => $heat[2],
+                                'judges'     => $grp->map(fn ($sc) => ['name' => $sc->judge?->name ?? '—', 'total' => $sc->total])->values(),
+                                'avg'        => round($grp->avg('total'), 1),
+                            ];
+                        })
+                        ->when($pickedGroupId, fn ($c) => $c->filter(fn ($r) => (int) $r['heat_id'] === $pickedGroupId))
+                        ->sortBy([['heat_order', 'asc'], ['run', 'asc'], ['avg', 'desc']])
+                        ->values();
                 }
             }
 
@@ -1367,6 +1906,7 @@ class Dashboard extends Component
                 $data['assignedJudges'] = EventJudgeAssignment::where('event_id', $this->judgeEventId)
                     ->with('user')
                     ->get();
+                $data['liveSetupProblem'] = $this->liveSetupProblem();
 
                 // Jamming: progres tiap judge = jumlah rider heat yang sudah dinilai
                 $data['jamProgress'] = [];

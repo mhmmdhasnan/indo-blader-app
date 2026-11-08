@@ -20,6 +20,7 @@ use App\Livewire\RegistrationForm;
 use App\Livewire\Rider\Dashboard as RiderDashboard;
 use App\Livewire\RiderProfile;
 use App\Livewire\RidersList;
+use App\Http\Controllers\SimulatorController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -54,3 +55,10 @@ Route::get('/register',  RegistrationForm::class)->name('register');
 Route::get('/gallery',   Gallery::class)->name('gallery');
 Route::get('/about',     About::class)->name('about');
 Route::get('/notifications/{entry_code}', NotificationInbox::class)->name('notifications');
+
+// ── Simulator (dev only: SIMULATOR_ENABLED=true) ─────────────────────────────
+if (config('app.simulator')) {
+    Route::get('/simulator', [SimulatorController::class, 'index'])->name('simulator')->middleware('role:admin');
+    Route::get('/simulator/link', [SimulatorController::class, 'link'])->name('simulator.link')->middleware('role:admin');
+    Route::get('/simulator/enter', [SimulatorController::class, 'enter'])->name('simulator.enter')->middleware('signed');
+}

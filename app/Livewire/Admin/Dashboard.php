@@ -172,6 +172,7 @@ class Dashboard extends Component
     public int   $finalistPickerDivisionId = 0;
     public array $selectedFinalistRegIds   = [];
     public int   $finalistTopN             = 8;
+    public int   $finalistHeatCount        = 1;   // jumlah heat final (1 = satu kolam seperti biasa)
 
     // Live Score qualification groups
     public int    $groupManageDivisionId = 0;
@@ -1749,6 +1750,7 @@ class Dashboard extends Component
         $this->finalistPickerDivisionId = $divisionId;
         $this->selectedFinalistRegIds   = DivisionFinalist::where('event_division_id', $divisionId)
             ->pluck('registration_id')->toArray();
+        $this->finalistHeatCount        = max(1, DivisionGroup::where('event_division_id', $divisionId)->where('stage', 'FINAL')->count());
     }
 
     public function cancelFinalistPicker(): void
@@ -1764,11 +1766,7 @@ class Dashboard extends Component
 
         // groupId null = combined ranking across every group in this division —
         // finalists are picked by highest score overall, not top-N within each group.
-        $this->selectedFinalistRegIds = app(LiveScoreboardService::class)
-            ->buildLeaderboard($division, 'QUALIFICATION', null)
-            ->take($n)
-            ->map(fn ($row) => $row['registration']->id)
-            ->all();
+        $this->selectedFinalistRegIds = app(\App\Services\DivisionPhaseService::class)->topRegistrationIds($division, $n);
     }
 
     public function openFinalPhase(int $divisionId): void
@@ -1778,65 +1776,36 @@ class Dashboard extends Component
             return;
         }
 
-        $division = EventDivision::findOrFail($divisionId);
-
-        foreach ($this->selectedFinalistRegIds as $regId) {
-            DivisionFinalist::firstOrCreate([
-                'event_division_id' => $divisionId,
-                'registration_id'   => $regId,
-            ]);
-        }
-        DivisionFinalist::where('event_division_id', $divisionId)
-            ->whereNotIn('registration_id', $this->selectedFinalistRegIds)
-            ->delete();
-
-        $division->update(['live_stage' => 'FINAL']);
-
-        foreach (Registration::whereIn('id', $this->selectedFinalistRegIds)->get() as $reg) {
-            NotificationService::send($reg, 'final_selected', 'Selamat, Anda Lolos Final!',
-                "Anda terpilih sebagai finalis divisi {$division->name}. Final akan segera dimulai.");
-        }
+        app(\App\Services\DivisionPhaseService::class)->openFinal(
+            EventDivision::findOrFail($divisionId), $this->selectedFinalistRegIds, $this->finalistHeatCount
+        );
 
         $this->cancelFinalistPicker();
     }
 
     public function reopenQualification(int $divisionId): void
     {
-        EventDivision::findOrFail($divisionId)->update(['live_stage' => 'QUALIFICATION', 'best_trick_active' => false]);
+        app(\App\Services\DivisionPhaseService::class)->reopenQualification(EventDivision::findOrFail($divisionId));
     }
 
     public function reopenCompletedFinal(int $divisionId): void
     {
-        $division = EventDivision::findOrFail($divisionId);
-        if (!$division->live_final_completed_at) {
-            return;
-        }
-
-        // Membatalkan poin/wins/podium yang sudah ditambahkan ke rider dulu (persis
-        // sebesar yang tercatat di RankingHistory), baru balik ke kualifikasi —
-        // supaya kalau final ini diselesaikan lagi nanti, poinnya gak dobel.
-        app(RankingService::class)->revertLiveFinal($division);
-
-        $division->update(['live_stage' => 'QUALIFICATION']);
+        app(\App\Services\DivisionPhaseService::class)->reopenCompletedFinal(EventDivision::findOrFail($divisionId));
     }
 
     public function startBestTrickPhase(int $divisionId): void
     {
-        EventDivision::findOrFail($divisionId)->update(['best_trick_active' => true]);
+        app(\App\Services\DivisionPhaseService::class)->setBestTrick(EventDivision::findOrFail($divisionId), true);
     }
 
     public function endBestTrickPhase(int $divisionId): void
     {
-        EventDivision::findOrFail($divisionId)->update(['best_trick_active' => false]);
+        app(\App\Services\DivisionPhaseService::class)->setBestTrick(EventDivision::findOrFail($divisionId), false);
     }
 
     public function completeLiveFinal(int $divisionId): void
     {
-        $division = EventDivision::findOrFail($divisionId);
-        if ($division->live_final_completed_at) {
-            return;
-        }
-        app(RankingService::class)->calculateForLiveFinal($division);
+        app(\App\Services\DivisionPhaseService::class)->completeFinal(EventDivision::findOrFail($divisionId));
     }
 
     /**
@@ -1848,23 +1817,7 @@ class Dashboard extends Component
      */
     public function resetDivisionScores(int $divisionId): void
     {
-        $division = EventDivision::findOrFail($divisionId);
-
-        app(RankingService::class)->revertLiveFinal($division);
-
-        DB::transaction(function () use ($division) {
-            JudgeScore::where('division_id', $division->id)->delete();
-
-            DivisionFinalist::where('event_division_id', $division->id)->delete();
-
-            $division->update([
-                'live_stage'                 => 'QUALIFICATION',
-                'live_final_completed_at'    => null,
-                'best_trick_active'          => false,
-                'qualification_announced_at' => null,
-                'final_announced_at'         => null,
-            ]);
-        });
+        app(\App\Services\DivisionPhaseService::class)->resetScores(EventDivision::findOrFail($divisionId));
     }
 
     // ─── Live Score: Qualification Groups ───────────────────────────────────────
@@ -1885,43 +1838,27 @@ class Dashboard extends Component
     {
         $this->validate(['newGroupName' => 'required|string|max:60'], [], ['newGroupName' => 'nama group']);
 
-        DivisionGroup::create([
-            'event_division_id' => $this->groupManageDivisionId,
-            'name'               => $this->newGroupName,
-        ]);
+        app(\App\Services\DivisionPhaseService::class)->createGroup(EventDivision::findOrFail($this->groupManageDivisionId), $this->newGroupName);
 
         $this->newGroupName = '';
     }
 
     public function deleteGroup(int $groupId): void
     {
-        $group = DivisionGroup::findOrFail($groupId);
-        Registration::where('division_group_id', $group->id)->update(['division_group_id' => null]);
-        $group->delete();
+        app(\App\Services\DivisionPhaseService::class)->deleteGroup(DivisionGroup::findOrFail($groupId));
     }
 
     public function assignToGroup(int $registrationId, ?int $groupId): void
     {
-        Registration::where('id', $registrationId)->update(['division_group_id' => $groupId ?: null]);
+        app(\App\Services\DivisionPhaseService::class)->assignToGroup(
+            Registration::findOrFail($registrationId), $groupId ? DivisionGroup::find($groupId) : null
+        );
     }
 
     public function randomizeGroups(int $divisionId): void
     {
-        $groups = DivisionGroup::where('event_division_id', $divisionId)->pluck('id');
-        if ($groups->isEmpty()) {
+        if (!app(\App\Services\DivisionPhaseService::class)->randomizeGroups(EventDivision::findOrFail($divisionId))) {
             $this->addError('groupRandomize', 'Buat minimal 1 group dulu sebelum diacak.');
-            return;
-        }
-
-        $regIds = Registration::where('division_id', $divisionId)
-            ->where('status', 'APPROVED')
-            ->pluck('id')
-            ->shuffle()
-            ->values();
-
-        foreach ($regIds as $i => $regId) {
-            $groupId = $groups[$i % $groups->count()];
-            Registration::where('id', $regId)->update(['division_group_id' => $groupId]);
         }
     }
 
@@ -2402,7 +2339,7 @@ class Dashboard extends Component
             ? EventDivision::findOrFail($this->groupManageDivisionId)
             : null;
         $data['groupManageGroups'] = $this->groupManageDivisionId
-            ? DivisionGroup::where('event_division_id', $this->groupManageDivisionId)
+            ? DivisionGroup::where('event_division_id', $this->groupManageDivisionId)->where('stage', 'QUALIFICATION')
                 ->withCount('registrations')->orderBy('name')->get()
             : collect();
         $data['groupManageRegistrations'] = $this->groupManageDivisionId
@@ -2446,8 +2383,8 @@ class Dashboard extends Component
             $eventHasDivisions = $jeid ? EventDivision::where('event_id', $jeid)->exists() : false;
             $selectedDivision  = $did ? EventDivision::find($did) : null;
 
-            $data['judgeGroups'] = ($did && $selectedDivision?->live_stage !== 'FINAL')
-                ? DivisionGroup::where('event_division_id', $did)->orderBy('name')->get()
+            $data['judgeGroups'] = ($did && $selectedDivision)
+                ? $selectedDivision->stageGroups()
                 : collect();
 
             $finalistRegIds = $jeid

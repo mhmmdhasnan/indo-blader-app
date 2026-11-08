@@ -1,0 +1,814 @@
+<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><link rel="stylesheet" href="/build/assets/app-BWPiWsar.css"><style>.aud{height:calc(100svh - 84px)!important}.aud-mn{height:200px;flex:none}</style></head><body><div style="height:84px"></div><div wire:key="lw-2156907254-0" wire:snapshot="{&quot;data&quot;:{&quot;eventId&quot;:11},&quot;memo&quot;:{&quot;id&quot;:&quot;K045JNdCRS3hNbPYyy0r&quot;,&quot;name&quot;:&quot;live-scoring&quot;,&quot;path&quot;:&quot;livewire-unit-test-endpoint\/4cgAXwir3mLnnI8S6eCK&quot;,&quot;method&quot;:&quot;GET&quot;,&quot;release&quot;:&quot;a-a-a&quot;,&quot;children&quot;:[],&quot;scripts&quot;:[],&quot;assets&quot;:[],&quot;errors&quot;:[],&quot;locale&quot;:&quot;en&quot;,&quot;islands&quot;:[]},&quot;checksum&quot;:&quot;246376d87134f13e84c8dba0961ddeb46591cbe1060d5cf856314873aef845fd&quot;}" wire:effects="[]" wire:id="K045JNdCRS3hNbPYyy0r" wire:name="live-scoring" wire:poll.60s x-data="liveFullscreen()">
+    
+    <div id="live-data"
+         data-phase=""
+         data-started="0"
+         data-duration="45"
+         data-jam=""
+         data-score=""
+         data-accumulated=""
+         data-rider=""
+         data-initials=""
+         data-avatar=""
+         data-event="HIGHFIVE INLINE CUP 2026"
+         data-run=""
+         data-best=""
+         data-division-label="HIGHFIVE INLINE CUP 2026"
+         data-is-best-trick=""
+         data-idle-title="LIVE LEADERBOARD"
+         data-now="1794079965513"
+         data-live=""
+         style="display:none;">
+    </div>
+
+    <!--[if BLOCK]><![endif]-->
+    <style>
+        /* ── AudienceDisplay: stage 16:9. U(n) = n px pada kanvas 1920×1080, diskalakan ke layar. ── */
+        .aud { --u: max(min(0.0520833vw, 0.0925926vh), 0.5px); display:flex; flex-direction:column; height:calc(100svh - 84px); background:var(--bg); overflow:hidden; }
+        html.is-fullscreen .aud { height:100svh; }
+        .aud-hd { position:relative; flex:none; display:flex; align-items:center; gap:calc(40*var(--u)); padding:calc(14*var(--u)) calc(80*var(--u)); min-height:calc(150*var(--u)); border-bottom:calc(4*var(--u)) solid var(--ink); background:var(--bg-2); }
+        .aud-hd h1 { font-family:'Bebas Neue','Arial Black',Impact,sans-serif; font-weight:900; font-size:calc(88*var(--u)); line-height:calc(84*var(--u)); letter-spacing:.02em; }
+        .aud-sub { font-family:var(--font-mono); font-weight:700; font-size:calc(26*var(--u)); line-height:calc(32*var(--u)); letter-spacing:.1em; text-transform:uppercase; color:var(--ink-dim); margin-top:calc(6*var(--u)); }
+        .aud-chip { margin-left:auto; font-family:var(--font-mono); font-weight:700; font-size:calc(28*var(--u)); line-height:1; letter-spacing:.12em; padding:calc(14*var(--u)) calc(28*var(--u)); border-radius:999px; border:calc(4*var(--u)) solid var(--line-strong); white-space:nowrap; }
+        .aud-bn { flex:none; display:flex; align-items:center; gap:calc(32*var(--u)); min-height:calc(88*var(--u)); padding:calc(8*var(--u)) calc(80*var(--u)); border-bottom:calc(2*var(--u)) solid var(--line); }
+        .aud-bn b { font-family:'Bebas Neue','Arial Black',Impact,sans-serif; font-weight:900; font-size:calc(56*var(--u)); line-height:calc(56*var(--u)); letter-spacing:.04em; }
+        .aud-bn span.s { font-family:var(--font-mono); font-weight:700; font-size:calc(26*var(--u)); letter-spacing:.1em; text-transform:uppercase; color:var(--ink-dim); }
+        .aud-rail { margin-left:auto; display:flex; gap:calc(12*var(--u)); }
+        .aud-rail i { font-style:normal; font-family:var(--font-mono); font-weight:700; font-size:calc(26*var(--u)); line-height:1; letter-spacing:.1em; padding:calc(12*var(--u)) calc(22*var(--u)); border:calc(4*var(--u)) solid var(--line-strong); color:var(--ink-dim); }
+        .aud-rail i.d { border-color:var(--lime); color:var(--lime); }
+        .aud-rail i.n { background:var(--red); border-color:var(--red); color:#fff; }
+        .aud-mn { flex:1; min-height:0; position:relative; display:flex; flex-direction:column; overflow:hidden; }
+        /* Isi zona konten otomatis diperkecil (lewat --s, diatur JS stageFit) kalau lebih tinggi dari ruang yang ada → tidak pernah ada scroll. */
+        .aud-fit { --s:1; position:absolute; left:0; top:0; box-sizing:border-box; width:calc(100% / var(--s)); min-height:calc(100% / var(--s)); transform:scale(var(--s)); transform-origin:0 0; display:flex; flex-direction:column; gap:calc(24*var(--u)); padding:calc(32*var(--u)) calc(80*var(--u)); }
+        html.is-fullscreen, html.is-fullscreen body { overflow:hidden; }
+        html.is-fullscreen body > header { display:none !important; }
+        .aud-ft { flex:none; position:relative; height:calc(120*var(--u)); min-height:60px; border-top:calc(2*var(--u)) solid var(--line); background:var(--bg-2); overflow:hidden; }
+        .aud-ft .br { position:absolute; right:calc(80*var(--u)); top:50%; transform:translateY(-50%); font-family:'Bebas Neue','Arial Black',Impact,sans-serif; font-weight:900; font-size:calc(40*var(--u)); letter-spacing:.04em; pointer-events:none; }
+                /* timer */
+        .aud-tm { font-family:'Bebas Neue','Arial Black',Impact,sans-serif; font-weight:900; font-size:calc(400*var(--u)); line-height:calc(360*var(--u)); letter-spacing:.02em; text-align:center; color:var(--lime); font-variant-numeric:tabular-nums; }
+        .aud-tm.out { font-size:calc(300*var(--u)); line-height:calc(280*var(--u)); color:var(--ink); }
+        /* rider strip */
+        .aud-rs { display:grid; grid-template-columns:repeat(var(--cols,4),1fr); gap:calc(20*var(--u)); margin-top:auto; }
+        .aud-rs div { display:flex; align-items:center; gap:calc(20*var(--u)); min-width:0; border:calc(4*var(--u)) solid var(--ink); padding:calc(16*var(--u)) calc(24*var(--u)); background:var(--panel); }
+        .aud-rs i, .at-av { flex:none; display:grid; place-items:center; border-radius:999px; border:calc(4*var(--u)) solid var(--line-strong); font-style:normal; font-family:'Bebas Neue','Arial Black',Impact,sans-serif; font-weight:900; }
+        .aud-rs i { width:calc(64*var(--u)); height:calc(64*var(--u)); font-size:calc(30*var(--u)); }
+        .aud-rs b { font-weight:600; font-size:calc(36*var(--u)); line-height:calc(40*var(--u)); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .aud-rs.many b { font-size:calc(28*var(--u)); line-height:calc(32*var(--u)); }
+        .aud-jg { display:flex; gap:calc(24*var(--u)); justify-content:center; flex-wrap:wrap; }
+        .aud-jg span { font-family:var(--font-mono); font-weight:700; font-size:calc(36*var(--u)); line-height:1; letter-spacing:.1em; padding:calc(20*var(--u)) calc(36*var(--u)); border:calc(4*var(--u)) solid var(--line-strong); color:var(--ink-dim); }
+        .aud-nx { display:flex; align-items:center; gap:calc(24*var(--u)); font-family:var(--font-mono); font-weight:700; font-size:calc(28*var(--u)); letter-spacing:.1em; color:var(--ink-dim); }
+        .aud-nx b { font-family:var(--font-sans); font-weight:600; font-size:calc(32*var(--u)); letter-spacing:0; color:var(--ink); }
+        .aud-nx .t { color:#ffb020; white-space:nowrap; }
+        /* tabel leaderboard besar */
+        .at { display:flex; flex-direction:column; }
+        .at.d-big   { --rh:148; --rk:104; --av:92; --nm:56; --ct:26; --rn:44; --bs:112; }
+        .at.d-mid   { --rh:118; --rk:80;  --av:72; --nm:46; --ct:22; --rn:38; --bs:88; }
+        .at.d-tight { --rh:84;  --rk:60;  --av:56; --nm:38; --ct:20; --rn:30; --bs:64; }
+        .at.d-xs    { --rh:60;  --rk:42;  --av:42; --nm:28; --ct:16; --rn:22; --bs:42; }
+        .at-row { display:grid; grid-template-columns:calc(150*var(--u)) 1fr calc(220*var(--u)) calc(220*var(--u)) calc(280*var(--u)); align-items:center; height:calc(var(--rh)*var(--u)); padding:0 calc(32*var(--u)); border-bottom:calc(2*var(--u)) solid var(--line); background:var(--panel); border-left:calc(8*var(--u)) solid transparent; }
+        .at-row.h { height:calc(56*var(--u)); background:transparent; font-family:var(--font-mono); font-weight:700; font-size:calc(24*var(--u)); letter-spacing:.14em; color:var(--ink-dim); border-bottom:calc(2*var(--u)) solid var(--ink); }
+        .at-row.h span:nth-child(n+3) { text-align:right; }
+        .at-rk { font-family:'Bebas Neue','Arial Black',Impact,sans-serif; font-weight:900; font-size:calc(var(--rk)*var(--u)); line-height:1; }
+        .at-rd { display:flex; align-items:center; gap:calc(28*var(--u)); min-width:0; }
+        .at-av { width:calc(var(--av)*var(--u)); height:calc(var(--av)*var(--u)); font-size:calc(var(--av)*var(--u)*0.43); }
+        .at-nm { font-weight:600; font-size:calc(var(--nm)*var(--u)); line-height:1.08; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .at-ct { font-family:var(--font-mono); font-size:calc(var(--ct)*var(--u)); letter-spacing:.04em; text-transform:uppercase; color:var(--ink-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .at-r { font-family:var(--font-mono); font-size:calc(var(--rn)*var(--u)); text-align:right; color:var(--ink-dim); }
+        .at-b { font-family:'Bebas Neue','Arial Black',Impact,sans-serif; font-weight:900; font-size:calc(var(--bs)*var(--u)); line-height:1; text-align:right; }
+        .at-lolos { font-family:var(--font-mono); font-weight:700; font-size:calc(20*var(--u)); padding:2px calc(10*var(--u)); margin-left:calc(14*var(--u)); border:calc(3*var(--u)) solid var(--lime); color:var(--lime); vertical-align:middle; }
+        .at-row.on { border-left-color:var(--red); background:color-mix(in srgb,var(--red) 10%,var(--panel)); }
+        @media (max-width:700px) {
+            .at-row { grid-template-columns:44px 1fr 90px; padding:0 12px; }
+            .at-row .at-r { display:none; }
+            .aud-hd, .aud-bn, .aud-fit { padding-left:16px; padding-right:16px; }
+            /* HP: halaman boleh discroll, tidak diperkecil. */
+            .aud { height:auto; min-height:calc(100svh - 84px); overflow:visible; }
+            .aud-mn { overflow:visible; }
+            .aud-fit { position:static; width:auto; min-height:0; transform:none; }
+        }
+        /* Baris pemenang: lime penuh, teks gelap. */
+        .at-row.lsc-win, .score-row.lsc-win { background:var(--lime) !important; border-left-color:transparent !important; }
+        .at-row.lsc-win, .at-row.lsc-win *, .score-row.lsc-win, .score-row.lsc-win * { color:#0a0a0b !important; }
+        .at-row.lsc-win .at-av { border-color:#0a0a0b; }
+    </style>
+
+
+    
+    <div class="aud" x-data="liveBanner()" x-init="boot()">
+        <div class="aud-hd">
+            <div style="min-width:0;">
+                <h1>HIGHFIVE INLINE CUP 2026</h1>
+                <div class="aud-sub">Street Veteran (Jamming Season) · Qualification · HEAT 1</div>
+            </div>
+            <div class="aud-chip" :style="chipStyle" x-text="chip.t"></div>
+            <button @click="toggle()" x-show="!isFullscreen" class="mono"
+                style="position:absolute;right:8px;top:92px;padding:4px 8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink-dim);font-size:10px;letter-spacing:0.1em;cursor:pointer;z-index:5;">⤢ FULLSCREEN</button>
+        </div>
+
+        <div class="aud-bn">
+            <b x-text="title"></b>
+            <!--[if BLOCK]><![endif]--><span class="s">Heat 1 of 5</span><!--[if ENDBLOCK]><![endif]-->            <!--[if BLOCK]><![endif]-->                <div class="aud-rail">
+                    <!--[if BLOCK]><![endif]-->                        <i class="n">● H1</i>
+                                            <i class="">H2</i>
+                                            <i class="">H3</i>
+                                            <i class="">H4</i>
+                                            <i class="">H5</i>
+                    <!--[if ENDBLOCK]><![endif]-->                </div>
+            <!--[if ENDBLOCK]><![endif]-->        </div>
+
+
+        
+    <div x-data="livePhaseOverlay()" x-init="boot()" x-show="phase !== 'IDLE' && !jam && !btHide" x-cloak
+         style="flex:1;min-height:0;background:var(--bg);padding:0 32px;">
+
+            
+            <div style="position:relative;display:grid;grid-template-columns:3fr 3fr 6fr;height:100%;min-height:0;overflow:hidden;border-left:2px solid var(--ink);border-right:2px solid var(--ink);">
+
+                
+                <div style="display:flex;overflow:hidden;position:relative;border-right:1px solid var(--line);">
+                    
+                    <div style="width:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background 0.4s;"
+                         :style="{
+                             background: phase === 'RUNNING'   ? 'var(--red)'  :
+                                         phase === 'REVEALING' ? 'var(--lime)' : 'var(--ink)'
+                         }">
+                        <span style="writing-mode:vertical-lr;transform:rotate(180deg);font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:0.2em;white-space:nowrap;transition:color 0.4s;"
+                              :style="{ color: phase === 'REVEALING' ? '#000' : 'var(--bg)' }"
+                              x-text="{ NEXT:'NEXT UP', RUNNING:'ON COURSE', JUDGING:'JUDGING', REVEALING:'SCORE' }[phase] || ''">
+                        </span>
+                    </div>
+                    
+                    <div style="flex:1;overflow:hidden;background:var(--bg-2);position:relative;">
+                        <template x-if="avatarSrc">
+                            <img :src="avatarSrc" style="width:100%;height:100%;object-fit:cover;object-position:top center;display:block;position:absolute;inset:0;">
+                        </template>
+                        <template x-if="!avatarSrc">
+                            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:absolute;inset:0;">
+                                <span style="font-family:'Bebas Neue',sans-serif;font-size:clamp(64px,8vw,100px);color:var(--ink);opacity:0.15;" x-text="initials"></span>
+                            </div>
+                        </template>
+                        <div x-show="phase === 'RUNNING'" class="scanlines" style="position:absolute;inset:0;pointer-events:none;display:none;"></div>
+                    </div>
+                </div>
+
+                
+                <div style="padding:40px 36px;display:flex;flex-direction:column;justify-content:center;gap:24px;border-right:1px solid var(--line);background:var(--bg);">
+                    <div>
+                        <span x-show="phase === 'NEXT'"      class="badge badge-out"                                            style="display:none;">→ NEXT UP</span>
+                        <span x-show="phase === 'RUNNING'"   class="badge badge-red"                                            style="display:none;"><span class="live-dot" style="margin-right:5px;"></span>NOW ON COURSE</span>
+                        <span x-show="phase === 'JUDGING'"   class="badge badge-out"                                            style="display:none;">... JUDGING</span>
+                        <span x-show="phase === 'REVEALING'" class="badge badge-out" style="border-color:var(--lime);color:var(--lime);display:none;">✦ FINAL SCORE</span>
+                    </div>
+                    <div class="display" style="font-size:clamp(32px,3vw,52px);line-height:1;" x-text="riderName"></div>
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                        <div class="mono dim" style="font-size:14px;letter-spacing:0.12em;" x-text="eventTitle"></div>
+                        <div class="mono" style="font-size:14px;letter-spacing:0.12em;color:var(--lime);">FRAMEBLADESCORE</div>
+                        <div class="mono dim" style="font-size:14px;letter-spacing:0.1em;"
+                             x-text="runNumber ? divisionLabel + ' · ' + (isBestTrick ? 'PERCOBAAN ' : 'RUN ') + runNumber : divisionLabel"></div>
+                    </div>
+                </div>
+
+                
+                <div style="padding:40px 48px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);position:relative;overflow:hidden;">
+                    <div x-show="phase === 'REVEALING'" class="halftone" style="position:absolute;inset:0;pointer-events:none;opacity:0.4;display:none;"></div>
+
+                    
+                    <!--[if BLOCK]><![endif]--><!--[if ENDBLOCK]><![endif]-->
+                    
+                    <div x-show="phase === 'NEXT' && !isBestTrick" style="display:none;text-align:center;">
+                        <p class="kicker" style="margin-bottom:8px;font-size:11px;" x-text="(isBestTrick ? 'PERCOBAAN ' : 'RUN ') + (runNumber || '—')"></p>
+                        <p class="mono dim" style="font-size:12px;letter-spacing:0.14em;" x-text="divisionLabel"></p>
+                        <template x-if="bestScore">
+                            <p class="mono dim" style="font-size:16px;letter-spacing:0.1em;margin-top:26px;">
+                                SKOR TERTINGGI SEBELUMNYA<br>
+                                <span class="display tnum text-glow-lime" style="font-size:clamp(80px,11vw,160px);color:var(--lime);line-height:1.1;" x-text="bestScore"></span>
+                            </p>
+                        </template>
+                    </div>
+
+                    
+                    <div x-show="phase === 'RUNNING' && !isBestTrick" style="display:none;text-align:center;">
+                        <p class="kicker" style="margin-bottom:8px;font-size:11px;">RUN TIMER</p>
+                        <span class="display tnum text-glow-lime"
+                              style="font-size:clamp(80px,11vw,180px);color:var(--lime);line-height:1;"
+                              x-text="remainingFormatted"></span>
+                    </div>
+
+                    
+                    <div x-show="phase === 'RUNNING' && isBestTrick && !false" style="display:none;text-align:center;">
+                        <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
+                            <span class="live-dot" style="width:14px;height:14px;"></span>
+                        </div>
+                        <p class="kicker" style="margin-top:16px;font-size:14px;">SEDANG MELAKUKAN TRICK</p>
+                    </div>
+
+                    
+                    <div x-show="phase === 'JUDGING'" style="display:none;text-align:center;">
+                        <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
+                            <div class="live-dot" style="width:12px;height:12px;animation-delay:0s;flex-shrink:0;"></div>
+                            <div class="live-dot" style="width:12px;height:12px;animation-delay:0.4s;flex-shrink:0;"></div>
+                            <div class="live-dot" style="width:12px;height:12px;animation-delay:0.8s;flex-shrink:0;"></div>
+                        </div>
+                        <p class="mono dim" style="font-size:12px;letter-spacing:0.08em;margin-top:16px;">MENUNGGU SEMUA JURI SELESAI MENILAI</p>
+                    </div>
+
+                    
+                    <div x-show="phase === 'REVEALING'" style="display:none;text-align:center;position:relative;z-index:1;">
+                        <p class="kicker" style="margin-bottom:8px;font-size:11px;" x-text="(isBestTrick ? 'PERCOBAAN ' : 'RUN ') + (runNumber || '—')"></p>
+                        <div class="score-reveal-anim" style="display:flex;align-items:baseline;justify-content:center;gap:10px;">
+                            <span class="display tnum text-glow-lime"
+                                  style="font-size:clamp(80px,11vw,180px);color:var(--lime);line-height:1;"
+                                  x-text="(accumulated || score) || '—'"></span>
+                            <span class="mono dim" style="font-size:16px;letter-spacing:0.1em;" x-text="isBestTrick ? '/ 10' : '/ 100'"></span>
+                        </div>
+                        <p class="mono dim" style="font-size:12px;letter-spacing:0.1em;margin-top:10px;" x-show="accumulated">
+                            TOTAL AKUMULASI RIDER — skor run ini: <span x-text="score || '—'"></span>
+                        </p>
+                        <template x-if="bestScore">
+                            <p class="mono dim" style="font-size:16px;letter-spacing:0.08em;margin-top:20px;">
+                                SKOR TERTINGGI SEBELUMNYA<br>
+                                <span class="display tnum text-glow-lime" style="font-size:clamp(48px,7vw,90px);color:var(--lime);line-height:1.2;" x-text="bestScore"></span>
+                            </p>
+                        </template>
+                    </div>
+                </div>
+
+                
+                <div x-show="phase === 'NEXT'" style="position:absolute;inset:0;pointer-events:none;display:none;">
+                    <!--[if BLOCK]><![endif]-->                        <div style="position:absolute;left:35%;top:20%;transform:translate(-50%,-50%);
+                            width:369px;height:180px;display:flex;align-items:center;justify-content:center;padding:12px;z-index:2;">
+                            <!--[if BLOCK]><![endif]-->                                <img src="/storage/sponsors/tPqGmnRkmIA7Nv3qaxAQkYhpHmGfqcF2EykIJLbk.png" alt="highfive" style="max-width:100%;max-height:100%;object-fit:contain;">
+                            <!--[if ENDBLOCK]><![endif]-->                        </div>
+                                            <div style="position:absolute;left:35%;top:85%;transform:translate(-50%,-50%);
+                            width:324px;height:158px;display:flex;align-items:center;justify-content:center;padding:12px;z-index:2;">
+                            <!--[if BLOCK]><![endif]-->                                <img src="/storage/sponsors/HxypDFPttvbl9ge5HNI7vdd67IijY874kRXjLLbS.png" alt="kasi" style="max-width:100%;max-height:100%;object-fit:contain;">
+                            <!--[if ENDBLOCK]><![endif]-->                        </div>
+                    <!--[if ENDBLOCK]><![endif]-->                </div>
+            </div>
+    </div>
+
+
+        
+        <!--[if BLOCK]><![endif]--><!--[if ENDBLOCK]><![endif]-->
+
+
+        <!--[if BLOCK]><![endif]-->                        <!--[if BLOCK]><![endif]-->            <div class="aud-mn">
+              <div class="aud-fit">
+                
+                <!--[if BLOCK]><![endif]--><!--[if ENDBLOCK]><![endif]-->                <!--[if BLOCK]><![endif]--><!--[if ENDBLOCK]><![endif]-->
+                <!--[if BLOCK]><![endif]-->                    <!--[if BLOCK]><![endif]--><div class="at d-mid">
+    <div class="at-row h"><span>#</span><span>RIDER</span><span>RUN 1</span><span>RUN 2</span><span>BEST</span></div>
+    <!--[if BLOCK]><![endif]-->                <div class="at-row  ">
+            <span class="at-rk" style="color:var(--lime);">01</span>
+            <div class="at-rd">
+                <i class="at-av">AA</i>
+                <div style="min-width:0;">
+                    <div class="at-nm">Agung Asmo<!--[if BLOCK]><![endif]--><!--[if ENDBLOCK]><![endif]--></div>
+                    <div class="at-ct">Bandung</div>
+                </div>
+            </div>
+            <span class="at-r">—</span>
+            <span class="at-r" >—</span>
+            
+            <span class="at-b" style="color:var(--lime);">—</span>
+        </div>
+                    <div class="at-row  ">
+            <span class="at-rk" style="color:var(--ink);">02</span>
+            <div class="at-rd">
+                <i class="at-av">IR</i>
+                <div style="min-width:0;">
+                    <div class="at-nm">Ilham Ramadhan<!--[if BLOCK]><![endif]--><!--[if ENDBLOCK]><![endif]--></div>
+                    <div class="at-ct">Depok</div>
+                </div>
+            </div>
+            <span class="at-r">—</span>
+            <span class="at-r" >—</span>
+            
+            <span class="at-b" style="color:var(--ink);">—</span>
+        </div>
+                    <div class="at-row  ">
+            <span class="at-rk" style="color:var(--ink);">03</span>
+            <div class="at-rd">
+                <i class="at-av">KN</i>
+                <div style="min-width:0;">
+                    <div class="at-nm">Krisana Nurima<!--[if BLOCK]><![endif]--><!--[if ENDBLOCK]><![endif]--></div>
+                    <div class="at-ct">Bandung</div>
+                </div>
+            </div>
+            <span class="at-r">—</span>
+            <span class="at-r" >—</span>
+            
+            <span class="at-b" style="color:var(--ink);">—</span>
+        </div>
+                    <div class="at-row  ">
+            <span class="at-rk" style="color:var(--ink);">04</span>
+            <div class="at-rd">
+                <i class="at-av">RS</i>
+                <div style="min-width:0;">
+                    <div class="at-nm">Rangga Suryanegara<!--[if BLOCK]><![endif]--><!--[if ENDBLOCK]><![endif]--></div>
+                    <div class="at-ct">Bandung</div>
+                </div>
+            </div>
+            <span class="at-r">—</span>
+            <span class="at-r" >—</span>
+            
+            <span class="at-b" style="color:var(--ink);">—</span>
+        </div>
+                    <div class="at-row  ">
+            <span class="at-rk" style="color:var(--ink);">05</span>
+            <div class="at-rd">
+                <i class="at-av">UB</i>
+                <div style="min-width:0;">
+                    <div class="at-nm">Uncle Bad Boy<!--[if BLOCK]><![endif]--><!--[if ENDBLOCK]><![endif]--></div>
+                    <div class="at-ct">Bandung Barat</div>
+                </div>
+            </div>
+            <span class="at-r">—</span>
+            <span class="at-r" >—</span>
+            
+            <span class="at-b" style="color:var(--ink);">—</span>
+        </div>
+    <!--[if ENDBLOCK]><![endif]--></div>
+<!--[if ENDBLOCK]><![endif]-->                <!--[if ENDBLOCK]><![endif]-->
+
+                
+                    <!--[if BLOCK]><![endif]--><!--[if ENDBLOCK]><![endif]-->
+              </div>
+            </div>
+            <!--[if ENDBLOCK]><![endif]--> 
+        <!--[if ENDBLOCK]><![endif]-->
+        
+        <div class="aud-ft">
+            <!--[if BLOCK]><![endif]-->                                <div style="position:absolute;left:10%;top:50%;transform:translate(-50%,-50%);
+                    width:calc(160 * var(--u));height:calc(80 * var(--u));
+                    display:flex;align-items:center;justify-content:center;padding:calc(10 * var(--u));">
+                    <!--[if BLOCK]><![endif]-->                        
+                        <span class="display dim" style="font-size:max(calc(22*var(--u)),11px);text-align:center;line-height:1.1;">FRAME BLADEMAGZ</span>
+                    <!--[if ENDBLOCK]><![endif]-->                </div>
+                                            <div style="position:absolute;left:25%;top:50%;transform:translate(-50%,-50%);
+                    width:calc(160 * var(--u));height:calc(80 * var(--u));
+                    display:flex;align-items:center;justify-content:center;padding:calc(10 * var(--u));">
+                    <!--[if BLOCK]><![endif]-->                        
+                        <span class="display dim" style="font-size:max(calc(22*var(--u)),11px);text-align:center;line-height:1.1;">HUSCLAN</span>
+                    <!--[if ENDBLOCK]><![endif]-->                </div>
+            <!--[if ENDBLOCK]><![endif]-->            <span class="br">
+                <img src="http://localhost/images/logo-wordmark-light.png" alt="FRAMEBLADESCORE" class="logo-light" style="height:calc(44*var(--u));min-height:14px;width:auto;">
+                <img src="http://localhost/images/logo-wordmark-dark.png" alt="FRAMEBLADESCORE" class="logo-dark" style="height:calc(44*var(--u));min-height:14px;width:auto;">
+            </span>
+        </div>
+    </div>
+    <!--[if ENDBLOCK]><![endif]--> 
+
+</div>
+
+<script>
+function liveBanner() {
+    return {
+        phase: 'IDLE',
+        jam: false,
+        bt: false,
+        live: false,
+        idleTitle: 'LIVE LEADERBOARD',
+        _t: null,
+        _obs: null,
+
+        boot() {
+            this.read();
+            const el = document.getElementById('live-data');
+            if (el) {
+                this._obs = new MutationObserver(() => this.read());
+                this._obs.observe(el, { attributes: true });
+            }
+            // RUNNING -> JUDGING terjadi di sisi klien saat timer habis, jadi cek tiap detik.
+            this._t = setInterval(() => this.read(), 1000);
+        },
+
+        destroy() {
+            clearInterval(this._t);
+            this._obs?.disconnect();
+        },
+
+        read() {
+            const el = document.getElementById('live-data');
+            if (!el) return;
+            liveClock.syncFrom(el);
+            const server   = el.dataset.phase || '';
+            const started  = parseInt(el.dataset.started) || 0;
+            const duration = parseInt(el.dataset.duration) || 60;
+            this.jam  = !!el.dataset.jam;
+            this.bt   = !!el.dataset.isBestTrick;
+            this.live = !!el.dataset.live;
+            this.idleTitle = el.dataset.idleTitle || 'LIVE LEADERBOARD';
+
+            if (server === 'RUNNING') {
+                const over = !this.bt && started && (liveClock.now() / 1000 - started >= duration);
+                this.phase = over ? 'JUDGING' : 'RUNNING';
+            } else if (server === 'REVEALING') {
+                this.phase = this.bt ? 'IDLE' : 'REVEALING'; // Best Trick: langsung leaderboard
+            } else if (server === 'NEXT') {
+                this.phase = 'NEXT';
+            } else {
+                this.phase = 'IDLE';
+            }
+        },
+
+        get chip() {
+            switch (this.phase) {
+                case 'RUNNING':   return { t: this.bt ? '● TRICK IN PROGRESS' : (this.jam ? '● HEAT IN PROGRESS' : '● RUN IN PROGRESS'), k: 'live' };
+                case 'JUDGING':   return { t: 'WAITING FOR JUDGES', k: 'warn' };
+                case 'REVEALING': return { t: '✓ OFFICIAL RESULTS', k: 'ok' };
+                case 'NEXT':      return { t: 'NEXT UP', k: 'mut' };
+                default:          return this.live ? { t: '● LIVE', k: 'live' } : { t: 'OFFLINE', k: 'mut' };
+            }
+        },
+
+        get chipStyle() {
+            return {
+                live: 'background:var(--red);border-color:var(--red);color:#fff;',
+                warn: 'border-color:#ffb020;color:#ffb020;',
+                ok:   'border-color:var(--lime);color:var(--lime);',
+                mut:  'color:var(--ink-dim);',
+            }[this.chip.k];
+        },
+
+        get title() {
+            switch (this.phase) {
+                case 'RUNNING':   return this.bt ? 'TRICK IN PROGRESS' : (this.jam ? 'HEAT IN PROGRESS' : 'RUN IN PROGRESS');
+                case 'JUDGING':   return "TIME'S UP";
+                case 'REVEALING': return this.jam ? 'HEAT RESULTS' : 'RUN SCORE';
+                case 'NEXT':      return 'NEXT UP';
+                default:          return this.idleTitle;
+            }
+        }
+    };
+}
+
+window.liveClock = window.liveClock || {
+    // Selisih jam server - klien. Latensi jaringan hanya membuat selisih terlihat lebih kecil,
+    // jadi nilai terbesar yang pernah teramati = estimasi terbaik.
+    offset: null,
+    sync(serverMs) {
+        const ms = parseInt(serverMs);
+        if (!ms) return;
+        const obs = ms - Date.now();
+        if (this.offset === null || obs > this.offset) this.offset = obs;
+    },
+    syncFrom(el) {
+        if (el && el.dataset.now && el.dataset.now !== this._lastNow) { this._lastNow = el.dataset.now; this.sync(el.dataset.now); }
+    },
+    now() { return Date.now() + (this.offset || 0); },
+};
+
+function stageFit(root) {
+    // Perkecil isi zona konten (.aud-fit) hanya kalau lebih tinggi dari ruangnya; tidak ada scroll.
+    let raf = null;
+    const run = () => {
+        raf = null;
+        root.querySelectorAll('.aud-fit').forEach(fit => {
+            const box = fit.parentElement;
+            fit.style.setProperty('--s', '1');
+            if (window.innerWidth < 700 || box.getClientRects().length === 0) return;
+            const H = box.clientHeight, h = fit.offsetHeight;
+            if (H > 0 && h > H + 1) fit.style.setProperty('--s', Math.max(0.3, H / h).toFixed(3));
+        });
+    };
+    const sched = () => { if (!raf) raf = requestAnimationFrame(run); };
+    new MutationObserver(recs => {
+        // abaikan perubahan style yang kita buat sendiri di .aud-fit
+        if (recs.every(r => r.type === 'attributes' && r.target.classList.contains('aud-fit'))) return;
+        sched();
+    }).observe(root, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['style', 'class'] });
+    window.addEventListener('resize', sched);
+    document.addEventListener('fullscreenchange', () => { sched(); setTimeout(sched, 300); });
+    sched();
+}
+
+function liveFullscreen() {
+    return {
+        isFullscreen: false,
+
+        init() {
+            stageFit(this.$el);
+            // Update realtime: pesan websocket membawa fase/waktu (diterapkan langsung ke chip & timer),
+            // lalu satu refresh HTTP untuk data lengkap. Banyak pesan beruntun (mis. 5 juri submit
+            // hampir bersamaan) digabung jadi satu refresh; jeda acak 0-150 ms cukup untuk
+            // menyebar beban ke server tanpa terasa lambat (lama: sampai 600 ms).
+            let pending = null;
+            const refresh = () => {
+                if (pending) return;
+                pending = setTimeout(() => { pending = null; this.$wire.$refresh(); }, Math.random() * 150);
+            };
+            const applyEarly = (p) => {
+                const el = document.getElementById('live-data');
+                if (!el || !p) return;
+                if (p.jam) {
+                    el.dataset.jam = '1';
+                    el.dataset.phase = p.phase || '';
+                    el.dataset.started = p.started || 0;
+                    el.dataset.duration = p.duration || 180;
+                } else if (el.dataset.jam && !p.phase) {
+                    el.dataset.phase = '';
+                }
+            };
+            if (window.Echo && this.$wire.eventId) {
+                const channel = `live-scoring.${this.$wire.eventId}`;
+                window.Echo.channel(channel).listen('.updated', (p) => {
+                    liveClock.sync(p?.t);
+                    applyEarly(p);
+                    refresh();
+                });
+
+                // Ketahanan: sambung ulang setelah koneksi putus → sinkron ulang; selagi putus → poll tiap 5 detik.
+                const conn = window.Echo.connector?.pusher?.connection;
+                if (conn) {
+                    let wasDown = false;
+                    conn.bind('state_change', (st) => {
+                        if (st.current === 'connected' && wasDown) { wasDown = false; refresh(); }
+                        else if (st.current !== 'connected') wasDown = true;
+                    });
+                    this._fallback = setInterval(() => { if (conn.state !== 'connected') refresh(); }, 5000);
+                }
+                document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+            }
+
+            const onChange = () => {
+                this.isFullscreen = !!document.fullscreenElement;
+                document.documentElement.classList.toggle('is-fullscreen', this.isFullscreen);
+            };
+            document.addEventListener('fullscreenchange', onChange);
+            this.$cleanup = () => document.removeEventListener('fullscreenchange', onChange);
+        },
+
+        toggle() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+    };
+}
+
+function jamClock() {
+    return {
+        jam: false,
+        phase: 'IDLE',
+        remaining: 0,
+        _timer: null,
+        _observer: null,
+        _lastStartedAt: null,
+        _sounds: null,
+
+        get active() { return this.jam && this.phase !== 'IDLE'; },
+
+        boot() {
+            this._sounds = {
+                start: new Audio('http://localhost/sounds/start.wav'),
+                tick: new Audio('http://localhost/sounds/tick.wav'),
+                end: new Audio('http://localhost/sounds/end.wav'),
+            };
+            Object.values(this._sounds).forEach(a => { a.preload = 'auto'; a.load(); });
+            const unlock = () => {
+                Object.values(this._sounds).forEach(a => {
+                    a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+                });
+            };
+            ['click', 'touchstart', 'keydown'].forEach(evt => {
+                document.addEventListener(evt, unlock, { once: true });
+            });
+
+            this.readData();
+            const el = document.getElementById('live-data');
+            if (el) {
+                this._observer = new MutationObserver(() => this.readData());
+                this._observer.observe(el, { attributes: true });
+            }
+        },
+
+        _playSound(name) {
+            const audio = this._sounds?.[name];
+            if (!audio) return;
+            audio.currentTime = 0;
+            audio.play().catch(err => console.warn('[live-scoring] sound blocked:', name, err));
+        },
+
+        readData() {
+            const el = document.getElementById('live-data');
+            if (!el) return;
+            liveClock.syncFrom(el);
+            this.jam = !!el.dataset.jam;
+            const serverPhase = el.dataset.phase || '';
+            const startedAt   = parseInt(el.dataset.started) || 0;
+            const duration    = parseInt(el.dataset.duration) || 180;
+
+            if (!this.jam) {
+                clearTimeout(this._timer);
+                this._timer = null;
+                this.phase = 'IDLE';
+            } else if (serverPhase === 'REVEALING') {
+                clearTimeout(this._timer);
+                this._timer = null;
+                this.phase = 'REVEALING';
+            } else if (serverPhase === 'RUNNING') {
+                this._startCountdown(startedAt, duration);
+            } else {
+                clearTimeout(this._timer);
+                this._timer = null;
+                this.phase = 'IDLE';
+            }
+        },
+
+        _startCountdown(startedAt, duration) {
+            // Broadcast tiap judge submit memanggil readData() lagi — jangan restart
+            // timer (dan bunyi start/tick) kalau heat yang sama sudah berjalan.
+            if (startedAt === this._lastStartedAt && this._timer !== null) return;
+            clearTimeout(this._timer);
+            if (startedAt !== this._lastStartedAt) {
+                this._lastStartedAt = startedAt;
+                this._playSound('start');
+            }
+            let lastBeepedSecond = null;
+            const tick = () => {
+                const elapsed = Math.floor(liveClock.now() / 1000) - startedAt;
+                this.remaining = Math.max(0, duration - elapsed);
+                if (this.remaining > 0) {
+                    this.phase = 'RUNNING';
+                    if (this.remaining <= 10 && this.remaining !== lastBeepedSecond) {
+                        lastBeepedSecond = this.remaining;
+                        this._playSound('tick');
+                    }
+                    this._timer = setTimeout(tick, 1000);
+                } else {
+                    this.phase = 'JUDGING';
+                    this._playSound('end');
+                    this._timer = setTimeout(() => {}, 0); // tandai heat ini sudah selesai dihitung
+                }
+            };
+            tick();
+        },
+
+        get remainingFormatted() {
+            const h = Math.floor(this.remaining / 3600);
+            const m = Math.floor((this.remaining % 3600) / 60);
+            const s = this.remaining % 60;
+            return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+        }
+    };
+}
+
+function livePhaseOverlay() {
+    return {
+        phase: 'IDLE',
+        remaining: 0,
+        riderName: '',
+        initials: '',
+        score: '',
+        accumulated: '',
+        bestScore: '',
+        avatarSrc: '',
+        eventTitle: '',
+        runNumber: '',
+        divisionLabel: '',
+        isBestTrick: false,
+        jam: false,
+        _timer: null,
+        _observer: null,
+        _lastStartedAt: null,
+        _sounds: null,
+
+        boot() {
+            this._sounds = {
+                start: new Audio('http://localhost/sounds/start.wav'),
+                tick: new Audio('http://localhost/sounds/tick.wav'),
+                end: new Audio('http://localhost/sounds/end.wav'),
+            };
+            Object.values(this._sounds).forEach(a => { a.preload = 'auto'; a.load(); });
+
+            // Browsers block audio.play() until the page has received a real user
+            // gesture. This screen is usually left open unattended (scoreboard/TV),
+            // so the very first RUNNING phase can fire before any click happens —
+            // prime (play+immediately pause) all sounds on the first interaction so
+            // later autoplay-triggered plays are allowed.
+            const unlock = () => {
+                Object.values(this._sounds).forEach(a => {
+                    a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+                });
+            };
+            ['click', 'touchstart', 'keydown'].forEach(evt => {
+                document.addEventListener(evt, unlock, { once: true });
+            });
+
+            this.readData();
+            const el = document.getElementById('live-data');
+            if (el) {
+                this._observer = new MutationObserver(() => this.readData());
+                this._observer.observe(el, { attributes: true });
+            }
+        },
+
+        _playSound(name) {
+            const audio = this._sounds?.[name];
+            if (!audio) return;
+            audio.currentTime = 0;
+            audio.play().catch(err => console.warn('[live-scoring] sound blocked:', name, err));
+        },
+
+        // Best Trick: begitu REVEAL, kartu rider/skor disembunyikan dan yang tampil
+        // langsung leaderboard publik.
+        get btHide() {
+            return this.isBestTrick && this.phase === 'REVEALING';
+        },
+
+        readData() {
+            const el = document.getElementById('live-data');
+            if (!el) return;
+            liveClock.syncFrom(el);
+            const serverPhase = el.dataset.phase || '';
+            const startedAt   = parseInt(el.dataset.started) || 0;
+            const duration    = parseInt(el.dataset.duration) || 60;
+            this.riderName  = el.dataset.rider || '';
+            this.initials   = el.dataset.initials || '';
+            this.score      = el.dataset.score || '';
+            this.accumulated = el.dataset.accumulated || '';
+            this.bestScore  = el.dataset.best || '';
+            this.avatarSrc  = el.dataset.avatar || '';
+            this.eventTitle = el.dataset.event || '';
+            this.runNumber  = el.dataset.run || '';
+            this.divisionLabel = el.dataset.divisionLabel || '';
+            this.isBestTrick = !!el.dataset.isBestTrick;
+            this.jam = !!el.dataset.jam;
+
+            if (this.jam) {
+                // Heat Jamming ditangani jamClock() — kartu esports per-rider tidak dipakai.
+                clearTimeout(this._timer);
+                this._timer = null;
+                this.phase = 'IDLE';
+            } else if (serverPhase === 'REVEALING') {
+                // Best Trick: bunyi 'end' saat percobaan selesai (RUNNING -> REVEALING)
+                if (this.phase === 'RUNNING' && this.isBestTrick) this._playSound('end');
+                this.phase = 'REVEALING';
+                clearTimeout(this._timer);
+            } else if (serverPhase === 'RUNNING' && this.isBestTrick) {
+                // Best Trick itu cuma 1 trick per percobaan, bukan run bertimer —
+                // gak ada hitung mundur, dan gak auto-pindah ke JUDGING kayak
+                // _startCountdown; tetap di RUNNING sampai Head Judge klik Reveal.
+                clearTimeout(this._timer);
+                if (startedAt !== this._lastStartedAt) {
+                    this._lastStartedAt = startedAt;
+                    this._playSound('start');
+                }
+                this.phase = 'RUNNING';
+            } else if (serverPhase === 'RUNNING') {
+                this._startCountdown(startedAt, duration);
+            } else if (serverPhase === 'NEXT') {
+                this.phase = 'NEXT';
+                clearTimeout(this._timer);
+            } else {
+                this.phase = 'IDLE';
+                clearTimeout(this._timer);
+            }
+        },
+
+        _startCountdown(startedAt, duration) {
+            // readData() re-runs on every broadcast for this event — including
+            // ones unrelated to this run, like a judge submitting their score
+            // while this run is still counting down. If it's the same run and
+            // the tick loop is already going, leave it alone: restarting it
+            // would replay the last-10-seconds beep (or "start") for no reason.
+            if (startedAt === this._lastStartedAt && this._timer !== null) {
+                return;
+            }
+            clearTimeout(this._timer);
+            if (startedAt !== this._lastStartedAt) {
+                this._lastStartedAt = startedAt;
+                this._playSound('start');
+            }
+            let lastBeepedSecond = null;
+            const tick = () => {
+                const elapsed = Math.floor(liveClock.now() / 1000) - startedAt;
+                this.remaining = Math.max(0, duration - elapsed);
+                if (this.remaining > 0) {
+                    this.phase = 'RUNNING';
+                    if (this.remaining <= 10 && this.remaining !== lastBeepedSecond) {
+                        lastBeepedSecond = this.remaining;
+                        this._playSound('tick');
+                    }
+                    this._timer = setTimeout(tick, 1000);
+                } else {
+                    this.phase = 'JUDGING';
+                    this._playSound('end');
+                }
+            };
+            tick();
+        },
+
+        get remainingFormatted() {
+            const h = Math.floor(this.remaining / 3600);
+            const m = Math.floor((this.remaining % 3600) / 60);
+            const s = this.remaining % 60;
+            return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+        }
+    };
+}
+</script>
+</body></html>

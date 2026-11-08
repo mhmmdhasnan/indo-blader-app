@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DivisionFinalist extends Model
 {
-    protected $fillable = ['event_division_id', 'registration_id'];
+    protected $fillable = ['event_division_id', 'registration_id', 'division_group_id'];
 
     public function division(): BelongsTo
     {

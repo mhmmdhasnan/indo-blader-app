@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DivisionGroup extends Model
 {
-    protected $fillable = ['event_division_id', 'name'];
+    protected $fillable = ['event_division_id', 'name', 'stage'];
 
     public function division(): BelongsTo
     {

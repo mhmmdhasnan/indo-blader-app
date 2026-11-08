@@ -48,6 +48,7 @@
 
     @include('components.footer')
 
+    <x-confirm-dialog />
     @livewireScripts
 </body>
 </html>

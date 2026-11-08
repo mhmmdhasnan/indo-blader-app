@@ -30,6 +30,8 @@ return Application::configure(basePath: dirname(__DIR__))
                 | Request::HEADER_X_FORWARDED_PROTO,
         );
 
+        $middleware->web(prepend: [\App\Http\Middleware\SimulatorSession::class]);
+
         $middleware->alias([
             'role' => RoleMiddleware::class,
             'live.access' => \App\Http\Middleware\LiveAccessMiddleware::class,
