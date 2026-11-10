@@ -267,26 +267,36 @@
                         @endforeach
                     </div>
                 @endif
-                {{-- Satu kartu per rider; Run 1, Run 2 dan percobaan Best Trick digabung dalam kartu yang sama. --}}
+                {{-- Satu kartu per rider: Run 1 / Run 2 sebagai entri, Best Trick digabung ke skor header sebagai bonus "59.3 (+4.3)". --}}
                 @php
                     $riderCards = $heatRows->groupBy(fn ($r) => $r['rider']?->id ?? 0)
-                        ->map(fn ($g) => $g->sortBy(fn ($r) => [$r['mode'] === 'BEST_TRICK' ? 1 : 0, $r['run']])->values())
-                        ->sortByDesc(fn ($g) => $g->max('avg'))
+                        ->map(function ($g) {
+                            $runs  = $g->where('mode', '!=', 'BEST_TRICK')->sortBy('run')->values();
+                            $tricks = $g->where('mode', 'BEST_TRICK')->sortBy('run')->values();
+                            return [
+                                'rider'  => $g->first()['rider'],
+                                'runs'   => $runs,
+                                'tricks' => $tricks,
+                                'best'   => $runs->isNotEmpty() ? $runs->max('avg') : null,
+                                'bonus'  => $tricks->isNotEmpty() ? $tricks->max('avg') : null,
+                            ];
+                        })
+                        ->sortByDesc(fn ($c) => ($c['best'] ?? 0) + ($c['bonus'] ?? 0))
                         ->values();
                 @endphp
-                @foreach($riderCards as $entries)
+                @foreach($riderCards as $card)
                     <div style="padding:10px 0;border-top:1px solid var(--line);">
-                        <span style="font-weight:700;font-size:15px;">{{ $entries->first()['rider']?->name ?? '—' }}</span>
-                        @foreach($entries as $row)
+                        <div class="between" style="gap:12px;">
+                            <span style="font-weight:700;font-size:15px;">{{ $card['rider']?->name ?? '—' }}</span>
+                            <span class="display tnum" style="font-size:36px;line-height:36px;color:var(--lime);">{{ $card['best'] !== null ? number_format($card['best'], 1) : '—' }}@if($card['bonus'] !== null && $card['bonus'] > 0) <span style="font-size:20px;">(+{{ number_format($card['bonus'], 1) }})</span>@endif</span>
+                        </div>
+                        @foreach($card['runs'] as $row)
                             @php $isTie = ($tieCount[$tieKey($row)] ?? 1) > 1; @endphp
                             <div style="margin-top:8px;{{ $isTie ? 'border-left:4px solid #ffb020;padding-left:10px;' : '' }}">
                                 <div class="between" style="gap:12px;">
-                                    <span class="oc-lbl" style="font-size:12px;">
-                                        {{ $row['mode'] === 'BEST_TRICK' ? 'Best trick · percobaan ' . $row['run'] : 'Run ' . $row['run'] . ' · ' . ($row['stage'] === 'FINAL' ? 'Final' : 'Kualifikasi') }}
-                                    </span>
-                                    <span class="display tnum" style="font-size:32px;line-height:32px;color:{{ $isTie ? '#ffb020' : 'var(--lime)' }};">{{ number_format($row['avg'], 1) }}@if($isTie)<span class="mono" style="display:block;font-size:11px;line-height:12px;letter-spacing:.1em;text-align:right;">SAMA</span>@endif</span>
+                                    <span class="oc-lbl" style="font-size:12px;">Run {{ $row['run'] }} · {{ $row['stage'] === 'FINAL' ? 'Final' : 'Kualifikasi' }}</span>
+                                    <span class="display tnum" style="font-size:24px;line-height:24px;color:{{ $isTie ? '#ffb020' : 'var(--lime)' }};">{{ number_format($row['avg'], 1) }}@if($isTie)<span class="mono" style="display:block;font-size:11px;line-height:12px;letter-spacing:.1em;text-align:right;">SAMA</span>@endif</span>
                                 </div>
-                                {{-- Rangkuman hanya menampilkan skor; koreksi (edit / minta revisi) ada di kartu rider → "Nilai judge". --}}
                                 <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">
                                     @foreach($row['judges'] as $j)
                                         @php $jIdx = $hjJudges->pluck('user_id')->values()->search((int) ($j['user_id'] ?? 0)); $jc = ['#ff4d4d','#3ddc84','#4d9bff','#ffb020','#b78cff','#ff7ac8','#5ee0e0','#e6e84a'][($jIdx === false ? (int) ($j['user_id'] ?? 0) : $jIdx) % 8]; @endphp
@@ -295,6 +305,9 @@
                                 </div>
                             </div>
                         @endforeach
+                        @if($card['tricks']->isNotEmpty())
+                            <p class="mono" style="font-size:14px;margin-top:8px;">Best trick: @foreach($card['tricks'] as $t)<span style="margin-right:10px;">P{{ $t['run'] }} <b style="color:var(--lime);">{{ number_format($t['avg'], 1) }}</b></span>@endforeach</p>
+                        @endif
                     </div>
                 @endforeach
             @empty
