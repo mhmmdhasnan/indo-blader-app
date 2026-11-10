@@ -292,16 +292,20 @@
                         </div>
                         <div class="between" style="margin-top:4px;">
                             @php $bestRun = $card['runs']->sortByDesc('avg')->first(); @endphp
-                            <span class="oc-lbl" style="font-size:12px;">{{ $bestRun ? 'Run ' . $bestRun['run'] . ' · ' . ($bestRun['stage'] === 'FINAL' ? 'Final' : 'Kualifikasi') : 'Best trick' }}</span>
+                            <span class="oc-lbl" style="font-size:12px;">{{ $bestRun ? 'Run ' . $bestRun['run'] . ' · ' . ($bestRun['stage'] === 'FINAL' ? 'Final' : 'Kualifikasi') . (($card['bonus'] ?? 0) > 0 ? ' + Best Trick' : '') : 'Best trick' }}</span>
+                            @if($bestRun && ($tieCount[$tieKey($bestRun)] ?? 1) > 1)<span class="mono" style="font-size:11px;font-weight:700;padding:1px 6px;border:2px solid #ffb020;color:#ffb020;">⚠ SAMA</span>@endif
                             <span class="display tnum" style="font-size:28px;line-height:28px;color:var(--lime);">{{ number_format(($card['best'] ?? 0) + ($card['bonus'] ?? 0), 1) }}</span>
                         </div>
-                        @foreach($card['runs'] as $row)
-                            @php $isTie = ($tieCount[$tieKey($row)] ?? 1) > 1; @endphp
+                        @foreach($card['runs']->sortByDesc('avg')->values() as $row)
+                            @php $isTie = ($tieCount[$tieKey($row)] ?? 1) > 1; $isBestRun = $loop->first; @endphp
                             <div style="margin-top:8px;{{ $isTie ? 'border-left:4px solid #ffb020;padding-left:10px;' : '' }}">
+                                {{-- Run terbaik sudah dilabeli di header kartu (Run · Final · total) — jangan ditulis dua kali. --}}
+                                @unless($isBestRun)
                                 <div class="between" style="gap:12px;">
                                     <span class="oc-lbl" style="font-size:12px;">Run {{ $row['run'] }} · {{ $row['stage'] === 'FINAL' ? 'Final' : 'Kualifikasi' }}</span>
                                     <span class="display tnum" style="font-size:24px;line-height:24px;color:{{ $isTie ? '#ffb020' : 'var(--lime)' }};">{{ number_format($row['avg'], 1) }}@if($isTie)<span class="mono" style="display:block;font-size:11px;line-height:12px;letter-spacing:.1em;text-align:right;">SAMA</span>@endif</span>
                                 </div>
+                                @endunless
                                 <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">
                                     @foreach($row['judges'] as $j)
                                         @php $jIdx = $hjJudges->pluck('user_id')->values()->search((int) ($j['user_id'] ?? 0)); $jc = ['#ff4d4d','#3ddc84','#4d9bff','#ffb020','#b78cff','#ff7ac8','#5ee0e0','#e6e84a'][($jIdx === false ? (int) ($j['user_id'] ?? 0) : $jIdx) % 8]; @endphp
