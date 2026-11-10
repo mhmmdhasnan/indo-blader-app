@@ -208,11 +208,11 @@
                 @include('livewire.partials.live-scoring')
                 @if(($btHistory ?? collect())->isNotEmpty())
                     <div class="oc-card" style="margin-top:12px;">
-                        <span class="oc-lbl">Best Trick sebelumnya · {{ $hjReadyRider?->name ?? 'rider ini' }}</span>
-                        @foreach($btHistory as $run => $scores)
+                        <span class="oc-lbl">Nilai sebelumnya · {{ $hjReadyRider?->name ?? 'rider ini' }}</span>
+                        @foreach($btHistory as $histLabel => $scores)
                             <div style="padding:8px 0;border-top:1px solid var(--line);">
                                 <div class="between">
-                                    <span class="mono" style="font-size:13px;font-weight:700;">PERCOBAAN {{ $run }}</span>
+                                    <span class="mono" style="font-size:13px;font-weight:700;">{{ strtoupper($histLabel) }}</span>
                                     <span class="display tnum" style="font-size:28px;color:var(--lime);">{{ number_format($scores->avg('total'), 1) }}</span>
                                 </div>
                                 @foreach($scores as $sc)
@@ -267,25 +267,34 @@
                         @endforeach
                     </div>
                 @endif
-                @foreach($heatRows as $row)
-                    @php $isTie = ($tieCount[$tieKey($row)] ?? 1) > 1; @endphp
-                    <div style="padding:10px 0;border-top:1px solid var(--line);{{ $isTie ? 'border-left:4px solid #ffb020;padding-left:10px;' : '' }}">
-                        <div class="between" style="gap:12px;">
-                            <div class="col" style="gap:2px;min-width:0;">
-                                <span style="font-weight:700;font-size:15px;">{{ $row['rider']?->name ?? '—' }}</span>
-                                <span class="oc-lbl" style="font-size:12px;">
-                                    {{ $row['mode'] === 'BEST_TRICK' ? 'Best trick · percobaan ' . $row['run'] : 'Run ' . $row['run'] . ' · ' . ($row['stage'] === 'FINAL' ? 'Final' : 'Kualifikasi') }}
-                                </span>
+                {{-- Satu kartu per rider; Run 1, Run 2 dan percobaan Best Trick digabung dalam kartu yang sama. --}}
+                @php
+                    $riderCards = $heatRows->groupBy(fn ($r) => $r['rider']?->id ?? 0)
+                        ->map(fn ($g) => $g->sortBy(fn ($r) => [$r['mode'] === 'BEST_TRICK' ? 1 : 0, $r['run']])->values())
+                        ->sortByDesc(fn ($g) => $g->max('avg'))
+                        ->values();
+                @endphp
+                @foreach($riderCards as $entries)
+                    <div style="padding:10px 0;border-top:1px solid var(--line);">
+                        <span style="font-weight:700;font-size:15px;">{{ $entries->first()['rider']?->name ?? '—' }}</span>
+                        @foreach($entries as $row)
+                            @php $isTie = ($tieCount[$tieKey($row)] ?? 1) > 1; @endphp
+                            <div style="margin-top:8px;{{ $isTie ? 'border-left:4px solid #ffb020;padding-left:10px;' : '' }}">
+                                <div class="between" style="gap:12px;">
+                                    <span class="oc-lbl" style="font-size:12px;">
+                                        {{ $row['mode'] === 'BEST_TRICK' ? 'Best trick · percobaan ' . $row['run'] : 'Run ' . $row['run'] . ' · ' . ($row['stage'] === 'FINAL' ? 'Final' : 'Kualifikasi') }}
+                                    </span>
+                                    <span class="display tnum" style="font-size:32px;line-height:32px;color:{{ $isTie ? '#ffb020' : 'var(--lime)' }};">{{ number_format($row['avg'], 1) }}@if($isTie)<span class="mono" style="display:block;font-size:11px;line-height:12px;letter-spacing:.1em;text-align:right;">SAMA</span>@endif</span>
+                                </div>
+                                {{-- Rangkuman hanya menampilkan skor; koreksi (edit / minta revisi) ada di kartu rider → "Nilai judge". --}}
+                                <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">
+                                    @foreach($row['judges'] as $j)
+                                        @php $jIdx = $hjJudges->pluck('user_id')->values()->search((int) ($j['user_id'] ?? 0)); $jc = ['#ff4d4d','#3ddc84','#4d9bff','#ffb020','#b78cff','#ff7ac8','#5ee0e0','#e6e84a'][($jIdx === false ? (int) ($j['user_id'] ?? 0) : $jIdx) % 8]; @endphp
+                                        <span class="mono" style="font-size:16px;font-weight:700;padding:3px 0 3px 8px;border-left:4px solid {{ $jc }};">{{ $j['name'] }} · <span style="color:var(--lime);">{{ number_format($j['total'], 1) }}</span></span>
+                                    @endforeach
+                                </div>
                             </div>
-                            <span class="display tnum" style="font-size:40px;line-height:40px;color:{{ $isTie ? '#ffb020' : 'var(--lime)' }};">{{ number_format($row['avg'], 1) }}@if($isTie)<span class="mono" style="display:block;font-size:11px;line-height:12px;letter-spacing:.1em;text-align:right;">SAMA</span>@endif</span>
-                        </div>
-                        {{-- Rangkuman hanya menampilkan skor; koreksi (edit / minta revisi) ada di kartu rider → "Nilai judge". --}}
-                        <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">
-                            @foreach($row['judges'] as $j)
-                                @php $jIdx = $hjJudges->pluck('user_id')->values()->search((int) ($j['user_id'] ?? 0)); $jc = ['#ff4d4d','#3ddc84','#4d9bff','#ffb020','#b78cff','#ff7ac8','#5ee0e0','#e6e84a'][($jIdx === false ? (int) ($j['user_id'] ?? 0) : $jIdx) % 8]; @endphp
-                                <span class="mono" style="font-size:16px;font-weight:700;padding:3px 0 3px 8px;border-left:4px solid {{ $jc }};">{{ $j['name'] }} · <span style="color:var(--lime);">{{ number_format($j['total'], 1) }}</span></span>
-                            @endforeach
-                        </div>
+                        @endforeach
                     </div>
                 @endforeach
             @empty

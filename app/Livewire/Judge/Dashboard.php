@@ -1957,22 +1957,23 @@ class Dashboard extends Component
             }
             $data['riderAlreadyRan'] = $data['otherJudgeScores']->isNotEmpty();
 
-            // Nilai Best Trick percobaan sebelumnya milik rider yang sedang tampil (per percobaan).
+            // Nilai sebelumnya milik rider yang sedang tampil: Run lain + percobaan Best Trick, digabung (selain yang sedang dinilai).
             // Head Judge melihat semua judge; judge biasa hanya nilainya sendiri (supaya tidak terpengaruh judge lain).
             $data['btHistory'] = collect();
-            if (auth()->user()->isJudge() && $data['isBestTrickPhase'] && $this->judgeEventId && $resolvedLiveRiderId) {
+            if (auth()->user()->isJudge() && $this->judgeEventId && $resolvedLiveRiderId) {
+                $curMode = $data['isBestTrickPhase'] ? 'BEST_TRICK' : 'LIVE';
                 $data['btHistory'] = JudgeScore::where('event_id', $this->judgeEventId)
                     ->where('division_id', Registration::find($this->liveRiderId)?->division_id)
                     ->where('rider_id', $resolvedLiveRiderId)
-                    ->where('scoring_mode', 'BEST_TRICK')
                     ->where('status', 'DONE')
-                    ->where('run_number', '!=', $this->liveRunNumber)
+                    ->where(fn ($q) => $q->where(fn ($q2) => $q2->where('scoring_mode', 'LIVE')->where('live_stage', $selectedLiveStage))
+                        ->orWhere('scoring_mode', 'BEST_TRICK'))
+                    ->whereNot(fn ($q) => $q->where('scoring_mode', $curMode)->where('run_number', $this->liveRunNumber))
                     ->when(!auth()->user()->isHeadJudge(), fn ($q) => $q->where('judge_user_id', auth()->id()))
                     ->with('judge')
-                    ->orderBy('run_number')
                     ->get()
-                    ->sortBy(fn ($sc) => [$sc->run_number, $sc->judge?->role === 'head_judge' ? 0 : 1])
-                    ->groupBy('run_number');
+                    ->sortBy(fn ($sc) => [$sc->scoring_mode === 'BEST_TRICK' ? 1 : 0, $sc->run_number, $sc->judge?->role === 'head_judge' ? 0 : 1])
+                    ->groupBy(fn ($sc) => ($sc->scoring_mode === 'BEST_TRICK' ? 'Best Trick · percobaan ' : 'Run ') . $sc->run_number);
             }
 
             // HEAD JUDGE / OPERATOR: live session — status per judge
