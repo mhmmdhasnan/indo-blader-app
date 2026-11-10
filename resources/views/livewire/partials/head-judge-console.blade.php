@@ -149,7 +149,8 @@
                                 $ajScore = (!$hjIsJamRun) ? ($liveJudgeScores ?? collect())->firstWhere('judge_user_id', $aj->user_id) : null;
                             @endphp
                             <div class="oc-jr">
-                                <b style="font-size:15px;">{{ $aj->user?->name ?? '—' }}{{ $me ? ' (kamu)' : '' }}</b>
+                                @php $ajc = ['#ff4d4d','#3ddc84','#4d9bff','#ffb020','#b78cff','#ff7ac8','#5ee0e0','#e6e84a'][$loop->index % 8]; @endphp
+                                <b style="font-size:15px;color:{{ $ajc }};">{{ $aj->user?->name ?? '—' }}{{ $me ? ' (kamu)' : '' }}</b>
                                 <div class="oc-segs" aria-hidden="true">
                                     @for($i = 0; $i < max(1, $tot); $i++)<i class="{{ $show && $i < $d ? 'f' : '' }}"></i>@endfor
                                 </div>

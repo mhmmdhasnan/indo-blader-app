@@ -232,7 +232,7 @@ class Dashboard extends Component
     private function criteriaFilled(array $scores): bool
     {
         $keys = $this->loadCriteria('LIVE')->pluck('key');
-        return $keys->isNotEmpty() && $keys->every(fn ($k) => is_numeric($scores[$k] ?? null));
+        return $keys->isNotEmpty() && $keys->every(fn ($k) => is_numeric($scores[$k] ?? null) && $scores[$k] >= 0 && $scores[$k] <= 100);
     }
 
     private function loadCriteria(string $mode): \Illuminate\Database\Eloquent\Collection
