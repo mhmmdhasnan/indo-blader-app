@@ -1800,7 +1800,9 @@ class Dashboard extends Component
                         ->where('run_number', $jamRun)
                         ->where('scoring_mode', 'LIVE')->where('live_stage', $stageForJam)
                         ->where('status', 'DONE')
-                        ->get()->groupBy('rider_id');
+                        ->get()
+                        ->sortBy(fn ($sc) => $sc->judge?->role === 'head_judge' ? 0 : 1)   // Head Judge selalu paling atas
+                        ->groupBy('rider_id');
                     $data['jamAllScores'] = collect($jamRiderIds)
                         ->map(fn ($rid) => $rid ? $allJam->get($rid, collect()) : collect())->all();
                 }
@@ -1924,7 +1926,7 @@ class Dashboard extends Component
                                 'heat_order' => $heat[0],
                                 'heat_id'    => $heat[1],
                                 'heat'       => $heat[2],
-                                'judges'     => $grp->map(fn ($sc) => ['id' => $sc->id, 'user_id' => $sc->judge_user_id, 'name' => $sc->judge?->name ?? '—', 'total' => $sc->total])->values(),
+                                'judges'     => $grp->sortBy(fn ($sc) => $sc->judge?->role === 'head_judge' ? 0 : 1)->map(fn ($sc) => ['id' => $sc->id, 'user_id' => $sc->judge_user_id, 'name' => $sc->judge?->name ?? '—', 'total' => $sc->total])->values(),
                                 'avg'        => round($grp->avg('total'), 1),
                             ];
                         })
@@ -1949,7 +1951,7 @@ class Dashboard extends Component
                     ->where('scoring_mode', $data['isBestTrickPhase'] ? 'BEST_TRICK' : 'LIVE')
                     ->where('live_stage', $selectedLiveStage)
                     ->with(['judge', 'scoreDetails'])
-                    ->get();
+                    ->get()->sortBy(fn ($sc) => $sc->judge?->role === 'head_judge' ? 0 : 1)->values();
             } else {
                 $data['otherJudgeScores'] = collect();
             }
@@ -1969,6 +1971,7 @@ class Dashboard extends Component
                     ->with('judge')
                     ->orderBy('run_number')
                     ->get()
+                    ->sortBy(fn ($sc) => [$sc->run_number, $sc->judge?->role === 'head_judge' ? 0 : 1])
                     ->groupBy('run_number');
             }
 
@@ -1985,11 +1988,13 @@ class Dashboard extends Component
                         ->where('scoring_mode', $this->currentIsBestTrick($liveEvent) ? 'BEST_TRICK' : 'LIVE')
                         ->where('live_stage', $this->currentLiveStage($liveEvent))
                         ->with(['judge', 'scoreDetails'])
-                        ->get();
+                        ->get()->sortBy(fn ($sc) => $sc->judge?->role === 'head_judge' ? 0 : 1)->values();
                 }
                 $data['assignedJudges'] = EventJudgeAssignment::where('event_id', $this->judgeEventId)
                     ->with('user')
-                    ->get();
+                    ->get()
+                    ->sortBy(fn ($aj) => $aj->user?->role === 'head_judge' ? 0 : 1)   // Head Judge selalu paling atas
+                    ->values();
                 $data['liveSetupProblem'] = $this->liveSetupProblem();
 
                 // Jamming: progres tiap judge = jumlah rider heat yang sudah dinilai

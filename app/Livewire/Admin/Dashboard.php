@@ -2454,7 +2454,7 @@ class Dashboard extends Component
                     ->where('scoring_mode', $data['isBestTrickPhase'] ? 'BEST_TRICK' : 'LIVE')
                     ->where('live_stage', $selectedLiveStage)
                     ->with(['judge', 'scoreDetails'])
-                    ->get();
+                    ->get()->sortBy(fn ($sc) => $sc->judge?->role === 'head_judge' ? 0 : 1)->values();
             }
             $data['riderAlreadyRan'] = $data['otherJudgeScores']->isNotEmpty();
 
@@ -2471,11 +2471,13 @@ class Dashboard extends Component
                         ->where('scoring_mode', $this->currentIsBestTrick($liveEvent) ? 'BEST_TRICK' : 'LIVE')
                         ->where('live_stage', $this->currentLiveStage($liveEvent))
                         ->with(['judge', 'scoreDetails'])
-                        ->get();
+                        ->get()->sortBy(fn ($sc) => $sc->judge?->role === 'head_judge' ? 0 : 1)->values();
                 }
                 $data['assignedJudges'] = EventJudgeAssignment::where('event_id', $jeid)
                     ->with('user')
-                    ->get();
+                    ->get()
+                    ->sortBy(fn ($aj) => $aj->user?->role === 'head_judge' ? 0 : 1)
+                    ->values();
             }
         }
 
@@ -2528,7 +2530,7 @@ class Dashboard extends Component
                 ? Event::with('scoringCriteria')->find($eid)
                 : null;
             $data['judgeAssignments'] = $eid
-                ? EventJudgeAssignment::with('user')->where('event_id', $eid)->latest()->get()
+                ? EventJudgeAssignment::with('user')->where('event_id', $eid)->latest()->get()->sortBy(fn ($aj) => $aj->user?->role === 'head_judge' ? 0 : 1)->values()
                 : collect();
         }
 
