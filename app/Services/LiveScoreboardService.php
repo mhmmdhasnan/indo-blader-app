@@ -36,7 +36,8 @@ class LiveScoreboardService
      */
     private function resolveExistingRiderId(Registration $reg): ?int
     {
-        if ($reg->user_id && $rider = Rider::where('user_id', $reg->user_id)->first()) {
+        // Satu akun bisa mendaftarkan banyak rider: hanya cocokkan lewat user_id kalau namanya sama.
+        if ($reg->user_id && $rider = Rider::where('user_id', $reg->user_id)->whereRaw('LOWER(name) = ?', [mb_strtolower($reg->name)])->first()) {
             return $rider->id;
         }
 

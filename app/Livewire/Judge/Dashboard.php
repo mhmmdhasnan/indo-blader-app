@@ -364,7 +364,8 @@ class Dashboard extends Component
 
         // Try to find existing Rider by user_id
         if ($reg->user_id) {
-            $rider = Rider::where('user_id', $reg->user_id)->first();
+            // Satu akun bisa mendaftarkan banyak rider: hanya pakai Rider milik user kalau namanya sama.
+            $rider = Rider::where('user_id', $reg->user_id)->whereRaw('LOWER(name) = ?', [mb_strtolower($reg->name)])->first();
             if ($rider) return $this->adoptRegistrationPhoto($rider, $reg);
         }
 
