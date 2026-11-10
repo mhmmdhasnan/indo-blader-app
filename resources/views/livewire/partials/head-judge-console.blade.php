@@ -244,10 +244,14 @@
                         </div>
                         {{-- Koreksi skor judge: edit langsung oleh Head Judge, atau minta judge yang bersangkutan merevisi. --}}
                         @foreach($row['judges'] as $j)
-                            @php $editing = (int) $hjEditScoreId === (int) $j['id']; @endphp
+                            @php
+                                $editing = (int) $hjEditScoreId === (int) $j['id'];
+                                $jIdx = $hjJudges->pluck('user_id')->values()->search((int) ($j['user_id'] ?? 0));
+                                $jc = ['#ff4d4d','#3ddc84','#4d9bff','#ffb020','#b78cff','#ff7ac8','#5ee0e0','#e6e84a'][($jIdx === false ? (int) ($j['user_id'] ?? 0) : $jIdx) % 8];
+                            @endphp
                             <div wire:key="hj-fix-{{ $j['id'] }}" style="margin-top:8px;">
                                 <div class="between" style="gap:8px;flex-wrap:wrap;">
-                                    <span class="mono dim" style="font-size:12px;">{{ $j['name'] }}</span>
+                                    <span class="mono" style="font-size:12px;font-weight:700;color:{{ $jc }};border-left:4px solid {{ $jc }};padding-left:8px;">{{ $j['name'] }}</span>
                                     @unless($editing)
                                         <span class="flex" style="gap:6px;">
                                             <button type="button" wire:click="openHeadJudgeEdit({{ $j['id'] }})" class="oc-ghost" style="min-height:32px;width:auto;font-size:12px;">✎ EDIT LANGSUNG</button>
