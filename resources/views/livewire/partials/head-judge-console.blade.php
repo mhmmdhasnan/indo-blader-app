@@ -160,12 +160,39 @@
                                     <span class="oc-tg" style="color:var(--ink-3,#a3a39b);border-color:var(--ink-3,#8a8a90);">{{ $hjPhase === 'REVEALING' ? 'REVEAL' : 'SIAGA' }}</span>
                                 @endif
                                 @if($fin && !$hjIsJamRun && $ajScore && $isRunning)
-                                    {{-- Head Judge boleh membuka ulang skor judge yang sudah submit --}}
-                                    <span style="grid-column:1/-1;display:flex;align-items:center;gap:12px;">
-                                        <span class="mono tnum" style="color:var(--lime);">{{ number_format($ajScore->total, 1) }}</span>
-                                        <button type="button" wire:key="hj-reopen-{{ $ajScore->id }}" wire:click="reopenJudgeScore({{ $ajScore->id }})"
-                                            wire:confirm="Buka ulang skor {{ $aj->user?->name ?? 'judge ini' }} untuk direvisi?"
-                                            class="oc-ghost" style="min-height:36px;width:auto;font-size:12px;">✎ BUKA ULANG</button>
+                                    {{-- Head Judge: edit langsung skor judge yang sudah submit, atau minta judge merevisi. --}}
+                                    @php $ajEditing = (int) $hjEditScoreId === (int) $ajScore->id; @endphp
+                                    <span style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px;">
+                                        <span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                                            <span class="mono tnum" style="color:var(--lime);">{{ number_format($ajScore->total, 1) }}</span>
+                                            @unless($ajEditing)
+                                                <button type="button" wire:key="hj-edit-{{ $ajScore->id }}" wire:click="openHeadJudgeEdit({{ $ajScore->id }})"
+                                                    class="oc-ghost" style="min-height:26px;width:auto;font-size:10px;padding:2px 8px;">✎ EDIT</button>
+                                                <button type="button" wire:key="hj-reopen-{{ $ajScore->id }}" wire:click="reopenJudgeScore({{ $ajScore->id }})"
+                                                    wire:confirm="Minta {{ $aj->user?->name ?? 'judge ini' }} merevisi skornya? Skor dibuka ulang dan judge harus submit lagi."
+                                                    class="oc-ghost" style="min-height:26px;width:auto;font-size:10px;padding:2px 8px;">↩ REVISI</button>
+                                            @endunless
+                                        </span>
+                                        @if($ajEditing)
+                                            <div style="padding:10px;border:2px solid var(--lime);display:flex;flex-direction:column;gap:8px;">
+                                                @if($ajScore->scoring_mode === 'BEST_TRICK')
+                                                    <label class="oc-lbl">Nilai (0–10)
+                                                        <input type="number" step="0.1" min="0" max="10" wire:model="hjEditValues.total" class="input-field" style="width:100%;min-height:44px;">
+                                                    </label>
+                                                @else
+                                                    @foreach(($hjEditCriteria ?? collect()) as $crit)
+                                                        <label class="oc-lbl">{{ $crit->name }} (0–100)
+                                                            <input type="number" step="0.1" min="0" max="100" wire:model="hjEditValues.{{ $crit->key }}" class="input-field" style="width:100%;min-height:44px;">
+                                                        </label>
+                                                    @endforeach
+                                                @endif
+                                                @if($hjEditError)<p class="oc-err" style="margin:0;">{{ $hjEditError }}</p>@endif
+                                                <div class="flex" style="gap:8px;">
+                                                    <button type="button" wire:click="saveHeadJudgeEdit" class="oc-btn pri" style="min-height:44px;">SIMPAN</button>
+                                                    <button type="button" wire:click="cancelHeadJudgeEdit" class="oc-btn out" style="min-height:44px;">BATAL</button>
+                                                </div>
+                                            </div>
+                                        @endif
                                     </span>
                                 @endif
                             </div>
@@ -179,6 +206,22 @@
             <section class="col" style="gap:12px;min-width:0;">
                 <span class="oc-lbl">Nilai saya · {{ auth()->user()->name }}</span>
                 @include('livewire.partials.live-scoring')
+                @if(($btHistory ?? collect())->isNotEmpty())
+                    <div class="oc-card" style="margin-top:12px;">
+                        <span class="oc-lbl">Best Trick sebelumnya · {{ $hjReadyRider?->name ?? 'rider ini' }}</span>
+                        @foreach($btHistory as $run => $scores)
+                            <div style="padding:8px 0;border-top:1px solid var(--line);">
+                                <div class="between">
+                                    <span class="mono" style="font-size:13px;font-weight:700;">PERCOBAAN {{ $run }}</span>
+                                    <span class="display tnum" style="font-size:28px;color:var(--lime);">{{ number_format($scores->avg('total'), 1) }}</span>
+                                </div>
+                                @foreach($scores as $sc)
+                                    <div class="mono" style="font-size:16px;font-weight:700;">{{ $sc->judge?->name ?? '—' }} · <span style="color:var(--lime);">{{ number_format($sc->total, 1) }}</span></div>
+                                @endforeach
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
             </section>
         </div>
 

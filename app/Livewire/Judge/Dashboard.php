@@ -1955,6 +1955,23 @@ class Dashboard extends Component
             }
             $data['riderAlreadyRan'] = $data['otherJudgeScores']->isNotEmpty();
 
+            // Nilai Best Trick percobaan sebelumnya milik rider yang sedang tampil (per percobaan).
+            // Head Judge melihat semua judge; judge biasa hanya nilainya sendiri (supaya tidak terpengaruh judge lain).
+            $data['btHistory'] = collect();
+            if (auth()->user()->isJudge() && $data['isBestTrickPhase'] && $this->judgeEventId && $resolvedLiveRiderId) {
+                $data['btHistory'] = JudgeScore::where('event_id', $this->judgeEventId)
+                    ->where('division_id', Registration::find($this->liveRiderId)?->division_id)
+                    ->where('rider_id', $resolvedLiveRiderId)
+                    ->where('scoring_mode', 'BEST_TRICK')
+                    ->where('status', 'DONE')
+                    ->where('run_number', '!=', $this->liveRunNumber)
+                    ->when(!auth()->user()->isHeadJudge(), fn ($q) => $q->where('judge_user_id', auth()->id()))
+                    ->with('judge')
+                    ->orderBy('run_number')
+                    ->get()
+                    ->groupBy('run_number');
+            }
+
             // HEAD JUDGE / OPERATOR: live session — status per judge
             $data['liveJudgeScores'] = collect();
             $data['assignedJudges']  = collect();

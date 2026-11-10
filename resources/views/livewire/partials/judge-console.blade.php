@@ -96,6 +96,17 @@
                 @include('livewire.partials.jam-scoring', ['isRunning' => true, 'jamAllScores' => [], 'isHeadJudge' => false])
             @else
                 @include('livewire.partials.live-scoring', ['hideInlineSubmit' => true])
+                @if(($btHistory ?? collect())->isNotEmpty())
+                    <div class="oc-card" style="margin-top:12px;">
+                        <span class="oc-lbl">Best Trick sebelumnya · nilai kamu</span>
+                        @foreach($btHistory as $run => $scores)
+                            <div class="between" style="padding:8px 0;border-top:1px solid var(--line);">
+                                <span class="mono" style="font-size:13px;font-weight:700;">PERCOBAAN {{ $run }}</span>
+                                <span class="display tnum" style="font-size:28px;color:var(--lime);">{{ number_format($scores->avg('total'), 1) }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
             @endif
 
         @else
