@@ -288,13 +288,13 @@
                     <div style="padding:10px 0;border-top:1px solid var(--line);">
                         <div class="between" style="gap:12px;">
                             <span style="font-weight:700;font-size:15px;">{{ $card['rider']?->name ?? '—' }}</span>
-                            <span class="display tnum" style="font-size:36px;line-height:36px;color:var(--lime);">{{ $card['best'] !== null ? number_format($card['best'], 1) : '—' }}@if($card['bonus'] !== null && $card['bonus'] > 0) <span style="font-size:20px;">(+{{ number_format($card['bonus'], 1) }})</span>@endif</span>
+                            <span class="display tnum" style="font-size:36px;line-height:36px;color:var(--lime);">{{ number_format(($card['best'] ?? 0) + ($card['bonus'] ?? 0), 1) }}</span>
                         </div>
                         <div class="between" style="margin-top:4px;">
                             @php $bestRun = $card['runs']->sortByDesc('avg')->first(); @endphp
                             <span class="oc-lbl" style="font-size:12px;">{{ $bestRun ? 'Run ' . $bestRun['run'] . ' · ' . ($bestRun['stage'] === 'FINAL' ? 'Final' : 'Kualifikasi') . (($card['bonus'] ?? 0) > 0 ? ' + Best Trick' : '') : 'Best trick' }}</span>
                             @if($bestRun && ($tieCount[$tieKey($bestRun)] ?? 1) > 1)<span class="mono" style="font-size:11px;font-weight:700;padding:1px 6px;border:2px solid #ffb020;color:#ffb020;">⚠ SAMA</span>@endif
-                            <span class="display tnum" style="font-size:28px;line-height:28px;color:var(--lime);">{{ number_format(($card['best'] ?? 0) + ($card['bonus'] ?? 0), 1) }}</span>
+                            <span class="display tnum" style="font-size:28px;line-height:28px;color:var(--lime);">{{ $card['best'] !== null ? number_format($card['best'], 1) : '—' }}@if($card['bonus'] !== null && $card['bonus'] > 0) <span style="font-size:18px;">(+{{ number_format($card['bonus'], 1) }})</span>@endif</span>
                         </div>
                         @foreach($card['runs']->sortByDesc('avg')->values() as $row)
                             @php $isTie = ($tieCount[$tieKey($row)] ?? 1) > 1; $isBestRun = $loop->first; @endphp
