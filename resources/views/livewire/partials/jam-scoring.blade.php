@@ -67,17 +67,37 @@
                         <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);">
                             <span class="mono dim" style="font-size:9px;letter-spacing:0.12em;">NILAI JUDGE</span>
                             @foreach($riderScores as $js)
-                                @php $jOrder = ($assignedJudges ?? collect())->pluck('user_id')->values(); $jIdx = $jOrder->search((int) $js->judge_user_id); $jc = ['#ff4d4d','#3ddc84','#4d9bff','#ffb020','#b78cff','#ff7ac8','#5ee0e0','#e6e84a'][($jIdx === false ? (int) $js->judge_user_id : $jIdx) % 8]; @endphp
-                                <div class="between" style="padding:3px 0;border-left:4px solid {{ $jc }};padding-left:8px;">
-                                    <span class="mono" style="font-size:11px;color:{{ $jc }};">{{ $js->judge?->name ?? '—' }}</span>
-                                    <span class="flex gap-s" style="align-items:center;">
-                                        <span class="mono tnum" style="font-size:12px;font-weight:700;color:{{ $jc }};">{{ number_format($js->total, 1) }}</span>
-                                        @if(($isHeadJudge ?? false))
-                                            <button wire:click="reopenJudgeScore({{ $js->id }})"
-                                                wire:confirm="Buka ulang skor {{ $js->judge?->name ?? 'judge ini' }} untuk direvisi?"
-                                                class="btn btn-sm btn-ghost" style="font-size:9px;padding:2px 8px;">✎ Edit</button>
-                                        @endif
-                                    </span>
+                                @php
+                                    $jOrder = ($assignedJudges ?? collect())->pluck('user_id')->values(); $jIdx = $jOrder->search((int) $js->judge_user_id);
+                                    $jc = ['#ff4d4d','#3ddc84','#4d9bff','#ffb020','#b78cff','#ff7ac8','#5ee0e0','#e6e84a'][($jIdx === false ? (int) $js->judge_user_id : $jIdx) % 8];
+                                    $editing = (int) ($hjEditScoreId ?? 0) === (int) $js->id;
+                                @endphp
+                                <div wire:key="jam-js-{{ $js->id }}" style="padding:3px 0;border-left:4px solid {{ $jc }};padding-left:8px;margin-top:4px;">
+                                    <div class="between" style="gap:8px;flex-wrap:wrap;align-items:center;">
+                                        <span class="mono" style="font-size:16px;font-weight:700;color:{{ $jc }};">{{ $js->judge?->name ?? '—' }} · {{ number_format($js->total, 1) }}</span>
+                                        @unless($editing)
+                                            <span class="flex" style="gap:6px;">
+                                                <button type="button" wire:click="openHeadJudgeEdit({{ $js->id }})" class="btn btn-sm btn-ghost" style="font-size:10px;padding:2px 8px;">✎ EDIT</button>
+                                                <button type="button" wire:click="reopenJudgeScore({{ $js->id }})"
+                                                    wire:confirm="Minta {{ $js->judge?->name ?? 'judge ini' }} merevisi skornya? Skor dibuka ulang dan judge harus submit lagi."
+                                                    class="btn btn-sm btn-ghost" style="font-size:10px;padding:2px 8px;">↩ REVISI</button>
+                                            </span>
+                                        @endunless
+                                    </div>
+                                    @if($editing)
+                                        <div style="margin-top:6px;padding:10px;border:2px solid var(--lime);display:flex;flex-direction:column;gap:8px;">
+                                            @foreach(($hjEditCriteria ?? collect()) as $crit)
+                                                <label class="mono" style="font-size:11px;letter-spacing:.08em;">{{ strtoupper($crit->name) }} (0–100)
+                                                    <input type="number" step="0.1" min="0" max="100" wire:model="hjEditValues.{{ $crit->key }}" class="input-field" style="width:100%;min-height:44px;">
+                                                </label>
+                                            @endforeach
+                                            @if($hjEditError ?? null)<p class="mono" style="font-size:11px;color:var(--red);margin:0;">{{ $hjEditError }}</p>@endif
+                                            <div class="flex" style="gap:8px;">
+                                                <button type="button" wire:click="saveHeadJudgeEdit" class="btn btn-lime btn-sm">SIMPAN</button>
+                                                <button type="button" wire:click="cancelHeadJudgeEdit" class="btn btn-sm btn-ghost">BATAL</button>
+                                            </div>
+                                        </div>
+                                    @endif
                                 </div>
                             @endforeach
                             @if($finalAvg !== null)

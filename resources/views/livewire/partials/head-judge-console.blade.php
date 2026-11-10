@@ -237,53 +237,13 @@
                             </div>
                             <span class="display tnum" style="font-size:40px;line-height:40px;color:{{ $isTie ? '#ffb020' : 'var(--lime)' }};">{{ number_format($row['avg'], 1) }}@if($isTie)<span class="mono" style="display:block;font-size:11px;line-height:12px;letter-spacing:.1em;text-align:right;">SAMA</span>@endif</span>
                         </div>
+                        {{-- Rangkuman hanya menampilkan skor; koreksi (edit / minta revisi) ada di kartu rider → "Nilai judge". --}}
                         <div class="flex" style="flex-wrap:wrap;gap:6px;margin-top:6px;">
                             @foreach($row['judges'] as $j)
                                 @php $jIdx = $hjJudges->pluck('user_id')->values()->search((int) ($j['user_id'] ?? 0)); $jc = ['#ff4d4d','#3ddc84','#4d9bff','#ffb020','#b78cff','#ff7ac8','#5ee0e0','#e6e84a'][($jIdx === false ? (int) ($j['user_id'] ?? 0) : $jIdx) % 8]; @endphp
                                 <span class="mono" style="font-size:20px;line-height:26px;font-weight:700;padding:3px 10px;background:var(--bg-2);border-left:4px solid {{ $jc }};color:{{ $jc }};">{{ $j['name'] }} · {{ number_format($j['total'], 1) }}</span>
                             @endforeach
                         </div>
-                        {{-- Koreksi skor judge: edit langsung oleh Head Judge, atau minta judge yang bersangkutan merevisi. --}}
-                        @foreach($row['judges'] as $j)
-                            @php
-                                $editing = (int) $hjEditScoreId === (int) $j['id'];
-                                $jIdx = $hjJudges->pluck('user_id')->values()->search((int) ($j['user_id'] ?? 0));
-                                $jc = ['#ff4d4d','#3ddc84','#4d9bff','#ffb020','#b78cff','#ff7ac8','#5ee0e0','#e6e84a'][($jIdx === false ? (int) ($j['user_id'] ?? 0) : $jIdx) % 8];
-                            @endphp
-                            <div wire:key="hj-fix-{{ $j['id'] }}" style="margin-top:8px;">
-                                <div class="between" style="gap:8px;flex-wrap:wrap;">
-                                    <span class="mono" style="font-size:20px;line-height:24px;font-weight:700;color:{{ $jc }};border-left:4px solid {{ $jc }};padding-left:8px;">{{ $j['name'] }}</span>
-                                    @unless($editing)
-                                        <span class="flex" style="gap:6px;">
-                                            <button type="button" wire:click="openHeadJudgeEdit({{ $j['id'] }})" class="oc-ghost" style="min-height:26px;width:auto;font-size:10px;padding:2px 8px;">✎ EDIT</button>
-                                            <button type="button" wire:click="reopenJudgeScore({{ $j['id'] }})"
-                                                wire:confirm="Minta {{ $j['name'] }} merevisi skornya? Skor dibuka ulang dan judge harus submit lagi."
-                                                class="oc-ghost" style="min-height:26px;width:auto;font-size:10px;padding:2px 8px;">↩ REVISI</button>
-                                        </span>
-                                    @endunless
-                                </div>
-                                @if($editing)
-                                    <div style="margin-top:6px;padding:10px;border:2px solid var(--lime);display:flex;flex-direction:column;gap:8px;">
-                                        @if($row['mode'] === 'BEST_TRICK')
-                                            <label class="oc-lbl">Nilai (0–10)
-                                                <input type="number" step="0.1" min="0" max="10" wire:model="hjEditValues.total" class="input-field" style="width:100%;min-height:44px;">
-                                            </label>
-                                        @else
-                                            @foreach($hjEditCriteria as $crit)
-                                                <label class="oc-lbl">{{ $crit->name }} (0–100)
-                                                    <input type="number" step="0.1" min="0" max="100" wire:model="hjEditValues.{{ $crit->key }}" class="input-field" style="width:100%;min-height:44px;">
-                                                </label>
-                                            @endforeach
-                                        @endif
-                                        @if($hjEditError)<p class="oc-err" style="margin:0;">{{ $hjEditError }}</p>@endif
-                                        <div class="flex" style="gap:8px;">
-                                            <button type="button" wire:click="saveHeadJudgeEdit" class="oc-btn pri" style="min-height:44px;">SIMPAN</button>
-                                            <button type="button" wire:click="cancelHeadJudgeEdit" class="oc-btn out" style="min-height:44px;">BATAL</button>
-                                        </div>
-                                    </div>
-                                @endif
-                            </div>
-                        @endforeach
                     </div>
                 @endforeach
             @empty
