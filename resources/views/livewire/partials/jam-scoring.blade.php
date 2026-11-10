@@ -67,7 +67,7 @@
                         <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);">
                             <span class="mono dim" style="font-size:9px;letter-spacing:0.12em;">NILAI JUDGE</span>
                             @foreach($riderScores as $js)
-                                @php $jc = ['#5ec8ff','#ffb020','#ff7ac8','#b78cff','#4be3a0','#ff6b5e','#e6e84a','#7fa8ff'][((int) $js->judge_user_id) % 8]; @endphp
+                                @php $jOrder = ($assignedJudges ?? collect())->pluck('user_id')->values(); $jIdx = $jOrder->search((int) $js->judge_user_id); $jc = ['#ff4d4d','#3ddc84','#4d9bff','#ffb020','#b78cff','#ff7ac8','#5ee0e0','#e6e84a'][($jIdx === false ? (int) $js->judge_user_id : $jIdx) % 8]; @endphp
                                 <div class="between" style="padding:3px 0;border-left:4px solid {{ $jc }};padding-left:8px;">
                                     <span class="mono" style="font-size:11px;color:{{ $jc }};">{{ $js->judge?->name ?? '—' }}</span>
                                     <span class="flex gap-s" style="align-items:center;">
