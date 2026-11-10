@@ -238,7 +238,8 @@
                         </div>
                         <div class="flex" style="flex-wrap:wrap;gap:6px;margin-top:6px;">
                             @foreach($row['judges'] as $j)
-                                <span class="mono" style="font-size:13px;padding:2px 8px;background:var(--bg-2);">{{ $j['name'] }} · {{ number_format($j['total'], 1) }}</span>
+                                @php $jc = ['#5ec8ff','#ffb020','#ff7ac8','#b78cff','#4be3a0','#ff6b5e','#e6e84a','#7fa8ff'][((int) ($j['user_id'] ?? 0)) % 8]; @endphp
+                                <span class="mono" style="font-size:13px;padding:2px 8px;background:var(--bg-2);border-left:4px solid {{ $jc }};color:{{ $jc }};">{{ $j['name'] }} · {{ number_format($j['total'], 1) }}</span>
                             @endforeach
                         </div>
                         {{-- Koreksi skor judge: edit langsung oleh Head Judge, atau minta judge yang bersangkutan merevisi. --}}

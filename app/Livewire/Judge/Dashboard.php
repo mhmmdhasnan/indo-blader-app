@@ -1924,7 +1924,7 @@ class Dashboard extends Component
                                 'heat_order' => $heat[0],
                                 'heat_id'    => $heat[1],
                                 'heat'       => $heat[2],
-                                'judges'     => $grp->map(fn ($sc) => ['id' => $sc->id, 'name' => $sc->judge?->name ?? '—', 'total' => $sc->total])->values(),
+                                'judges'     => $grp->map(fn ($sc) => ['id' => $sc->id, 'user_id' => $sc->judge_user_id, 'name' => $sc->judge?->name ?? '—', 'total' => $sc->total])->values(),
                                 'avg'        => round($grp->avg('total'), 1),
                             ];
                         })

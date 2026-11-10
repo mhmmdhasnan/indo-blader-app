@@ -45,8 +45,7 @@
                             <span class="display" style="font-size:32px;line-height:1.05;letter-spacing:.02em;">{{ $reg->name }}</span>
                         </span>
                         <span class="flex" style="align-items:center;gap:8px;">
-                            @if($done)<span class="badge badge-lime" style="font-size:11px;">TERKIRIM</span>@endif
-                            <span class="display tnum" style="font-size:32px;color:var(--lime);">{{ number_format($shownTotal, 1) }}</span>
+                            @unless($done)<span class="display tnum" style="font-size:32px;color:var(--lime);">{{ number_format($shownTotal, 1) }}</span>@endunless
                         </span>
                     </div>
                     @if(!$done)
@@ -54,7 +53,10 @@
                     @endif
                     @if($done)
                         {{-- Terkunci seperti live score biasa; revisi lewat tombol Edit Head Judge. --}}
-                        <span class="badge badge-lime">✓ SUBMITTED</span>
+                        <span class="flex" style="align-items:center;gap:12px;">
+                            <span class="badge badge-lime">✓ SUBMITTED</span>
+                            <span class="display tnum" style="font-size:32px;line-height:1;color:var(--lime);">{{ number_format($shownTotal, 1) }}</span>
+                        </span>
                     @else
                         <button wire:click="submitJamScore({{ $reg->id }})" class="btn btn-lime btn-sm" style="margin-top:10px;" @if($criteria->isEmpty()) disabled @endif>Submit Score</button>
                         @error('jamScores.' . $reg->id) <p class="mono" style="font-size:11px;color:var(--red);margin-top:6px;">{{ $message }}</p> @enderror
@@ -65,10 +67,11 @@
                         <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);">
                             <span class="mono dim" style="font-size:9px;letter-spacing:0.12em;">NILAI JUDGE</span>
                             @foreach($riderScores as $js)
-                                <div class="between" style="padding:3px 0;">
-                                    <span class="mono" style="font-size:11px;">{{ $js->judge?->name ?? '—' }}</span>
+                                @php $jc = ['#5ec8ff','#ffb020','#ff7ac8','#b78cff','#4be3a0','#ff6b5e','#e6e84a','#7fa8ff'][((int) $js->judge_user_id) % 8]; @endphp
+                                <div class="between" style="padding:3px 0;border-left:4px solid {{ $jc }};padding-left:8px;">
+                                    <span class="mono" style="font-size:11px;color:{{ $jc }};">{{ $js->judge?->name ?? '—' }}</span>
                                     <span class="flex gap-s" style="align-items:center;">
-                                        <span class="mono tnum" style="font-size:12px;color:var(--lime);">{{ number_format($js->total, 1) }}</span>
+                                        <span class="mono tnum" style="font-size:12px;font-weight:700;color:{{ $jc }};">{{ number_format($js->total, 1) }}</span>
                                         @if(($isHeadJudge ?? false))
                                             <button wire:click="reopenJudgeScore({{ $js->id }})"
                                                 wire:confirm="Buka ulang skor {{ $js->judge?->name ?? 'judge ini' }} untuk direvisi?"
