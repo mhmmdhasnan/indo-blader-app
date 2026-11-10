@@ -55,9 +55,9 @@
     @endforeach
 </div>
 @else
-<div class="score-scroll {{ $compact ? '' : 'lsc-big' }}">
+<div class="score-scroll {{ $compact ? '' : 'lsc-big' }} {{ $oneRun ? 'score-one' : '' }}">
     <div class="score-header">
-        @foreach([['#',''],['RIDER',''],['RUN 1','lsc-run1'],['RUN 2','lsc-run2'],[$latestLabel,'lsc-latest'],['BEST','']] as $i => [$h, $cls])
+        @foreach(collect([['#',''],['RIDER',''],['RUN 1','lsc-run1'],['RUN 2','lsc-run2'],[$latestLabel,'lsc-latest'],['BEST','']])->reject(fn ($c) => $oneRun && $c[1] === 'lsc-run2')->values() as $i => [$h, $cls])
             <span class="mono {{ $cls }}"
                 style="font-size:{{ $compact ? 10 : 16 }}px;letter-spacing:0.12em;color:var(--ink-dim);text-align:{{ $i >= 2 ? 'right' : 'left' }};">{{ $h }}</span>
         @endforeach
@@ -90,9 +90,11 @@
                 </div>
             </div>
             <span class="mono tnum lsc-run1" style="font-size:{{ $valSize }};text-align:right;color:var(--ink-dim);">{{ (!$isOnCourse && $row['run1'] !== null) ? number_format($row['run1'], 1) : '—' }}</span>
+            @unless($oneRun)
             <span class="mono tnum lsc-run2" style="font-size:{{ $valSize }};text-align:right;color:{{ $isOnCourse ? 'var(--red)' : 'var(--ink-dim)' }};">
                 {{ $isOnCourse ? '...' : ($row['run2'] !== null ? number_format($row['run2'], 1) : '—') }}
             </span>
+            @endunless
             @php $latest = $row['run2'] ?? $row['run1']; @endphp
             <span class="mono tnum lsc-latest" style="font-size:{{ $valSize }};text-align:right;color:{{ $isOnCourse ? 'var(--red)' : 'var(--ink-dim)' }};">
                 {{ $isOnCourse ? '...' : ($latest !== null ? number_format($latest, 1) : '—') }}

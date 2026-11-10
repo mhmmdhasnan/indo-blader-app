@@ -481,6 +481,71 @@ class Dashboard extends Component
         JudgeScore::findOrFail($scoreId)->update(['status' => 'WAITING']);
     }
 
+    // ─── Head Judge: edit langsung skor judge lain (alternatif dari reopenJudgeScore = minta judge merevisi) ──
+
+    public int    $hjEditScoreId = 0;
+    public array  $hjEditValues  = [];      // key kriteria => nilai (Best Trick: ['total' => nilai])
+    public ?string $hjEditError  = null;
+
+    public function openHeadJudgeEdit(int $scoreId): void
+    {
+        $this->hjEditError = null;
+        if (!auth()->user()->isHeadJudge()) return;
+
+        $score = JudgeScore::with('scoreDetails')->find($scoreId);
+        if (!$score || (int) $score->event_id !== (int) $this->judgeEventId) return;
+
+        $this->hjEditScoreId = $score->id;
+        if ($score->scoring_mode === 'BEST_TRICK') {
+            $this->hjEditValues = ['total' => $score->total];
+        } else {
+            $details = $score->scoreDetails->pluck('score', 'criteria');
+            $this->hjEditValues = $this->loadCriteria('LIVE')->mapWithKeys(fn ($c) => [$c->key => $details[$c->key] ?? null])->all();
+        }
+    }
+
+    public function cancelHeadJudgeEdit(): void
+    {
+        $this->hjEditScoreId = 0;
+        $this->hjEditValues  = [];
+        $this->hjEditError   = null;
+    }
+
+    public function saveHeadJudgeEdit(): void
+    {
+        $this->hjEditError = null;
+        if (!auth()->user()->isHeadJudge()) return;
+
+        $score = JudgeScore::find($this->hjEditScoreId);
+        if (!$score || (int) $score->event_id !== (int) $this->judgeEventId) {
+            $this->cancelHeadJudgeEdit();
+            return;
+        }
+
+        if ($score->scoring_mode === 'BEST_TRICK') {
+            $v = $this->hjEditValues['total'] ?? null;
+            if (!is_numeric($v) || $v < 0 || $v > 10) {
+                $this->hjEditError = 'Nilai Best Trick harus 0–10.';
+                return;
+            }
+            $score->update(['total' => round((float) $v, 1), 'status' => 'DONE']);
+        } else {
+            if (!$this->criteriaFilled($this->hjEditValues)) {
+                $this->hjEditError = 'Isi semua kriteria dengan angka.';
+                return;
+            }
+            foreach ($this->hjEditValues as $v) {
+                if ($v < 0 || $v > 100) {
+                    $this->hjEditError = 'Nilai tiap kriteria harus 0–100.';
+                    return;
+                }
+            }
+            app(ScoringService::class)->submitScore($score, $this->hjEditValues);
+        }
+
+        $this->cancelHeadJudgeEdit();
+    }
+
     // ─── Operator: fase divisi (Kualifikasi → Final → Best Trick), hanya event aktif ──
 
     /** Pesan penolakan kartu Fase divisi: properti biasa (bukan ErrorBag) supaya tidak hilang oleh poll 5 detik. */
@@ -1801,6 +1866,7 @@ class Dashboard extends Component
             // - heat (group) yang dipilih Operator → hanya heat itu; "Semua heat" → semua heat, dikelompokkan;
             // - tiap heat diurutkan dari rata-rata tertinggi. Satu baris per rider + run.
             $data['headJudgeSummary'] = collect();
+            $data['hjEditCriteria']   = $this->hjEditScoreId ? $this->loadCriteria('LIVE') : collect();
             if ($this->judgeEventId && $this->scoringMode === 'live' && auth()->user()->isHeadJudge() && !auth()->user()->isOperator()) {
                 $summaryDivisionId = $data['activeEvent']?->active_division_id ?: $this->judgeDivisionId;
                 $summaryDivision   = $summaryDivisionId ? \App\Models\EventDivision::find($summaryDivisionId) : null;
@@ -1858,7 +1924,7 @@ class Dashboard extends Component
                                 'heat_order' => $heat[0],
                                 'heat_id'    => $heat[1],
                                 'heat'       => $heat[2],
-                                'judges'     => $grp->map(fn ($sc) => ['name' => $sc->judge?->name ?? '—', 'total' => $sc->total])->values(),
+                                'judges'     => $grp->map(fn ($sc) => ['id' => $sc->id, 'name' => $sc->judge?->name ?? '—', 'total' => $sc->total])->values(),
                                 'avg'        => round($grp->avg('total'), 1),
                             ];
                         })

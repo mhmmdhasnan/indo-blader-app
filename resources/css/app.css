@@ -519,6 +519,19 @@ select.input-field option {
     .score-hide, .score-hide-2, .lsc-run1, .lsc-run2, .lsc-latest { display: none !important; }
 }
 
+/* Leaderboard 1 run (Jamming): tanpa kolom RUN 2. */
+.score-single .score-header, .score-single .score-row { grid-template-columns: 64px 1fr 110px 140px; }
+@media (max-width: 580px) { .score-single .score-header, .score-single .score-row { grid-template-columns: 54px 1fr 120px; } }
+@container scorecard (max-width: 560px) { .score-single .score-header, .score-single .score-row { grid-template-columns: 54px 1fr 120px; } }
+@container scorecard (max-width: 360px) { .score-single .score-header, .score-single .score-row { grid-template-columns: 46px 1fr 100px; } }
+
+/* Leaderboard publik 1 run: RUN 1 + BEST saja (narrow: kolom "latest" sudah menggantikan RUN 1, jadi grid bawaan tetap pas). */
+.score-one .score-header, .score-one .score-row { grid-template-columns: 64px 1fr 110px 140px; }
+@media (min-width: 900px) { .score-one.lsc-big .score-header, .score-one.lsc-big .score-row { grid-template-columns: 90px 1fr 150px 200px; } }
+@media (max-width: 580px) { .score-one .score-header, .score-one .score-row { grid-template-columns: 54px 1fr 100px 120px; } }
+@container scorecard (max-width: 560px) { .score-one .score-header, .score-one .score-row { grid-template-columns: 54px 1fr 100px 120px; } }
+@container scorecard (max-width: 360px) { .score-one .score-header, .score-one .score-row { grid-template-columns: 46px 1fr 100px; } }
+
 /* ── RIDER STAT STRIP ───────────────────────────────────────── */
 .stat-strip { display: grid; grid-template-columns: repeat(5, 1fr); }
 @media (max-width: 580px) {

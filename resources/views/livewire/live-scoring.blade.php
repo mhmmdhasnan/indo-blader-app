@@ -382,13 +382,7 @@
             </div>
             <div x-show="phase === 'JUDGING'" style="display:none;">
                 <div class="aud-tm out">00:00:00</div>
-                @if(!empty($jamJudges))
-                    <div class="aud-jg" style="margin-top:calc(28*var(--u));">
-                        @foreach($jamJudges as $j)
-                            <span style="border-color:{{ $j['done'] ? 'var(--lime)' : '#ffb020' }};color:{{ $j['done'] ? 'var(--lime)' : '#ffb020' }};">{{ $j['done'] ? '✓' : '…' }} JUDGE {{ $j['n'] }}</span>
-                        @endforeach
-                    </div>
-                @endif
+                {{-- Status per judge (✓ JUDGE 1, …) tidak ditampilkan ke penonton; pantau di konsol Operator / Head Judge. --}}
             </div>
 
             <div x-show="phase !== 'REVEALING'" style="display:none;margin-top:auto;">

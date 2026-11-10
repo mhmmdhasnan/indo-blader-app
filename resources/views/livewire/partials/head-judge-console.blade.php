@@ -199,7 +199,7 @@
                     </select>
                 </div>
             @endif
-            @php $hjSummary = ($headJudgeSummary ?? collect()); $hjHeats = $hjSummary->groupBy(fn ($r) => $r['heat'] ?? ''); @endphp
+            @php $hjSummary = ($headJudgeSummary ?? collect()); $hjEditCriteria = $hjEditCriteria ?? collect(); $hjHeats = $hjSummary->groupBy(fn ($r) => $r['heat'] ?? ''); @endphp
             @forelse($hjHeats as $heatName => $heatRows)
                 @if($heatName !== '')
                     <div class="between" style="margin-top:14px;padding:6px 10px;background:var(--bg-2);border-left:4px solid var(--lime);">
@@ -241,6 +241,43 @@
                                 <span class="mono" style="font-size:13px;padding:2px 8px;background:var(--bg-2);">{{ $j['name'] }} · {{ number_format($j['total'], 1) }}</span>
                             @endforeach
                         </div>
+                        {{-- Koreksi skor judge: edit langsung oleh Head Judge, atau minta judge yang bersangkutan merevisi. --}}
+                        @foreach($row['judges'] as $j)
+                            @php $editing = (int) $hjEditScoreId === (int) $j['id']; @endphp
+                            <div wire:key="hj-fix-{{ $j['id'] }}" style="margin-top:8px;">
+                                <div class="between" style="gap:8px;flex-wrap:wrap;">
+                                    <span class="mono dim" style="font-size:12px;">{{ $j['name'] }}</span>
+                                    @unless($editing)
+                                        <span class="flex" style="gap:6px;">
+                                            <button type="button" wire:click="openHeadJudgeEdit({{ $j['id'] }})" class="oc-ghost" style="min-height:32px;width:auto;font-size:12px;">✎ EDIT LANGSUNG</button>
+                                            <button type="button" wire:click="reopenJudgeScore({{ $j['id'] }})"
+                                                wire:confirm="Minta {{ $j['name'] }} merevisi skornya? Skor dibuka ulang dan judge harus submit lagi."
+                                                class="oc-ghost" style="min-height:32px;width:auto;font-size:12px;">↩ MINTA REVISI</button>
+                                        </span>
+                                    @endunless
+                                </div>
+                                @if($editing)
+                                    <div style="margin-top:6px;padding:10px;border:2px solid var(--lime);display:flex;flex-direction:column;gap:8px;">
+                                        @if($row['mode'] === 'BEST_TRICK')
+                                            <label class="oc-lbl">Nilai (0–10)
+                                                <input type="number" step="0.1" min="0" max="10" wire:model="hjEditValues.total" class="input-field" style="width:100%;min-height:44px;">
+                                            </label>
+                                        @else
+                                            @foreach($hjEditCriteria as $crit)
+                                                <label class="oc-lbl">{{ $crit->name }} (0–100)
+                                                    <input type="number" step="0.1" min="0" max="100" wire:model="hjEditValues.{{ $crit->key }}" class="input-field" style="width:100%;min-height:44px;">
+                                                </label>
+                                            @endforeach
+                                        @endif
+                                        @if($hjEditError)<p class="oc-err" style="margin:0;">{{ $hjEditError }}</p>@endif
+                                        <div class="flex" style="gap:8px;">
+                                            <button type="button" wire:click="saveHeadJudgeEdit" class="oc-btn pri" style="min-height:44px;">SIMPAN</button>
+                                            <button type="button" wire:click="cancelHeadJudgeEdit" class="oc-btn out" style="min-height:44px;">BATAL</button>
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+                        @endforeach
                     </div>
                 @endforeach
             @empty
