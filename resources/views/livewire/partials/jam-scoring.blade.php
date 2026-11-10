@@ -74,7 +74,7 @@
                                 @endphp
                                 <div wire:key="jam-js-{{ $js->id }}" style="padding:3px 0;border-left:4px solid {{ $jc }};padding-left:8px;margin-top:4px;">
                                     <div class="between" style="gap:8px;flex-wrap:wrap;align-items:center;">
-                                        <span class="mono" style="font-size:16px;font-weight:700;color:{{ $jc }};">{{ $js->judge?->name ?? '—' }} · {{ number_format($js->total, 1) }}</span>
+                                        <span class="mono" style="font-size:16px;font-weight:700;">{{ $js->judge?->name ?? '—' }} · <span style="color:var(--lime);">{{ number_format($js->total, 1) }}</span></span>
                                         @unless($editing)
                                             <span class="flex" style="gap:6px;">
                                                 <button type="button" wire:click="openHeadJudgeEdit({{ $js->id }})" class="btn btn-sm btn-ghost" style="font-size:10px;padding:2px 8px;">✎ EDIT</button>

@@ -149,8 +149,7 @@
                                 $ajScore = (!$hjIsJamRun) ? ($liveJudgeScores ?? collect())->firstWhere('judge_user_id', $aj->user_id) : null;
                             @endphp
                             <div class="oc-jr">
-                                @php $ajc = ['#ff4d4d','#3ddc84','#4d9bff','#ffb020','#b78cff','#ff7ac8','#5ee0e0','#e6e84a'][$loop->index % 8]; @endphp
-                                <b style="font-size:15px;color:{{ $ajc }};">{{ $aj->user?->name ?? '—' }}{{ $me ? ' (kamu)' : '' }}</b>
+                                <b style="font-size:15px;">{{ $aj->user?->name ?? '—' }}{{ $me ? ' (kamu)' : '' }}</b>
                                 <div class="oc-segs" aria-hidden="true">
                                     @for($i = 0; $i < max(1, $tot); $i++)<i class="{{ $show && $i < $d ? 'f' : '' }}"></i>@endfor
                                 </div>
@@ -238,10 +237,10 @@
                             <span class="display tnum" style="font-size:40px;line-height:40px;color:{{ $isTie ? '#ffb020' : 'var(--lime)' }};">{{ number_format($row['avg'], 1) }}@if($isTie)<span class="mono" style="display:block;font-size:11px;line-height:12px;letter-spacing:.1em;text-align:right;">SAMA</span>@endif</span>
                         </div>
                         {{-- Rangkuman hanya menampilkan skor; koreksi (edit / minta revisi) ada di kartu rider → "Nilai judge". --}}
-                        <div class="flex" style="flex-wrap:wrap;gap:6px;margin-top:6px;">
+                        <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">
                             @foreach($row['judges'] as $j)
                                 @php $jIdx = $hjJudges->pluck('user_id')->values()->search((int) ($j['user_id'] ?? 0)); $jc = ['#ff4d4d','#3ddc84','#4d9bff','#ffb020','#b78cff','#ff7ac8','#5ee0e0','#e6e84a'][($jIdx === false ? (int) ($j['user_id'] ?? 0) : $jIdx) % 8]; @endphp
-                                <span class="mono" style="font-size:20px;line-height:26px;font-weight:700;padding:3px 10px;background:var(--bg-2);border-left:4px solid {{ $jc }};color:{{ $jc }};">{{ $j['name'] }} · {{ number_format($j['total'], 1) }}</span>
+                                <span class="mono" style="font-size:16px;font-weight:700;padding:3px 0 3px 8px;border-left:4px solid {{ $jc }};">{{ $j['name'] }} · <span style="color:var(--lime);">{{ number_format($j['total'], 1) }}</span></span>
                             @endforeach
                         </div>
                     </div>
