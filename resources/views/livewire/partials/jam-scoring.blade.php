@@ -6,6 +6,14 @@
     // Warna per nomor run (sama dengan konsol Head Judge) supaya jelas ini run keberapa.
     $jamRunColor = [1 => '#5ec8ff', 2 => '#b78cff', 3 => '#ff7ac8'][$jamRunNo] ?? '#5ec8ff';
 @endphp
+@php
+    // Rata-rata skor akhir per rider (semua judge yang sudah submit) → rider dengan rata-rata sama ditandai.
+    $jamAvgs = collect($jamHeatRegs)->mapWithKeys(function ($r) use ($jamAllScores) {
+        $sc = ($jamAllScores ?? [])[$r->id] ?? collect();
+        return [$r->id => $sc->isNotEmpty() ? round($sc->avg('total'), 1) : null];
+    })->filter(fn ($v) => $v !== null);
+    $jamTieNames = fn ($regId) => collect($jamHeatRegs)->filter(fn ($r) => $r->id !== $regId && ($jamAvgs[$r->id] ?? null) !== null && ($jamAvgs[$regId] ?? null) !== null && $jamAvgs[$r->id] === $jamAvgs[$regId])->pluck('name');
+@endphp
 <div class="col" style="gap:14px;">
     <div class="panel" style="padding:16px 20px;border:2px solid {{ $isRunning ? 'var(--red)' : 'var(--line)' }};">
         <div class="between">
@@ -103,6 +111,8 @@
                             @if($finalAvg !== null)
                                 <div class="between" style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);">
                                     <span class="mono" style="font-size:11px;letter-spacing:0.12em;font-weight:700;">SKOR AKHIR{{ $finalAll ? '' : ' (SEMENTARA)' }}</span>
+                                    @php $tieWith = $jamTieNames($reg->id); @endphp
+                                    @if($tieWith->isNotEmpty())<span class="mono" style="font-size:11px;font-weight:700;padding:2px 8px;border:2px solid #ffb020;color:#ffb020;" title="Sama dengan {{ $tieWith->implode(', ') }}">⚠ SAMA · {{ $tieWith->implode(', ') }}</span>@endif
                                     <span class="display tnum" style="font-size:26px;color:var(--lime);">{{ number_format($finalAvg, 1) }}</span>
                                 </div>
                                 <span class="mono dim" style="font-size:10px;">Rata-rata {{ $riderScores->count() }}{{ $judgeTotal ? ' dari ' . $judgeTotal : '' }} judge</span>
