@@ -130,7 +130,7 @@
                         <td class="c"><input type="checkbox" class="ad-check" wire:model.live="selectedRegIds" value="{{ $reg->id }}" aria-label="Pilih {{ $reg->name }}"></td>
                         <td>
                             <div class="ad-nm">
-                                <x-avatar :initials="collect(preg_split('/\s+/', trim($reg->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')" :src="$reg->photo_url" :size="44" />
+                                <x-avatar :initials="collect(preg_split('/\s+/', trim($reg->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')" :src="$reg->photo_url" :size="44" zoom :name="$reg->name" />
                                 <div style="min-width:0;">
                                     <b>{{ $reg->name }}</b>
                                     <small>@if($reg->dob){{ $reg->dob->age }} th · @endif{{ $reg->city }}</small>
@@ -186,7 +186,7 @@
                                                 @elseif($regEditAvatarUrl)
                                                     <img src="{{ $regEditAvatarUrl }}" style="width:48px;height:48px;object-fit:cover;border-radius:50%;border:2px solid var(--line);">
                                                 @else
-                                                    <x-avatar :initials="collect(preg_split('/\s+/', trim($reg->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')" :src="$reg->photo_url" :size="48" />
+                                                    <x-avatar :initials="collect(preg_split('/\s+/', trim($reg->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')" :src="$reg->photo_url" :size="48" zoom :name="$reg->name" />
                                                 @endif
                                                 <input type="file" wire:model="regEditPhoto" accept="image/*" class="input-field" style="font-size:11px;max-width:220px;">
                                             </div>

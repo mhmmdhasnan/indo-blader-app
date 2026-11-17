@@ -37,6 +37,7 @@
                     <div style="height:100%;width:{{ $event->fill_pct }}%;background:{{ $event->fill_pct > 85 ? 'var(--red)' : 'var(--lime)' }};"></div>
                 </div>
                 <span class="mono tnum" style="font-size:13px;font-weight:700;">{{ $event->filled }}{{ $event->slots !== null ? '/'.$event->slots : '' }} spots filled</span>
+                <span class="mono dim" style="font-size:12px;">· {{ $event->riders_count }} rider</span>
             </div>
             <div class="flex gap-s">
                 @auth
@@ -157,7 +158,7 @@
                     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));">
                         @foreach($divRegs as $reg)
                             <div class="flex" style="align-items:center;gap:11px;padding:12px 18px;border-bottom:1px solid var(--line);min-width:0;">
-                                <x-avatar :initials="collect(preg_split('/\s+/', trim($reg->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')" :src="$reg->photo_url" :size="32" />
+                                <x-avatar :initials="collect(preg_split('/\s+/', trim($reg->name), -1, PREG_SPLIT_NO_EMPTY))->map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)))->take(2)->implode('')" :src="$reg->photo_url" :size="32" zoom :name="$reg->name" />
                                 <div class="col" style="min-width:0;">
                                     <span class="label" style="font-size:13px;">{{ $reg->name }}</span>
                                     <span class="mono dim" style="font-size:9px;">{{ strtoupper($reg->city) }}</span>

@@ -17,6 +17,7 @@
     <div class="grain" aria-hidden="true"></div>
     {{ $slot }}
     <x-confirm-dialog />
+    <x-photo-zoom />
     @livewireScripts
 </body>
 </html>

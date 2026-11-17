@@ -49,6 +49,7 @@
     @include('components.footer')
 
     <x-confirm-dialog />
+    <x-photo-zoom />
     @livewireScripts
 </body>
 </html>

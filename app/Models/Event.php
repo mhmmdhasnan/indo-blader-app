@@ -102,6 +102,17 @@ class Event extends Model
         return (int) $this->divisions()->sum('filled');
     }
 
+    /** Jumlah rider unik (satu rider yang daftar di beberapa kelas dihitung sekali; yang ditolak tidak dihitung). */
+    public function getRidersCountAttribute(): int
+    {
+        return $this->registrations()
+            ->where('status', '!=', 'REJECTED')
+            ->pluck('name')
+            ->map(fn ($n) => mb_strtolower(preg_replace('/\s+/', ' ', trim($n))))
+            ->unique()
+            ->count();
+    }
+
     public function getSlotsAttribute(): ?int
     {
         if ($this->relationLoaded('divisions')) {

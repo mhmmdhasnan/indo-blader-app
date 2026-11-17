@@ -1,11 +1,17 @@
-@props(['initials' => '??', 'size' => 48, 'ring' => false, 'src' => null])
+@props(['initials' => '??', 'size' => 48, 'ring' => false, 'src' => null, 'zoom' => false, 'name' => null])
 <div class="avatar" style="
     width: {{ $size }}px;
     height: {{ $size }}px;
     font-size: {{ round($size * 0.38) }}px;
     {{ $ring ? 'border-color: var(--lime);' : '' }}
     {{ $src ? 'padding:0;overflow:hidden;' : '' }}
-">
+    {{ $zoom && $src ? 'cursor:zoom-in;' : '' }}
+"
+@if($zoom && $src)
+    data-zoom-src="{{ $src }}" data-zoom-name="{{ $name ?? $initials }}"
+    role="button" tabindex="0" title="Klik untuk memperbesar foto"
+@endif
+>
     @if($src)
         <img src="{{ $src }}" alt="{{ $initials }}" loading="lazy" decoding="async"
              onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
