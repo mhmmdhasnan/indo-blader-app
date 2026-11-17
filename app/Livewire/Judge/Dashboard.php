@@ -232,7 +232,7 @@ class Dashboard extends Component
     private function criteriaFilled(array $scores): bool
     {
         $keys = $this->loadCriteria('LIVE')->pluck('key');
-        return $keys->isNotEmpty() && $keys->every(fn ($k) => is_numeric($scores[$k] ?? null));
+        return $keys->isNotEmpty() && $keys->every(fn ($k) => is_numeric($scores[$k] ?? null) && $scores[$k] >= 0 && $scores[$k] <= 100);
     }
 
     private function loadCriteria(string $mode): \Illuminate\Database\Eloquent\Collection
@@ -364,7 +364,8 @@ class Dashboard extends Component
 
         // Try to find existing Rider by user_id
         if ($reg->user_id) {
-            $rider = Rider::where('user_id', $reg->user_id)->first();
+            // Satu akun bisa mendaftarkan banyak rider: hanya pakai Rider milik user kalau namanya sama.
+            $rider = Rider::where('user_id', $reg->user_id)->whereRaw('LOWER(name) = ?', [mb_strtolower($reg->name)])->first();
             if ($rider) return $this->adoptRegistrationPhoto($rider, $reg);
         }
 
@@ -478,6 +479,71 @@ class Dashboard extends Component
         }
 
         JudgeScore::findOrFail($scoreId)->update(['status' => 'WAITING']);
+    }
+
+    // ─── Head Judge: edit langsung skor judge lain (alternatif dari reopenJudgeScore = minta judge merevisi) ──
+
+    public int    $hjEditScoreId = 0;
+    public array  $hjEditValues  = [];      // key kriteria => nilai (Best Trick: ['total' => nilai])
+    public ?string $hjEditError  = null;
+
+    public function openHeadJudgeEdit(int $scoreId): void
+    {
+        $this->hjEditError = null;
+        if (!auth()->user()->isHeadJudge()) return;
+
+        $score = JudgeScore::with('scoreDetails')->find($scoreId);
+        if (!$score || (int) $score->event_id !== (int) $this->judgeEventId) return;
+
+        $this->hjEditScoreId = $score->id;
+        if ($score->scoring_mode === 'BEST_TRICK') {
+            $this->hjEditValues = ['total' => $score->total];
+        } else {
+            $details = $score->scoreDetails->pluck('score', 'criteria');
+            $this->hjEditValues = $this->loadCriteria('LIVE')->mapWithKeys(fn ($c) => [$c->key => $details[$c->key] ?? null])->all();
+        }
+    }
+
+    public function cancelHeadJudgeEdit(): void
+    {
+        $this->hjEditScoreId = 0;
+        $this->hjEditValues  = [];
+        $this->hjEditError   = null;
+    }
+
+    public function saveHeadJudgeEdit(): void
+    {
+        $this->hjEditError = null;
+        if (!auth()->user()->isHeadJudge()) return;
+
+        $score = JudgeScore::find($this->hjEditScoreId);
+        if (!$score || (int) $score->event_id !== (int) $this->judgeEventId) {
+            $this->cancelHeadJudgeEdit();
+            return;
+        }
+
+        if ($score->scoring_mode === 'BEST_TRICK') {
+            $v = $this->hjEditValues['total'] ?? null;
+            if (!is_numeric($v) || $v < 0 || $v > 10) {
+                $this->hjEditError = 'Nilai Best Trick harus 0–10.';
+                return;
+            }
+            $score->update(['total' => round((float) $v, 1), 'status' => 'DONE']);
+        } else {
+            if (!$this->criteriaFilled($this->hjEditValues)) {
+                $this->hjEditError = 'Isi semua kriteria dengan angka.';
+                return;
+            }
+            foreach ($this->hjEditValues as $v) {
+                if ($v < 0 || $v > 100) {
+                    $this->hjEditError = 'Nilai tiap kriteria harus 0–100.';
+                    return;
+                }
+            }
+            app(ScoringService::class)->submitScore($score, $this->hjEditValues);
+        }
+
+        $this->cancelHeadJudgeEdit();
     }
 
     // ─── Operator: fase divisi (Kualifikasi → Final → Best Trick), hanya event aktif ──
@@ -1734,7 +1800,9 @@ class Dashboard extends Component
                         ->where('run_number', $jamRun)
                         ->where('scoring_mode', 'LIVE')->where('live_stage', $stageForJam)
                         ->where('status', 'DONE')
-                        ->get()->groupBy('rider_id');
+                        ->get()
+                        ->sortBy(fn ($sc) => $sc->judge?->role === 'head_judge' ? 0 : 1)   // Head Judge selalu paling atas
+                        ->groupBy('rider_id');
                     $data['jamAllScores'] = collect($jamRiderIds)
                         ->map(fn ($rid) => $rid ? $allJam->get($rid, collect()) : collect())->all();
                 }
@@ -1800,6 +1868,7 @@ class Dashboard extends Component
             // - heat (group) yang dipilih Operator → hanya heat itu; "Semua heat" → semua heat, dikelompokkan;
             // - tiap heat diurutkan dari rata-rata tertinggi. Satu baris per rider + run.
             $data['headJudgeSummary'] = collect();
+            $data['hjEditCriteria']   = $this->hjEditScoreId ? $this->loadCriteria('LIVE') : collect();
             if ($this->judgeEventId && $this->scoringMode === 'live' && auth()->user()->isHeadJudge() && !auth()->user()->isOperator()) {
                 $summaryDivisionId = $data['activeEvent']?->active_division_id ?: $this->judgeDivisionId;
                 $summaryDivision   = $summaryDivisionId ? \App\Models\EventDivision::find($summaryDivisionId) : null;
@@ -1857,7 +1926,7 @@ class Dashboard extends Component
                                 'heat_order' => $heat[0],
                                 'heat_id'    => $heat[1],
                                 'heat'       => $heat[2],
-                                'judges'     => $grp->map(fn ($sc) => ['name' => $sc->judge?->name ?? '—', 'total' => $sc->total])->values(),
+                                'judges'     => $grp->sortBy(fn ($sc) => $sc->judge?->role === 'head_judge' ? 0 : 1)->map(fn ($sc) => ['id' => $sc->id, 'user_id' => $sc->judge_user_id, 'name' => $sc->judge?->name ?? '—', 'total' => $sc->total])->values(),
                                 'avg'        => round($grp->avg('total'), 1),
                             ];
                         })
@@ -1882,11 +1951,30 @@ class Dashboard extends Component
                     ->where('scoring_mode', $data['isBestTrickPhase'] ? 'BEST_TRICK' : 'LIVE')
                     ->where('live_stage', $selectedLiveStage)
                     ->with(['judge', 'scoreDetails'])
-                    ->get();
+                    ->get()->sortBy(fn ($sc) => $sc->judge?->role === 'head_judge' ? 0 : 1)->values();
             } else {
                 $data['otherJudgeScores'] = collect();
             }
             $data['riderAlreadyRan'] = $data['otherJudgeScores']->isNotEmpty();
+
+            // Nilai sebelumnya milik rider yang sedang tampil: Run lain + percobaan Best Trick, digabung (selain yang sedang dinilai).
+            // Head Judge melihat semua judge; judge biasa hanya nilainya sendiri (supaya tidak terpengaruh judge lain).
+            $data['btHistory'] = collect();
+            if (auth()->user()->isJudge() && $this->judgeEventId && $resolvedLiveRiderId) {
+                $curMode = $data['isBestTrickPhase'] ? 'BEST_TRICK' : 'LIVE';
+                $data['btHistory'] = JudgeScore::where('event_id', $this->judgeEventId)
+                    ->where('division_id', Registration::find($this->liveRiderId)?->division_id)
+                    ->where('rider_id', $resolvedLiveRiderId)
+                    ->where('status', 'DONE')
+                    ->where(fn ($q) => $q->where(fn ($q2) => $q2->where('scoring_mode', 'LIVE')->where('live_stage', $selectedLiveStage))
+                        ->orWhere('scoring_mode', 'BEST_TRICK'))
+                    ->whereNot(fn ($q) => $q->where('scoring_mode', $curMode)->where('run_number', $this->liveRunNumber))
+                    ->when(!auth()->user()->isHeadJudge(), fn ($q) => $q->where('judge_user_id', auth()->id()))
+                    ->with('judge')
+                    ->get()
+                    ->sortBy(fn ($sc) => [$sc->scoring_mode === 'BEST_TRICK' ? 1 : 0, $sc->run_number, $sc->judge?->role === 'head_judge' ? 0 : 1])
+                    ->groupBy(fn ($sc) => ($sc->scoring_mode === 'BEST_TRICK' ? 'Best Trick · percobaan ' : 'Run ') . $sc->run_number);
+            }
 
             // HEAD JUDGE / OPERATOR: live session — status per judge
             $data['liveJudgeScores'] = collect();
@@ -1901,11 +1989,13 @@ class Dashboard extends Component
                         ->where('scoring_mode', $this->currentIsBestTrick($liveEvent) ? 'BEST_TRICK' : 'LIVE')
                         ->where('live_stage', $this->currentLiveStage($liveEvent))
                         ->with(['judge', 'scoreDetails'])
-                        ->get();
+                        ->get()->sortBy(fn ($sc) => $sc->judge?->role === 'head_judge' ? 0 : 1)->values();
                 }
                 $data['assignedJudges'] = EventJudgeAssignment::where('event_id', $this->judgeEventId)
                     ->with('user')
-                    ->get();
+                    ->get()
+                    ->sortBy(fn ($aj) => $aj->user?->role === 'head_judge' ? 0 : 1)   // Head Judge selalu paling atas
+                    ->values();
                 $data['liveSetupProblem'] = $this->liveSetupProblem();
 
                 // Jamming: progres tiap judge = jumlah rider heat yang sudah dinilai

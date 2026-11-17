@@ -6,6 +6,14 @@
     // Warna per nomor run (sama dengan konsol Head Judge) supaya jelas ini run keberapa.
     $jamRunColor = [1 => '#5ec8ff', 2 => '#b78cff', 3 => '#ff7ac8'][$jamRunNo] ?? '#5ec8ff';
 @endphp
+@php
+    // Rata-rata skor akhir per rider (semua judge yang sudah submit) → rider dengan rata-rata sama ditandai.
+    $jamAvgs = collect($jamHeatRegs)->mapWithKeys(function ($r) use ($jamAllScores) {
+        $sc = ($jamAllScores ?? [])[$r->id] ?? collect();
+        return [$r->id => $sc->isNotEmpty() ? round($sc->avg('total'), 1) : null];
+    })->filter(fn ($v) => $v !== null);
+    $jamTieNames = fn ($regId) => collect($jamHeatRegs)->filter(fn ($r) => $r->id !== $regId && ($jamAvgs[$r->id] ?? null) !== null && ($jamAvgs[$regId] ?? null) !== null && $jamAvgs[$r->id] === $jamAvgs[$regId])->pluck('name');
+@endphp
 <div class="col" style="gap:14px;">
     <div class="panel" style="padding:16px 20px;border:2px solid {{ $isRunning ? 'var(--red)' : 'var(--line)' }};">
         <div class="between">
@@ -45,8 +53,7 @@
                             <span class="display" style="font-size:32px;line-height:1.05;letter-spacing:.02em;">{{ $reg->name }}</span>
                         </span>
                         <span class="flex" style="align-items:center;gap:8px;">
-                            @if($done)<span class="badge badge-lime" style="font-size:11px;">TERKIRIM</span>@endif
-                            <span class="display tnum" style="font-size:32px;color:var(--lime);">{{ number_format($shownTotal, 1) }}</span>
+                            @unless($done)<span class="display tnum" style="font-size:32px;color:var(--lime);">{{ number_format($shownTotal, 1) }}</span>@endunless
                         </span>
                     </div>
                     @if(!$done)
@@ -54,7 +61,10 @@
                     @endif
                     @if($done)
                         {{-- Terkunci seperti live score biasa; revisi lewat tombol Edit Head Judge. --}}
-                        <span class="badge badge-lime">✓ SUBMITTED</span>
+                        <span class="flex" style="align-items:center;gap:12px;">
+                            <span class="badge badge-lime">✓ SUBMITTED</span>
+                            <span class="display tnum" style="font-size:32px;line-height:1;color:var(--lime);">{{ number_format($shownTotal, 1) }}</span>
+                        </span>
                     @else
                         <button wire:click="submitJamScore({{ $reg->id }})" class="btn btn-lime btn-sm" style="margin-top:10px;" @if($criteria->isEmpty()) disabled @endif>Submit Score</button>
                         @error('jamScores.' . $reg->id) <p class="mono" style="font-size:11px;color:var(--red);margin-top:6px;">{{ $message }}</p> @enderror
@@ -65,21 +75,44 @@
                         <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);">
                             <span class="mono dim" style="font-size:9px;letter-spacing:0.12em;">NILAI JUDGE</span>
                             @foreach($riderScores as $js)
-                                <div class="between" style="padding:3px 0;">
-                                    <span class="mono" style="font-size:11px;">{{ $js->judge?->name ?? '—' }}</span>
-                                    <span class="flex gap-s" style="align-items:center;">
-                                        <span class="mono tnum" style="font-size:12px;color:var(--lime);">{{ number_format($js->total, 1) }}</span>
-                                        @if(($isHeadJudge ?? false))
-                                            <button wire:click="reopenJudgeScore({{ $js->id }})"
-                                                wire:confirm="Buka ulang skor {{ $js->judge?->name ?? 'judge ini' }} untuk direvisi?"
-                                                class="btn btn-sm btn-ghost" style="font-size:9px;padding:2px 8px;">✎ Edit</button>
-                                        @endif
-                                    </span>
+                                @php
+                                    $jOrder = ($assignedJudges ?? collect())->pluck('user_id')->values(); $jIdx = $jOrder->search((int) $js->judge_user_id);
+                                    $jc = ['#ff4d4d','#3ddc84','#4d9bff','#ffb020','#b78cff','#ff7ac8','#5ee0e0','#e6e84a'][($jIdx === false ? (int) $js->judge_user_id : $jIdx) % 8];
+                                    $editing = (int) ($hjEditScoreId ?? 0) === (int) $js->id;
+                                @endphp
+                                <div wire:key="jam-js-{{ $js->id }}" style="padding:3px 0;border-left:4px solid {{ $jc }};padding-left:8px;margin-top:4px;">
+                                    <div class="between" style="gap:8px;flex-wrap:wrap;align-items:center;">
+                                        <span class="mono" style="font-size:16px;font-weight:700;">{{ $js->judge?->name ?? '—' }} · <span style="color:var(--lime);">{{ number_format($js->total, 1) }}</span></span>
+                                        @unless($editing)
+                                            <span class="flex" style="gap:6px;">
+                                                <button type="button" wire:click="openHeadJudgeEdit({{ $js->id }})" class="btn btn-sm btn-ghost" style="font-size:10px;padding:2px 8px;">✎ EDIT</button>
+                                                <button type="button" wire:click="reopenJudgeScore({{ $js->id }})"
+                                                    wire:confirm="Minta {{ $js->judge?->name ?? 'judge ini' }} merevisi skornya? Skor dibuka ulang dan judge harus submit lagi."
+                                                    class="btn btn-sm btn-ghost" style="font-size:10px;padding:2px 8px;">↩ REVISI</button>
+                                            </span>
+                                        @endunless
+                                    </div>
+                                    @if($editing)
+                                        <div style="margin-top:6px;padding:10px;border:2px solid var(--lime);display:flex;flex-direction:column;gap:8px;">
+                                            @foreach(($hjEditCriteria ?? collect()) as $crit)
+                                                <label class="mono" style="font-size:11px;letter-spacing:.08em;">{{ strtoupper($crit->name) }} (0–100)
+                                                    <input type="number" step="0.1" min="0" max="100" wire:model="hjEditValues.{{ $crit->key }}" class="input-field" style="width:100%;min-height:44px;">
+                                                </label>
+                                            @endforeach
+                                            @if($hjEditError ?? null)<p class="mono" style="font-size:11px;color:var(--red);margin:0;">{{ $hjEditError }}</p>@endif
+                                            <div class="flex" style="gap:8px;">
+                                                <button type="button" wire:click="saveHeadJudgeEdit" class="btn btn-lime btn-sm">SIMPAN</button>
+                                                <button type="button" wire:click="cancelHeadJudgeEdit" class="btn btn-sm btn-ghost">BATAL</button>
+                                            </div>
+                                        </div>
+                                    @endif
                                 </div>
                             @endforeach
                             @if($finalAvg !== null)
                                 <div class="between" style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);">
                                     <span class="mono" style="font-size:11px;letter-spacing:0.12em;font-weight:700;">SKOR AKHIR{{ $finalAll ? '' : ' (SEMENTARA)' }}</span>
+                                    @php $tieWith = $jamTieNames($reg->id); @endphp
+                                    @if($tieWith->isNotEmpty())<span class="mono" style="font-size:11px;font-weight:700;padding:2px 8px;border:2px solid #ffb020;color:#ffb020;" title="Sama dengan {{ $tieWith->implode(', ') }}">⚠ SAMA · {{ $tieWith->implode(', ') }}</span>@endif
                                     <span class="display tnum" style="font-size:26px;color:var(--lime);">{{ number_format($finalAvg, 1) }}</span>
                                 </div>
                                 <span class="mono dim" style="font-size:10px;">Rata-rata {{ $riderScores->count() }}{{ $judgeTotal ? ' dari ' . $judgeTotal : '' }} judge</span>

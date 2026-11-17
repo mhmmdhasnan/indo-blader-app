@@ -1,7 +1,8 @@
 {{-- Reusable leaderboard table body — expects $rows (collection of buildLeaderboard() rows) --}}
-<div class="score-scroll">
+@php $single = $single ?? false; @endphp
+<div class="score-scroll {{ $single ? 'score-single' : '' }}">
     <div class="score-header">
-        @foreach(['#','RIDER','RUN 1','RUN 2','BEST'] as $i => $h)
+        @foreach($single ? ['#','RIDER','RUN 1','BEST'] : ['#','RIDER','RUN 1','RUN 2','BEST'] as $i => $h)
             <span class="mono {{ $h === 'RUN 1' ? 'score-hide' : ($h === 'RUN 2' ? 'score-hide-2' : '') }}"
                 style="font-size:10px;letter-spacing:0.12em;color:var(--ink-dim);text-align:{{ $i >= 2 ? 'right' : 'left' }};">{{ $h }}</span>
         @endforeach
@@ -14,7 +15,9 @@
                 <span class="label" style="font-size:14px;">{{ $row['rider']->name }}</span>
             </div>
             <span class="mono tnum score-hide" style="font-size:14px;text-align:right;color:var(--ink-dim);">{{ $row['run1'] !== null ? number_format($row['run1'], 1) : '—' }}</span>
+            @unless($single)
             <span class="mono tnum score-hide-2" style="font-size:14px;text-align:right;color:var(--ink-dim);">{{ $row['run2'] !== null ? number_format($row['run2'], 1) : '—' }}</span>
+            @endunless
             <span class="display tnum" style="font-size:22px;text-align:right;color:{{ $i === 0 ? 'var(--lime)' : 'var(--ink)' }};">
                 {{ $row['total'] > 0 ? number_format($row['total'], 1) : '—' }}
                 @if(($row['best_trick_bonus'] ?? 0) > 0)

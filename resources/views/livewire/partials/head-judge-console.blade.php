@@ -160,12 +160,39 @@
                                     <span class="oc-tg" style="color:var(--ink-3,#a3a39b);border-color:var(--ink-3,#8a8a90);">{{ $hjPhase === 'REVEALING' ? 'REVEAL' : 'SIAGA' }}</span>
                                 @endif
                                 @if($fin && !$hjIsJamRun && $ajScore && $isRunning)
-                                    {{-- Head Judge boleh membuka ulang skor judge yang sudah submit --}}
-                                    <span style="grid-column:1/-1;display:flex;align-items:center;gap:12px;">
-                                        <span class="mono tnum" style="color:var(--lime);">{{ number_format($ajScore->total, 1) }}</span>
-                                        <button type="button" wire:key="hj-reopen-{{ $ajScore->id }}" wire:click="reopenJudgeScore({{ $ajScore->id }})"
-                                            wire:confirm="Buka ulang skor {{ $aj->user?->name ?? 'judge ini' }} untuk direvisi?"
-                                            class="oc-ghost" style="min-height:36px;width:auto;font-size:12px;">✎ BUKA ULANG</button>
+                                    {{-- Head Judge: edit langsung skor judge yang sudah submit, atau minta judge merevisi. --}}
+                                    @php $ajEditing = (int) $hjEditScoreId === (int) $ajScore->id; @endphp
+                                    <span style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px;">
+                                        <span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                                            <span class="mono tnum" style="color:var(--lime);">{{ number_format($ajScore->total, 1) }}</span>
+                                            @unless($ajEditing)
+                                                <button type="button" wire:key="hj-edit-{{ $ajScore->id }}" wire:click="openHeadJudgeEdit({{ $ajScore->id }})"
+                                                    class="oc-ghost" style="min-height:26px;width:auto;font-size:10px;padding:2px 8px;">✎ EDIT</button>
+                                                <button type="button" wire:key="hj-reopen-{{ $ajScore->id }}" wire:click="reopenJudgeScore({{ $ajScore->id }})"
+                                                    wire:confirm="Minta {{ $aj->user?->name ?? 'judge ini' }} merevisi skornya? Skor dibuka ulang dan judge harus submit lagi."
+                                                    class="oc-ghost" style="min-height:26px;width:auto;font-size:10px;padding:2px 8px;">↩ REVISI</button>
+                                            @endunless
+                                        </span>
+                                        @if($ajEditing)
+                                            <div style="padding:10px;border:2px solid var(--lime);display:flex;flex-direction:column;gap:8px;">
+                                                @if($ajScore->scoring_mode === 'BEST_TRICK')
+                                                    <label class="oc-lbl">Nilai (0–10)
+                                                        <input type="number" step="0.1" min="0" max="10" wire:model="hjEditValues.total" class="input-field" style="width:100%;min-height:44px;">
+                                                    </label>
+                                                @else
+                                                    @foreach(($hjEditCriteria ?? collect()) as $crit)
+                                                        <label class="oc-lbl">{{ $crit->name }} (0–100)
+                                                            <input type="number" step="0.1" min="0" max="100" wire:model="hjEditValues.{{ $crit->key }}" class="input-field" style="width:100%;min-height:44px;">
+                                                        </label>
+                                                    @endforeach
+                                                @endif
+                                                @if($hjEditError)<p class="oc-err" style="margin:0;">{{ $hjEditError }}</p>@endif
+                                                <div class="flex" style="gap:8px;">
+                                                    <button type="button" wire:click="saveHeadJudgeEdit" class="oc-btn pri" style="min-height:44px;">SIMPAN</button>
+                                                    <button type="button" wire:click="cancelHeadJudgeEdit" class="oc-btn out" style="min-height:44px;">BATAL</button>
+                                                </div>
+                                            </div>
+                                        @endif
                                     </span>
                                 @endif
                             </div>
@@ -179,6 +206,22 @@
             <section class="col" style="gap:12px;min-width:0;">
                 <span class="oc-lbl">Nilai saya · {{ auth()->user()->name }}</span>
                 @include('livewire.partials.live-scoring')
+                @if(($btHistory ?? collect())->isNotEmpty())
+                    <div class="oc-card" style="margin-top:12px;">
+                        <span class="oc-lbl">Nilai sebelumnya · {{ $hjReadyRider?->name ?? 'rider ini' }}</span>
+                        @foreach($btHistory as $histLabel => $scores)
+                            <div style="padding:8px 0;border-top:1px solid var(--line);">
+                                <div class="between">
+                                    <span class="mono" style="font-size:13px;font-weight:700;">{{ strtoupper($histLabel) }}</span>
+                                    <span class="display tnum" style="font-size:28px;color:var(--lime);">{{ number_format($scores->avg('total'), 1) }}</span>
+                                </div>
+                                @foreach($scores as $sc)
+                                    <div class="mono" style="font-size:16px;font-weight:700;">{{ $sc->judge?->name ?? '—' }} · <span style="color:var(--lime);">{{ number_format($sc->total, 1) }}</span></div>
+                                @endforeach
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
             </section>
         </div>
 
@@ -199,7 +242,7 @@
                     </select>
                 </div>
             @endif
-            @php $hjSummary = ($headJudgeSummary ?? collect()); $hjHeats = $hjSummary->groupBy(fn ($r) => $r['heat'] ?? ''); @endphp
+            @php $hjSummary = ($headJudgeSummary ?? collect()); $hjEditCriteria = $hjEditCriteria ?? collect(); $hjHeats = $hjSummary->groupBy(fn ($r) => $r['heat'] ?? ''); @endphp
             @forelse($hjHeats as $heatName => $heatRows)
                 @if($heatName !== '')
                     <div class="between" style="margin-top:14px;padding:6px 10px;background:var(--bg-2);border-left:4px solid var(--lime);">
@@ -224,23 +267,56 @@
                         @endforeach
                     </div>
                 @endif
-                @foreach($heatRows as $row)
-                    @php $isTie = ($tieCount[$tieKey($row)] ?? 1) > 1; @endphp
-                    <div style="padding:10px 0;border-top:1px solid var(--line);{{ $isTie ? 'border-left:4px solid #ffb020;padding-left:10px;' : '' }}">
+                {{-- Satu kartu per rider: Run 1 / Run 2 sebagai entri, Best Trick digabung ke skor header sebagai bonus "59.3 (+4.3)". --}}
+                @php
+                    $riderCards = $heatRows->groupBy(fn ($r) => $r['rider']?->id ?? 0)
+                        ->map(function ($g) {
+                            $runs  = $g->where('mode', '!=', 'BEST_TRICK')->sortBy('run')->values();
+                            $tricks = $g->where('mode', 'BEST_TRICK')->sortBy('run')->values();
+                            return [
+                                'rider'  => $g->first()['rider'],
+                                'runs'   => $runs,
+                                'tricks' => $tricks,
+                                'best'   => $runs->isNotEmpty() ? $runs->max('avg') : null,
+                                'bonus'  => $tricks->isNotEmpty() ? $tricks->max('avg') : null,
+                            ];
+                        })
+                        ->sortByDesc(fn ($c) => ($c['best'] ?? 0) + ($c['bonus'] ?? 0))
+                        ->values();
+                @endphp
+                @foreach($riderCards as $card)
+                    <div style="padding:10px 0;border-top:1px solid var(--line);">
                         <div class="between" style="gap:12px;">
-                            <div class="col" style="gap:2px;min-width:0;">
-                                <span style="font-weight:700;font-size:15px;">{{ $row['rider']?->name ?? '—' }}</span>
-                                <span class="oc-lbl" style="font-size:12px;">
-                                    {{ $row['mode'] === 'BEST_TRICK' ? 'Best trick · percobaan ' . $row['run'] : 'Run ' . $row['run'] . ' · ' . ($row['stage'] === 'FINAL' ? 'Final' : 'Kualifikasi') }}
-                                </span>
+                            <span style="font-weight:700;font-size:15px;">{{ $card['rider']?->name ?? '—' }}</span>
+                            <span class="display tnum" style="font-size:36px;line-height:36px;color:var(--lime);">{{ number_format(($card['best'] ?? 0) + ($card['bonus'] ?? 0), 1) }}</span>
+                        </div>
+                        <div class="between" style="margin-top:4px;">
+                            @php $bestRun = $card['runs']->sortByDesc('avg')->first(); @endphp
+                            <span class="oc-lbl" style="font-size:12px;">{{ $bestRun ? 'Run ' . $bestRun['run'] . ' · ' . ($bestRun['stage'] === 'FINAL' ? 'Final' : 'Kualifikasi') . (($card['bonus'] ?? 0) > 0 ? ' + Best Trick' : '') : 'Best trick' }}</span>
+                            @if($bestRun && ($tieCount[$tieKey($bestRun)] ?? 1) > 1)<span class="mono" style="font-size:11px;font-weight:700;padding:1px 6px;border:2px solid #ffb020;color:#ffb020;">⚠ SAMA</span>@endif
+                            <span class="display tnum" style="font-size:28px;line-height:28px;color:var(--lime);">{{ $card['best'] !== null ? number_format($card['best'], 1) : '—' }}@if($card['bonus'] !== null && $card['bonus'] > 0) <span style="font-size:18px;">(+{{ number_format($card['bonus'], 1) }})</span>@endif</span>
+                        </div>
+                        @foreach($card['runs']->sortByDesc('avg')->values() as $row)
+                            @php $isTie = ($tieCount[$tieKey($row)] ?? 1) > 1; $isBestRun = $loop->first; @endphp
+                            <div style="margin-top:8px;{{ $isTie ? 'border-left:4px solid #ffb020;padding-left:10px;' : '' }}">
+                                {{-- Run terbaik sudah dilabeli di header kartu (Run · Final · total) — jangan ditulis dua kali. --}}
+                                @unless($isBestRun)
+                                <div class="between" style="gap:12px;">
+                                    <span class="oc-lbl" style="font-size:12px;">Run {{ $row['run'] }} · {{ $row['stage'] === 'FINAL' ? 'Final' : 'Kualifikasi' }}</span>
+                                    <span class="display tnum" style="font-size:24px;line-height:24px;color:{{ $isTie ? '#ffb020' : 'var(--lime)' }};">{{ number_format($row['avg'], 1) }}@if($isTie)<span class="mono" style="display:block;font-size:11px;line-height:12px;letter-spacing:.1em;text-align:right;">SAMA</span>@endif</span>
+                                </div>
+                                @endunless
+                                <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">
+                                    @foreach($row['judges'] as $j)
+                                        @php $jIdx = $hjJudges->pluck('user_id')->values()->search((int) ($j['user_id'] ?? 0)); $jc = ['#ff4d4d','#3ddc84','#4d9bff','#ffb020','#b78cff','#ff7ac8','#5ee0e0','#e6e84a'][($jIdx === false ? (int) ($j['user_id'] ?? 0) : $jIdx) % 8]; @endphp
+                                        <span class="mono" style="font-size:16px;font-weight:700;padding:3px 0 3px 8px;border-left:4px solid {{ $jc }};">{{ $j['name'] }} · <span style="color:var(--lime);">{{ number_format($j['total'], 1) }}</span></span>
+                                    @endforeach
+                                </div>
                             </div>
-                            <span class="display tnum" style="font-size:40px;line-height:40px;color:{{ $isTie ? '#ffb020' : 'var(--lime)' }};">{{ number_format($row['avg'], 1) }}@if($isTie)<span class="mono" style="display:block;font-size:11px;line-height:12px;letter-spacing:.1em;text-align:right;">SAMA</span>@endif</span>
-                        </div>
-                        <div class="flex" style="flex-wrap:wrap;gap:6px;margin-top:6px;">
-                            @foreach($row['judges'] as $j)
-                                <span class="mono" style="font-size:13px;padding:2px 8px;background:var(--bg-2);">{{ $j['name'] }} · {{ number_format($j['total'], 1) }}</span>
-                            @endforeach
-                        </div>
+                        @endforeach
+                        @if($card['tricks']->isNotEmpty())
+                            <p class="mono" style="font-size:14px;margin-top:8px;">Best trick: @foreach($card['tricks'] as $t)<span style="margin-right:10px;">P{{ $t['run'] }} <b style="color:var(--lime);">{{ number_format($t['avg'], 1) }}</b></span>@endforeach</p>
+                        @endif
                     </div>
                 @endforeach
             @empty

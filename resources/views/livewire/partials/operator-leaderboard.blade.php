@@ -22,7 +22,7 @@
                         @if($section['leaderboard']->isEmpty())
                             <p class="mono dim" style="font-size:12px;padding:18px;">Belum ada rider (approved) di group ini.</p>
                         @else
-                            @include('livewire.partials.score-table', ['rows' => $section['leaderboard']])
+                            @include('livewire.partials.score-table', ['rows' => $section['leaderboard'], 'single' => (bool) ($activeDiv?->is_jamming)])
                         @endif
                     </div>
                 @endforeach
@@ -35,7 +35,7 @@
             @if(($operatorLeaderboard ?? collect())->isEmpty())
                 <p class="mono dim" style="font-size:12px;padding:18px;">Belum ada rider (approved) di divisi/group ini.</p>
             @else
-                @include('livewire.partials.score-table', ['rows' => $operatorLeaderboard])
+                @include('livewire.partials.score-table', ['rows' => $operatorLeaderboard, 'single' => (bool) ($activeDiv?->is_jamming)])
             @endif
         </div>
         @endif

@@ -266,7 +266,7 @@ class LiveScoring extends Component
                         ->where('status', 'DONE')
                         ->selectRaw('judge_user_id, count(*) as c')->groupBy('judge_user_id')
                         ->pluck('c', 'judge_user_id');
-                    $jamJudges = EventJudgeAssignment::where('event_id', $event->id)->orderBy('id')->pluck('user_id')
+                    $jamJudges = EventJudgeAssignment::where('event_id', $event->id)->with('user')->orderBy('id')->get()->sortBy(fn ($aj) => $aj->user?->role === 'head_judge' ? 0 : 1)->pluck('user_id')
                         ->values()
                         ->map(fn ($uid, $i) => ['n' => $i + 1, 'done' => ($progress[$uid] ?? 0) >= $heatSize])
                         ->all();
@@ -314,7 +314,9 @@ class LiveScoring extends Component
                     ->where('scoring_mode', $liveScoringMode)
                     ->where('live_stage', $liveStage)
                     ->whereNotNull('judge_user_id')
-                    ->get();
+                    ->get()
+                    ->sortBy(fn ($sc) => $sc->judge?->role === 'head_judge' ? 0 : 1)
+                    ->values();
 
                 // Saat REVEALING, "skor tertinggi sebelumnya" harus mengecualikan run
                 // yang baru saja diungkap ini sendiri — kalau tidak, run pertama

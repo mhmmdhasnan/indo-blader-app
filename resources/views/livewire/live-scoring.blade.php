@@ -382,22 +382,11 @@
             </div>
             <div x-show="phase === 'JUDGING'" style="display:none;">
                 <div class="aud-tm out">00:00:00</div>
-                @if(!empty($jamJudges))
-                    <div class="aud-jg" style="margin-top:calc(28*var(--u));">
-                        @foreach($jamJudges as $j)
-                            <span style="border-color:{{ $j['done'] ? 'var(--lime)' : '#ffb020' }};color:{{ $j['done'] ? 'var(--lime)' : '#ffb020' }};">{{ $j['done'] ? '✓' : '…' }} JUDGE {{ $j['n'] }}</span>
-                        @endforeach
-                    </div>
-                @endif
+                {{-- Status per judge (✓ JUDGE 1, …) tidak ditampilkan ke penonton; pantau di konsol Operator / Head Judge. --}}
             </div>
 
             <div x-show="phase !== 'REVEALING'" style="display:none;margin-top:auto;">
-                <div class="aud-rs {{ $jamCount > 5 ? 'many' : '' }}" style="--cols:{{ max(1, min($jamCount, $jamCount > 5 ? 4 : 5)) }};">
-                    {{-- Urut nama (bukan skor) supaya peringkat tidak bocor sebelum reveal. --}}
-                    @foreach($jamRows->sortBy(fn ($r) => mb_strtolower($r['rider']->name))->values() as $row)
-                        <div><i>{{ $initialsOf($row['rider']->name) }}</i><b>{{ $row['rider']->name }}</b></div>
-                    @endforeach
-                </div>
+                {{-- Nama rider tidak ditampilkan di layar timer (hanya timer; rider terlihat di leaderboard / hasil). --}}
                 @if($nextHeat ?? null)
                     <div class="aud-nx" x-show="phase === 'RUNNING'" style="margin-top:calc(20*var(--u));display:none;">
                         <span class="t">UP NEXT · {{ $nextHeat['label'] }}</span><b>{{ $nextHeat['names'] }}</b>
