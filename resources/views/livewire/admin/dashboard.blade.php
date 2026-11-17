@@ -458,6 +458,10 @@
                                         <input wire:model="evEntryFee" type="number" min="0" step="1000" class="input-field" style="width:100%;" placeholder="0">
                                         @error('evEntryFee') <p style="color:var(--red);font-size:11px;margin-top:3px;">{{ $message }}</p> @enderror
                                         <span class="mono dim" style="font-size:9px;display:block;margin-top:4px;">Isi 0 untuk gratis — langkah Payment di form register akan dilewati.</span>
+                                        <label class="flex label" style="gap:8px;align-items:center;font-size:12px;cursor:pointer;margin-top:8px;">
+                                            <input type="checkbox" wire:model="evPayViaPic" style="accent-color:var(--lime);">
+                                            Bayar lewat PIC Provinsi (tanpa upload bukti transfer)
+                                        </label>
                                     </div>
                                     @if($evType === 'LIVE_SCORE')
                                     <div>

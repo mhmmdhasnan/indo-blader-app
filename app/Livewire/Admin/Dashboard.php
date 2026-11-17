@@ -130,6 +130,7 @@ class Dashboard extends Component
     public int    $evPrize             = 5000000;
     public bool   $evPrizeHidden       = false;
     public int    $evEntryFee          = 0;
+    public bool   $evPayViaPic         = false;
     public string $evBlurb      = '';
     public bool   $evFeatured   = false;
     public        $evBannerFile = null;
@@ -566,6 +567,7 @@ class Dashboard extends Component
         $this->evPrize             = 5000000;
         $this->evPrizeHidden       = false;
         $this->evEntryFee          = 0;
+        $this->evPayViaPic         = false;
         $this->evBlurb             = '';
         $this->evFeatured          = false;
         $this->evBannerFile        = null;
@@ -597,6 +599,7 @@ class Dashboard extends Component
         $this->evPrize      = (int) $ev->prize;
         $this->evPrizeHidden = (bool) $ev->prize_hidden;
         $this->evEntryFee    = (int) $ev->entry_fee;
+        $this->evPayViaPic   = (bool) $ev->pay_via_pic;
         $this->evBlurb      = $ev->blurb ?? '';
         $this->evFeatured   = (bool) $ev->featured;
         $this->evBannerFile  = null;
@@ -697,6 +700,7 @@ class Dashboard extends Component
             'prize'        => $this->evPrize,
             'prize_hidden' => $this->evPrizeHidden,
             'entry_fee'    => $this->evEntryFee,
+            'pay_via_pic'  => $this->evPayViaPic,
             'blurb'      => $this->evBlurb,
             'featured'     => $this->evFeatured,
             'banner'       => $bannerPath ?: null,

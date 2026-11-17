@@ -310,6 +310,15 @@
                         </div>
                         <span class="display tnum" style="font-size:30px;color:var(--lime);">Rp {{ number_format($entryFee, 0, ',', '.') }}</span>
                     </div>
+                    @if($payViaPic)
+                    <div style="margin-bottom:20px;padding:14px 16px;background:var(--bg-2);border:2px solid var(--line);border-radius:3px;display:flex;align-items:center;gap:12px;">
+                        <span style="font-size:20px;">🏦</span>
+                        <div class="col" style="gap:3px;">
+                            <span class="label" style="font-size:13px;">Pembayaran melalui PIC Provinsi</span>
+                            <span class="mono dim" style="font-size:11px;">Registrasi Rp {{ number_format($entryFee, 0, ',', '.') }} per kelas, dibayarkan lewat PIC Provinsi masing-masing. Tidak perlu upload bukti transfer di sini.</span>
+                        </div>
+                    </div>
+                    @else
                     <div style="margin-bottom:20px;padding:14px 16px;background:var(--bg-2);border:2px solid var(--line);border-radius:3px;display:flex;align-items:center;gap:12px;">
                         <span style="font-size:20px;">🏦</span>
                         <div class="col" style="gap:3px;">
@@ -332,6 +341,7 @@
                             <span class="mono dim" style="font-size:10px;">JPG / PNG · MAX 5MB</span>
                         </label>
                     </div>
+                    @endif
                     @else
                     <p class="dim" style="font-size:14px;margin-bottom:20px;">Event ini <strong>gratis</strong> — tidak ada pembayaran. Tinggal konfirmasi persetujuan di bawah.</p>
                     @endif

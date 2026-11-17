@@ -110,7 +110,7 @@ class RegistrationForm extends Component
         }
 
         if ($this->step === 3) {
-            if ($this->entryFee() > 0 && !$this->payFile) $this->errors['payFile'] = 'bukti bayar wajib';
+            if ($this->entryFee() > 0 && !$this->payViaPic() && !$this->payFile) $this->errors['payFile'] = 'bukti bayar wajib';
             if (!$this->agree) $this->errors['agree'] = 'must agree';
         }
 
@@ -129,6 +129,11 @@ class RegistrationForm extends Component
         return (int) Event::whereIn('status', self::REGISTRABLE_STATUSES)->where('slug', $this->eventSlug)->value('entry_fee');
     }
 
+    private function payViaPic(): bool
+    {
+        return (bool) Event::whereIn('status', self::REGISTRABLE_STATUSES)->where('slug', $this->eventSlug)->value('pay_via_pic');
+    }
+
     public function back(): void
     {
         $this->step = max(0, $this->step - 1);
@@ -143,7 +148,7 @@ class RegistrationForm extends Component
         $photoPath = $this->photo->store('avatars', 'public');
 
         $proofPath = null;
-        if ($fee > 0 && $this->payFile) {
+        if ($fee > 0 && !$event->pay_via_pic && $this->payFile) {
             $proofPath = $this->payFile->store('proofs', 'public');
         }
 
@@ -208,8 +213,9 @@ class RegistrationForm extends Component
             ? $currentEvent->divisions()->where('is_active', true)->orderBy('name')->get()
             : collect();
 
-        $entryFee = (int) ($currentEvent?->entry_fee ?? 0);
+        $entryFee  = (int) ($currentEvent?->entry_fee ?? 0);
+        $payViaPic = (bool) ($currentEvent?->pay_via_pic ?? false);
 
-        return view('livewire.registration-form', compact('events', 'currentEvent', 'divisions', 'entryFee'));
+        return view('livewire.registration-form', compact('events', 'currentEvent', 'divisions', 'entryFee', 'payViaPic'));
     }
 }
