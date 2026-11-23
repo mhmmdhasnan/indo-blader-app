@@ -1,5 +1,5 @@
 {{-- Input nilai: slider + isi manual (angka). Nama file lama "keypad" dipertahankan supaya semua pemanggil tetap jalan.
-     Expects $model (mis. 'criteriaScores.all', 'jamScores.12.all', 'bestTrickScore'), $value (float|null), $max (100 atau 10),
+     Expects $model (mis. 'criteriaScores.all', 'jamScores.12.all', 'bestTrickScore'), $value (float|null), $max (100, 10 atau 5), opsional $min (default 0),
      opsional $label. Nilai langsung tersimpan ke properti Livewire $model (debounce); kosong = belum diisi. --}}
 @once
 <style>
@@ -16,6 +16,7 @@
 @endonce
 @php
     $kpHas = $value !== null && $value !== '' && is_numeric($value);
+    $kpMin = rtrim(rtrim(number_format((float) ($min ?? 0), 1, '.', ''), '0'), '.') ?: '0';
     $kpMax = rtrim(rtrim(number_format((float) $max, 1, '.', ''), '0'), '.');
 @endphp
 <div class="kp" wire:key="kp-{{ $model }}">
@@ -24,9 +25,9 @@
         <span class="kp-tag {{ $kpHas ? 'saved' : 'empty' }}">{{ $kpHas ? 'TERISI' : 'BELUM DIISI' }}</span>
     </div>
     <div class="kp-row">
-        <input type="range" class="kp-range" min="0" max="{{ $kpMax }}" step="0.1"
+        <input type="range" class="kp-range" min="{{ $kpMin }}" max="{{ $kpMax }}" step="0.1"
             wire:model.live.debounce.300ms="{{ $model }}" aria-label="Geser nilai {{ $label ?? '' }}">
-        <input type="number" inputmode="decimal" class="kp-num" min="0" max="{{ $kpMax }}" step="0.1" placeholder="0–{{ $kpMax }}"
+        <input type="number" inputmode="decimal" class="kp-num" min="{{ $kpMin }}" max="{{ $kpMax }}" step="0.1" placeholder="{{ $kpMin }}–{{ $kpMax }}"
             wire:model.live.debounce.500ms="{{ $model }}" aria-label="Isi nilai {{ $label ?? '' }} manual">
     </div>
 </div>

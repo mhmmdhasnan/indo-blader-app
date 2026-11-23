@@ -108,6 +108,11 @@
                 </div>
             @endif
 
+            @if($judgeDivisionId && !$ocBestTrick)
+                <a href="{{ route('print.heat', ['division' => $judgeDivisionId] + ($judgeGroupId ? ['group' => $judgeGroupId] : [])) }}" target="_blank" rel="noopener"
+                    class="oc-ghost" style="display:flex;align-items:center;justify-content:center;text-decoration:none;min-height:44px;">🖨 PRINT HEAT{{ $judgeGroupId ? '' : ' (SEMUA)' }}</a>
+            @endif
+
             @if(!$judgeDivisionId)
                 <p class="mono dim" style="font-size:12px;">Pilih divisi untuk melihat antrean.</p>
             @elseif($ocIsJam)

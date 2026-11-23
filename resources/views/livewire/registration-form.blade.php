@@ -21,7 +21,7 @@
                 <div class="flex" style="flex-wrap:wrap;">
                     <div style="flex:1 1 280px;padding:24px;">
                         @php $selectedDiv = $divisions->firstWhere('id', $divisionId); @endphp
-                        @foreach([['RIDER',$name],['EVENT',$currentEvent?->title],['DIVISION',$selectedDiv?->name ?? '-'],['CITY',$city],['PAYMENT',$entryFee > 0 ? 'Transfer Bank' : 'Gratis'],['STATUS','PENDING APPROVAL']] as [$l,$v])
+                        @foreach([['RIDER',$name],['EVENT',$currentEvent?->title],['DIVISION',$selectedDiv?->name ?? '-'],[$askProvince ? 'PROVINSI' : 'CITY',$city],['PAYMENT',$entryFee > 0 ? 'Transfer Bank' : 'Gratis'],['STATUS','PENDING APPROVAL']] as [$l,$v])
                             <div class="between" style="padding:11px 0;border-bottom:1px solid var(--line);">
                                 <span class="mono dim" style="font-size:10px;letter-spacing:0.12em;">{{ $l }}</span>
                                 <span class="label" style="font-size:14px;text-align:right;">{{ $v }}</span>
@@ -87,6 +87,18 @@
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;" class="prof-grid">
 
+                        {{-- Event (dipilih di sini supaya field lokasi menyesuaikan: kota / provinsi) --}}
+                        <label class="col" style="gap:7px;grid-column:1/-1;">
+                            <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['event']) ? 'var(--red)' : 'var(--ink-dim)' }};">
+                                EVENT *{{ isset($errors['event']) ? ' — '.$errors['event'] : '' }}
+                            </span>
+                            <select wire:model.live="eventSlug" class="field-input">
+                                @foreach($events as $ev)
+                                    <option value="{{ $ev->slug }}">{{ $ev->title }} — {{ $ev->date_label }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+
                         {{-- Name --}}
                         <label class="col" style="gap:7px;">
                             <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['name']) ? 'var(--red)' : 'var(--ink-dim)' }};">
@@ -148,13 +160,22 @@
                                 class="field-input {{ isset($errors['dob']) ? 'error' : '' }}" />
                         </label>
 
-                        {{-- City --}}
+                        {{-- City / Provinsi (event PIN meminta provinsi) --}}
                         <label class="col" style="gap:7px;">
                             <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['city']) ? 'var(--red)' : 'var(--ink-dim)' }};">
-                                CITY *{{ isset($errors['city']) ? ' — '.$errors['city'] : '' }}
+                                {{ $askProvince ? 'PROVINSI' : 'CITY' }} *{{ isset($errors['city']) ? ' — '.$errors['city'] : '' }}
                             </span>
-                            <input wire:model.live="city" type="text" placeholder="e.g. Jakarta"
-                                class="field-input {{ isset($errors['city']) ? 'error' : '' }}" />
+                            @if($askProvince)
+                                <select wire:model.live="city" class="field-input {{ isset($errors['city']) ? 'error' : '' }}">
+                                    <option value="">— Pilih provinsi —</option>
+                                    @foreach($provinces as $prov)
+                                        <option value="{{ $prov }}">{{ $prov }}</option>
+                                    @endforeach
+                                </select>
+                            @else
+                                <input wire:model.live="city" type="text" placeholder="e.g. Jakarta"
+                                    class="field-input {{ isset($errors['city']) ? 'error' : '' }}" />
+                            @endif
                         </label>
 
                         {{-- Photo --}}
@@ -188,14 +209,7 @@
                         <span class="mono" style="font-size:12px;color:var(--lime);">02</span>
                         <h2 class="display" style="font-size:clamp(24px,3.2vw,34px);">Event & Category</h2>
                     </div>
-                    <label class="col" style="gap:7px;margin-bottom:22px;">
-                        <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:var(--ink-dim);">EVENT *</span>
-                        <select wire:model.live="eventSlug" class="field-input">
-                            @foreach($events as $ev)
-                                <option value="{{ $ev->slug }}">{{ $ev->title }} — {{ $ev->date_label }}</option>
-                            @endforeach
-                        </select>
-                    </label>
+                    <div class="mono dim" style="font-size:11px;margin-bottom:18px;">EVENT: <span style="color:var(--ink);">{{ $currentEvent?->title }}</span></div>
                     @if($currentEvent)
                         <span class="mono" style="font-size:10px;letter-spacing:0.14em;color:{{ isset($errors['division']) ? 'var(--red)' : 'var(--ink-dim)' }};display:block;margin-bottom:12px;">
                             DIVISION *{{ isset($errors['division']) ? ' — ' . $errors['division'] : '' }}

@@ -20,6 +20,7 @@ use App\Livewire\RegistrationForm;
 use App\Livewire\Rider\Dashboard as RiderDashboard;
 use App\Livewire\RiderProfile;
 use App\Livewire\RidersList;
+use App\Http\Controllers\HeatSheetController;
 use App\Http\Controllers\SimulatorController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -39,6 +40,7 @@ Route::post('/logout', function () {
 // ── Role-protected routes ────────────────────────────────────────────────────
 Route::get('/admin', Dashboard::class)->name('admin')->middleware('role:admin,registrar');
 Route::get('/judge', JudgeDashboard::class)->name('judge')->middleware('role:judge,head_judge,operator');
+Route::get('/print/heat/{division}', [HeatSheetController::class, 'show'])->name('print.heat')->middleware('role:admin,registrar,judge,head_judge,operator');
 Route::get('/rider', RiderDashboard::class)->name('rider.dashboard')->middleware('role:rider');
 
 // ── Public routes ────────────────────────────────────────────────────────────

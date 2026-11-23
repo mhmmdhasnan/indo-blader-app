@@ -229,10 +229,22 @@ class Dashboard extends Component
     }
 
     /** Semua kriteria live sudah terisi angka? (nilai kosong tidak boleh dihitung sebagai 0) */
-    private function criteriaFilled(array $scores): bool
+    private function criteriaFilled(array $scores, float $min = 0, float $max = 100): bool
     {
         $keys = $this->loadCriteria('LIVE')->pluck('key');
-        return $keys->isNotEmpty() && $keys->every(fn ($k) => is_numeric($scores[$k] ?? null) && $scores[$k] >= 0 && $scores[$k] <= 100);
+        return $keys->isNotEmpty() && $keys->every(fn ($k) => is_numeric($scores[$k] ?? null) && $scores[$k] >= $min && $scores[$k] <= $max);
+    }
+
+    /** Skala nilai per kriteria untuk Jamming Season (judge memberi 1–5). Standar tetap 0–100. */
+    public const JAM_MIN = 1;
+    public const JAM_MAX = 5;
+
+    /** @return array{0: float, 1: float} [min, max] nilai kriteria untuk skor ini (Jamming = 1–5, lainnya 0–100) */
+    private function criteriaRangeFor(?JudgeScore $score): array
+    {
+        $isJam = $score?->division_id
+            && \App\Models\EventDivision::whereKey($score->division_id)->where('format', 'JAMMING')->exists();
+        return $isJam ? [self::JAM_MIN, self::JAM_MAX] : [0, 100];
     }
 
     private function loadCriteria(string $mode): \Illuminate\Database\Eloquent\Collection
@@ -530,15 +542,10 @@ class Dashboard extends Component
             }
             $score->update(['total' => round((float) $v, 1), 'status' => 'DONE']);
         } else {
-            if (!$this->criteriaFilled($this->hjEditValues)) {
-                $this->hjEditError = 'Isi semua kriteria dengan angka.';
+            [$min, $max] = $this->criteriaRangeFor($score);
+            if (!$this->criteriaFilled($this->hjEditValues, $min, $max)) {
+                $this->hjEditError = "Isi semua kriteria dengan angka {$min}–{$max}.";
                 return;
-            }
-            foreach ($this->hjEditValues as $v) {
-                if ($v < 0 || $v > 100) {
-                    $this->hjEditError = 'Nilai tiap kriteria harus 0–100.';
-                    return;
-                }
             }
             app(ScoringService::class)->submitScore($score, $this->hjEditValues);
         }
@@ -1216,8 +1223,8 @@ class Dashboard extends Component
         // Hanya rider yang memang ada di heat ini
         if (!$this->jamHeatRegistrations($division)->contains('id', $registrationId)) return;
 
-        if (!$this->criteriaFilled($this->jamScores[$registrationId] ?? [])) {
-            $this->addError('jamScores.' . $registrationId, 'Isi nilai semua kriteria dulu (tekan OK di keypad).');
+        if (!$this->criteriaFilled($this->jamScores[$registrationId] ?? [], self::JAM_MIN, self::JAM_MAX)) {
+            $this->addError('jamScores.' . $registrationId, 'Isi nilai semua kriteria dulu (angka ' . self::JAM_MIN . '–' . self::JAM_MAX . ').');
             return;
         }
 
@@ -1258,7 +1265,7 @@ class Dashboard extends Component
 
         $this->resetErrorBag();
         foreach ($this->jamHeatRegistrations($division) as $reg) {
-            if ($this->criteriaFilled($this->jamScores[$reg->id] ?? [])) {
+            if ($this->criteriaFilled($this->jamScores[$reg->id] ?? [], self::JAM_MIN, self::JAM_MAX)) {
                 $this->submitJamScore($reg->id);   // yang sudah DONE dilewati di dalamnya
             }
         }
@@ -1869,6 +1876,7 @@ class Dashboard extends Component
             // - tiap heat diurutkan dari rata-rata tertinggi. Satu baris per rider + run.
             $data['headJudgeSummary'] = collect();
             $data['hjEditCriteria']   = $this->hjEditScoreId ? $this->loadCriteria('LIVE') : collect();
+            $data['hjEditRange']      = $this->criteriaRangeFor($this->hjEditScoreId ? JudgeScore::find($this->hjEditScoreId) : null);
             if ($this->judgeEventId && $this->scoringMode === 'live' && auth()->user()->isHeadJudge() && !auth()->user()->isOperator()) {
                 $summaryDivisionId = $data['activeEvent']?->active_division_id ?: $this->judgeDivisionId;
                 $summaryDivision   = $summaryDivisionId ? \App\Models\EventDivision::find($summaryDivisionId) : null;

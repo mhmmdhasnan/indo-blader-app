@@ -1,5 +1,5 @@
 {{-- Input nilai per rider: satu keypad per kriteria. Kalau kriteria > 1, ada tab untuk memilih kriteria yang sedang diisi.
-     Expects $criteria (collection: key, name), $modelPrefix ('criteriaScores' | 'jamScores.<regId>'), $scores (array key => nilai|null), $max (default 100) --}}
+     Expects $criteria (collection: key, name), $modelPrefix ('criteriaScores' | 'jamScores.<regId>'), $scores (array key => nilai|null), $max (default 100), $min (default 0) --}}
 @php $siMax = $max ?? 100; $siFirst = $criteria->first()?->key; @endphp
 <div x-data="{ sel: '{{ $siFirst }}' }" style="display:flex;flex-direction:column;gap:12px;">
     @if($criteria->count() > 1)
@@ -21,6 +21,7 @@
                 'model' => $modelPrefix . '.' . $crit->key,
                 'value' => $scores[$crit->key] ?? null,
                 'max'   => $siMax,
+                'min'   => $min ?? 0,
                 'label' => $criteria->count() > 1 ? $crit->name : '',
             ])
         </div>

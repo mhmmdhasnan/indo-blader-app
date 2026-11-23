@@ -8,6 +8,7 @@ use App\Models\EventDivision;
 use App\Models\Registration;
 use App\Models\RiderCategory;
 use App\Services\NotificationService;
+use App\Support\Provinces;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -71,6 +72,11 @@ class RegistrationForm extends Component
     public function updatedEventSlug(): void
     {
         $this->divisionId = 0;
+
+        // Event PIN meminta provinsi (dropdown); nilai kota ketikan bebas tidak berlaku lagi.
+        if (Provinces::eventUsesProvince($this->eventSlug) && !in_array($this->city, Provinces::ALL, true)) {
+            $this->city = '';
+        }
     }
 
     public function next(): void
@@ -82,7 +88,14 @@ class RegistrationForm extends Component
             if (!filter_var($this->email, FILTER_VALIDATE_EMAIL)) $this->errors['email'] = 'invalid email';
             if (!preg_match('/^[0-9]{6,}$/', trim($this->phoneNumber))) $this->errors['phone'] = 'min 6 digit';
             if (!$this->dob)                                      $this->errors['dob']   = 'required';
-            if (!trim($this->city))                               $this->errors['city']  = 'required';
+            if (!trim($this->city)) {
+                $this->errors['city'] = 'required';
+            } elseif (Provinces::eventUsesProvince($this->eventSlug) && !in_array($this->city, Provinces::ALL, true)) {
+                $this->errors['city'] = 'pilih provinsi';
+            }
+            if (!Event::whereIn('status', self::REGISTRABLE_STATUSES)->where('slug', $this->eventSlug)->exists()) {
+                $this->errors['event'] = 'pilih event';
+            }
             if (!$this->photo) {
                 $this->errors['photo'] = 'foto wajib diupload';
             } elseif (!in_array(strtolower($this->photo->getClientOriginalExtension()), ['jpg', 'jpeg', 'png', 'webp'], true)
@@ -216,6 +229,9 @@ class RegistrationForm extends Component
         $entryFee  = (int) ($currentEvent?->entry_fee ?? 0);
         $payViaPic = (bool) ($currentEvent?->pay_via_pic ?? false);
 
-        return view('livewire.registration-form', compact('events', 'currentEvent', 'divisions', 'entryFee', 'payViaPic'));
+        $askProvince = Provinces::eventUsesProvince($this->eventSlug);
+        $provinces   = Provinces::ALL;
+
+        return view('livewire.registration-form', compact('events', 'currentEvent', 'divisions', 'entryFee', 'payViaPic', 'askProvince', 'provinces'));
     }
 }

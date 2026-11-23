@@ -57,7 +57,7 @@
                         </span>
                     </div>
                     @if(!$done)
-                        @include('livewire.partials.score-input', ['criteria' => $criteria, 'modelPrefix' => 'jamScores.' . $reg->id, 'scores' => $jamScores[$reg->id] ?? [], 'name' => $reg->name, 'max' => 100])
+                        @include('livewire.partials.score-input', ['criteria' => $criteria, 'modelPrefix' => 'jamScores.' . $reg->id, 'scores' => $jamScores[$reg->id] ?? [], 'name' => $reg->name, 'min' => 1, 'max' => 5])
                     @endif
                     @if($done)
                         {{-- Terkunci seperti live score biasa; revisi lewat tombol Edit Head Judge. --}}
@@ -95,8 +95,8 @@
                                     @if($editing)
                                         <div style="margin-top:6px;padding:10px;border:2px solid var(--lime);display:flex;flex-direction:column;gap:8px;">
                                             @foreach(($hjEditCriteria ?? collect()) as $crit)
-                                                <label class="mono" style="font-size:11px;letter-spacing:.08em;">{{ strtoupper($crit->name) }} (0–100)
-                                                    <input type="number" step="0.1" min="0" max="100" wire:model="hjEditValues.{{ $crit->key }}" class="input-field" style="width:100%;min-height:44px;">
+                                                <label class="mono" style="font-size:11px;letter-spacing:.08em;">{{ strtoupper($crit->name) }} ({{ $hjEditRange[0] ?? 1 }}–{{ $hjEditRange[1] ?? 5 }})
+                                                    <input type="number" step="0.1" min="{{ $hjEditRange[0] ?? 1 }}" max="{{ $hjEditRange[1] ?? 5 }}" wire:model="hjEditValues.{{ $crit->key }}" class="input-field" style="width:100%;min-height:44px;">
                                                 </label>
                                             @endforeach
                                             @if($hjEditError ?? null)<p class="mono" style="font-size:11px;color:var(--red);margin:0;">{{ $hjEditError }}</p>@endif
