@@ -449,7 +449,7 @@ class Dashboard extends Component
 
         $age = $reg->dob ? (int) $reg->dob->diffInYears(now()) : 0;
         $rider = Rider::create([
-            'user_id'  => $reg->user_id,
+            'user_id'  => Rider::freeUserId($reg->user_id),
             'name'     => $reg->name,
             'nick'     => $reg->name,
             'city'     => $reg->city ?? '-',

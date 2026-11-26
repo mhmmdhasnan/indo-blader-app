@@ -234,7 +234,7 @@ class RegistrationImportService
         }
 
         $rider = Rider::where('name', $reg->name)->first() ?? Rider::create([
-            'user_id'  => $reg->user_id,
+            'user_id'  => Rider::freeUserId($reg->user_id),
             'name'     => $reg->name,
             'nick'     => $reg->name,
             'city'     => $reg->city ?? '-',

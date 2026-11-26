@@ -19,6 +19,15 @@ class Rider extends Model
         'best_score' => 'float',
     ];
 
+    /**
+     * riders.user_id itu unique, padahal satu akun (PIC) bisa mendaftarkan banyak rider.
+     * Kembalikan $userId hanya kalau belum dipakai Rider lain; kalau sudah, null supaya insert tidak bentrok.
+     */
+    public static function freeUserId(?int $userId): ?int
+    {
+        return $userId && !static::where('user_id', $userId)->exists() ? $userId : null;
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
