@@ -1077,6 +1077,7 @@ class Dashboard extends Component
             $riderId = $this->resolveRiderIdFromRegistration($reg->id);
             if ($riderId) {
                 $path = $this->regEditPhoto->store('avatars', 'public');
+                \App\Support\AvatarThumb::make($path);
                 Rider::whereKey($riderId)->update(['avatar' => $path]);
                 $reg->update(['photo' => $path]);
             }

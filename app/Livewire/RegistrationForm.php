@@ -159,6 +159,7 @@ class RegistrationForm extends Component
 
         $fee       = (int) $event->entry_fee;
         $photoPath = $this->photo->store('avatars', 'public');
+        \App\Support\AvatarThumb::make($photoPath);
 
         $proofPath = null;
         if ($fee > 0 && !$event->pay_via_pic && $this->payFile) {

@@ -246,6 +246,7 @@ class RegistrationImportService
 
         $path = 'avatars/' . Str::random(40) . '.' . $ext;
         Storage::disk('public')->put($path, $body);
+        \App\Support\AvatarThumb::make($path);
         $rider->update(['avatar' => $path]);
 
         return true;

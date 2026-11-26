@@ -103,6 +103,7 @@ class Dashboard extends Component
         }
 
         $path = $this->avatarFile->store('avatars', 'public');
+        \App\Support\AvatarThumb::make($path);
         $rider->update(['avatar' => $path]);
 
         $this->avatarFile  = null;

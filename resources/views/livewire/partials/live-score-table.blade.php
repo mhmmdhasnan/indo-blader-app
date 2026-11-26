@@ -25,6 +25,7 @@
     @foreach($rows as $i => $row)
         @php
             $isOnCourse = $displayPhase === 'RUNNING' && $event?->live_rider_id && ($row['rider']->id === $event->live_rider_id);
+            $avatarUrl  = \App\Support\AvatarThumb::url(($row['registration'] ?? null)?->photo ?: ($row['rider']->avatar ?? null));   // thumbnail 160px (fallback foto asli)
             $rowTotal   = (float) ($row['total'] ?? $row['best'] ?? 0);
             $rank       = $rowTotal > 0 ? 1 + $totals->filter(fn ($v) => $v > $rowTotal)->count() : $i + 1;   // seri berbagi nomor peringkat
             $isWinner   = $winnerRow && $rank === 1 && $rowTotal > 0;
@@ -34,7 +35,7 @@
         <div class="at-row {{ $isWinner ? 'lsc-win' : '' }} {{ $isOnCourse ? 'on' : '' }} {{ ($markRiderId && $row['rider']->id === $markRiderId) ? 'me' : '' }}">
             <span class="at-rk" style="color:{{ $rank === 1 ? 'var(--lime)' : ($isLast ? 'var(--ink-faint)' : 'var(--ink)') }};">{{ str_pad($rank, 2, '0', STR_PAD_LEFT) }}</span>
             <div class="at-rd">
-                <i class="at-av">{{ $row['rider']->initials }}</i>
+                <i class="at-av" @if($avatarUrl) style="position:relative;overflow:hidden;" @endif>{{ $row['rider']->initials }}@if($avatarUrl)<img src="{{ $avatarUrl }}" alt="" decoding="async" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center;display:block;">@endif</i>
                 <div style="min-width:0;">
                     <div class="at-nm">{{ $row['rider']->name }}@if($isFinalist)<span class="at-lolos">LOLOS</span>@endif</div>
                     <div class="at-ct">{{ $isOnCourse ? '● ON COURSE' : ($row['rider']->city ?? '—') }}</div>
@@ -63,7 +64,7 @@
         @endforeach
     </div>
     @foreach($rows as $i => $row)
-        @php $isOnCourse = $displayPhase === 'RUNNING' && $event?->live_rider_id && ($row['rider']->id === $event->live_rider_id); @endphp
+        @php $isOnCourse = $displayPhase === 'RUNNING' && $event?->live_rider_id && ($row['rider']->id === $event->live_rider_id); $avatarUrl = \App\Support\AvatarThumb::url(($row['registration'] ?? null)?->photo ?: ($row['rider']->avatar ?? null)); @endphp
         @php
             $rowTotalVal = (float) ($row['total'] ?? $row['best'] ?? 0);
             $rank        = $rowTotalVal > 0 ? 1 + $totals->filter(fn ($v) => $v > $rowTotalVal)->count() : $i + 1;   // seri berbagi nomor peringkat
@@ -76,7 +77,7 @@
         ">
             <span class="display tnum" style="font-size:{{ $numSize }};color:{{ $rank === 1 ? 'var(--lime)' : ($rank <= 3 ? 'var(--ink)' : 'var(--ink-faint)') }};">{{ str_pad($rank,2,'0',STR_PAD_LEFT) }}</span>
             <div class="flex" style="align-items:center;gap:{{ $compact ? 10 : 14 }}px;min-width:0;">
-                <x-avatar :initials="$row['rider']->initials" :size="$avatarSize" :ring="$i === 0" />
+                <x-avatar :initials="$row['rider']->initials" :size="$avatarSize" :ring="$i === 0" :src="$avatarUrl" />
                 <div class="col" style="min-width:0;">
                     <span class="label" style="font-size:{{ $nameSize }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;">
                         {{ $row['rider']->name }}

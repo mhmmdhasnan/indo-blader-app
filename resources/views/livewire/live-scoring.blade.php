@@ -160,6 +160,28 @@
         .at-row.lsc-win, .score-row.lsc-win { background:var(--lime) !important; border-left-color:transparent !important; }
         .at-row.lsc-win, .at-row.lsc-win *, .score-row.lsc-win, .score-row.lsc-win * { color:#0a0a0b !important; }
         .at-row.lsc-win .at-av { border-color:#0a0a0b; }
+        /* ── Semua heat: grid kotak heat; tiap kotak = tabel .at yang diperkecil. Semua ukuran pakai --u, jadi ikut skala layar. ── */
+        .aud-hs { display:grid; grid-template-columns:repeat(var(--hs-cols,3),minmax(0,1fr)); gap:calc(16*var(--u)) calc(24*var(--u)); align-items:start; }
+        .aud-hs-p { min-width:0; overflow:hidden; border:calc(2*var(--u)) solid var(--ink); background:var(--panel); }
+        .aud-hs-t { padding:calc(5*var(--u)) calc(20*var(--u)); border-bottom:calc(3*var(--u)) solid var(--ink); background:var(--bg-2); font-family:var(--font-mono); font-weight:700; font-size:calc(22*var(--u)); line-height:calc(26*var(--u)); letter-spacing:.14em; text-transform:uppercase; color:var(--ink-dim); }
+        .at.d-hs1 { --rh:84; --rk:54; --av:56; --nm:28; --ct:16; --rn:24; --bs:44; --wk:84; --wr:110; --wb:130; --pd:22; --gp:18; --hh:44; --hf:18; }
+        .at.d-hs2 { --rh:38; --rk:30; --av:32; --nm:22; --ct:13; --rn:17; --bs:28; --wk:54; --wr:70;  --wb:84;  --pd:14; --gp:12; --hh:28; --hf:14; }
+        .at.d-hs2.narrow { --nm:20; --av:30; --wk:48; --wb:76; --pd:12; --gp:10; }
+        .at.d-hs3 { --rh:30; --rk:22; --av:24; --nm:16; --ct:10; --rn:12; --bs:20; --wk:38; --wr:50;  --wb:60;  --pd:10; --gp:8;  --hh:24; --hf:10; }
+        /* Layout >=2 baris heat: kotak mengisi tinggi zona konten, tinggi baris rider melar sama rata (min = --rh). */
+        .aud-hs.fill { flex:1 1 auto; min-height:0; grid-template-rows:repeat(var(--hs-rows,2),minmax(min-content,1fr)); align-items:stretch; }
+        .aud-hs.fill .aud-hs-p { display:flex; flex-direction:column; }
+        .aud-hs.fill .at.hs { flex:1 1 auto; display:grid; grid-template-rows:auto repeat(var(--hs-n,5),minmax(calc(var(--rh)*var(--u)),1fr)); }
+        .aud-hs.fill .at.hs .at-row:not(.h) { height:auto; }
+        .at.hs .at-row { grid-template-columns:calc(var(--wk)*var(--u)) 1fr calc(var(--wr)*var(--u)) calc(var(--wr)*var(--u)) calc(var(--wb)*var(--u)); padding:0 calc(var(--pd)*var(--u)); border-left-width:calc(3*var(--u)); }
+        .at.hs.one-run .at-row { grid-template-columns:calc(var(--wk)*var(--u)) 1fr calc(var(--wb)*var(--u)); }
+        .at.hs.one-run .at-r, .at.hs.one-run .at-row.h span:nth-child(3) { display:none; }   /* 1 run: kolom RUN = BEST, tidak perlu dua kali */
+        .at.hs .at-row.h { height:calc(var(--hh)*var(--u)); font-size:calc(var(--hf)*var(--u)); }
+        .at.hs .at-rd { gap:calc(var(--gp)*var(--u)); }
+        .at.hs .at-nm { line-height:1.04; }
+        .at.hs .at-ct { line-height:1.1; }
+        .at.hs .at-av { border-width:calc(2*var(--u)); }
+        .at.hs .at-lolos { font-size:calc(var(--ct)*var(--u)); margin-left:calc(8*var(--u)); border-width:calc(2*var(--u)); padding:0 calc(6*var(--u)); }
     </style>
 
 
@@ -508,23 +530,23 @@
                 @endif
 
                 @if($scoreSections->isNotEmpty())
-                    {{-- "Semua" group: 1 group = 1 tabel, berdampingan (maks 4 kolom per baris). Fitur ini dipertahankan. --}}
+                    {{-- "Semua" group: 1 heat = 1 kotak, grid kolom sama lebar. Kolom/kepadatan menurut jumlah heat
+                         (1-3 heat: 1 baris besar; 4: 2x2; 5-6: 3 kolom; 7+: 4 kolom) supaya muat tanpa diperkecil. --}}
                     @php
                         $sectionCount = $scoreSections->count();
-                        $sectionRows  = (int) ceil($sectionCount / 4);
-                        $sectionCols  = $sectionRows > 0 ? (int) ceil($sectionCount / $sectionRows) : 1;
-                        $sectionGap   = 20;
+                        $sectionCols  = $sectionCount <= 3 ? max(1, $sectionCount) : ($sectionCount === 4 ? 2 : ($sectionCount <= 6 ? 3 : 4));
+                        $sectionRows  = (int) ceil($sectionCount / $sectionCols);
+                        $hsDensity    = $sectionRows <= 1 ? 'd-hs1 hs' : ($sectionRows === 2 ? 'd-hs2 hs' . ($sectionCols >= 4 ? ' narrow' : '') : 'd-hs3 hs');
                     @endphp
-                    <div style="display:flex;flex-wrap:wrap;gap:{{ $sectionGap }}px;align-items:flex-start;">
+                    @php $hsMaxRiders = max(1, $scoreSections->max(fn ($sec) => $sec['leaderboard']->count())); @endphp
+                    <div class="aud-hs {{ $sectionRows >= 2 ? 'fill' : '' }}" style="--hs-cols:{{ $sectionCols }};--hs-rows:{{ $sectionRows }};--hs-n:{{ $hsMaxRiders }};">
                         @foreach($scoreSections as $section)
-                            <div class="panel" style="overflow:hidden;flex:1 1 calc((100% - {{ ($sectionCols - 1) * $sectionGap }}px)/{{ $sectionCols }});min-width:260px;">
-                                <div style="padding:14px 18px;border-bottom:2px solid var(--ink);background:var(--bg-2);">
-                                    <span class="kicker">{{ strtoupper($section['group']?->name ?? 'BELUM ADA GROUP') }}</span>
-                                </div>
+                            <div class="aud-hs-p" wire:key="hs-{{ $section['group']?->id ?? $loop->index }}">
+                                <div class="aud-hs-t">{{ $section['group']?->name ?? 'BELUM ADA GROUP' }}</div>
                                 @if($section['leaderboard']->isEmpty())
-                                    <p class="mono dim" style="font-size:12px;padding:18px;">Belum ada rider (approved) di group ini.</p>
+                                    <p class="mono dim" style="font-size:calc(18*var(--u));padding:calc(18*var(--u));">Belum ada rider (approved) di group ini.</p>
                                 @else
-                                    @include('livewire.partials.live-score-table', ['rows' => $section['leaderboard'], 'compact' => true])
+                                    @include('livewire.partials.live-score-table', ['rows' => $section['leaderboard'], 'density' => $hsDensity])
                                 @endif
                             </div>
                         @endforeach
