@@ -168,7 +168,11 @@ class LiveScoring extends Component
                     // sama seperti tampilan leaderboard di Judge Panel Operator.
                     $scoreSections = app(LiveScoreboardService::class)->buildQualificationSections($division);
                 } else {
-                    $scores = app(LiveScoreboardService::class)->buildLeaderboard($division, $stage, $groupId);
+                    // Best Trick: skor percobaan yang sedang berjalan baru ikut dihitung setelah Head Judge reveal.
+                    $holdBestTrick = ($division->best_trick_active && $event->live_phase === 'RUNNING' && $event->live_rider_id && $event->live_run_number)
+                        ? ['rider_id' => (int) $event->live_rider_id, 'run_number' => (int) $event->live_run_number]
+                        : null;
+                    $scores = app(LiveScoreboardService::class)->buildLeaderboard($division, $stage, $groupId, $holdBestTrick);
                 }
 
                 // Begitu admin pindah ke FINAL, leaderboard yang tampil ke publik berubah

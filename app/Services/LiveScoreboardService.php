@@ -50,7 +50,7 @@ class LiveScoreboardService
      * highest of the (up to 3) per-attempt averages is the bonus added to the
      * rider's FINAL total. Returns 0 if the rider has no Best Trick scores yet.
      */
-    private function bestTrickBonus(int $eventId, ?int $divisionId, int $riderId): float
+    private function bestTrickBonus(int $eventId, ?int $divisionId, int $riderId, ?int $excludeAttempt = null): float
     {
         $attemptAverages = JudgeScore::where('event_id', $eventId)
             ->where('division_id', $divisionId)
@@ -58,6 +58,7 @@ class LiveScoreboardService
             ->where('scoring_mode', 'BEST_TRICK')
             ->where('live_stage', 'FINAL')
             ->where('status', 'DONE')
+            ->when($excludeAttempt, fn ($q) => $q->where('run_number', '!=', $excludeAttempt))
             ->get()
             ->groupBy('run_number')
             ->map(fn ($attempt) => $attempt->avg('total'));
@@ -69,8 +70,12 @@ class LiveScoreboardService
      * Always returns one row per registered rider — even before any score is
      * submitted — so the public leaderboard can show the full roster (with
      * blank scores) instead of an empty state.
+     *
+     * $holdBestTrick = ['rider_id' => int, 'run_number' => int]: skor Best Trick untuk percobaan
+     * itu belum dihitung (juri sudah kirim tapi Head Judge belum reveal) — dipakai layar publik
+     * supaya skor tidak bocor sebelum reveal.
      */
-    public function buildLeaderboard(EventDivision $division, string $stage, ?int $groupId = null): Collection
+    public function buildLeaderboard(EventDivision $division, string $stage, ?int $groupId = null, ?array $holdBestTrick = null): Collection
     {
         $registrations = $this->registrationsForStage($division, $stage, $groupId);
 
@@ -95,7 +100,7 @@ class LiveScoreboardService
             ->groupBy('rider_id');
 
         return $riderMap
-            ->map(function ($reg, $regId) use ($riders, $riderIdByReg, $scoresByRider, $division, $stage) {
+            ->map(function ($reg, $regId) use ($riders, $riderIdByReg, $scoresByRider, $division, $stage, $holdBestTrick) {
                 $riderId     = $riderIdByReg->get($regId);
                 // No Rider row yet: show the registrant by name with no scores,
                 // via an unsaved model so the views' $row['rider']->name/initials keep working.
@@ -106,7 +111,8 @@ class LiveScoreboardService
                 $run1avg     = $riderScores->where('run_number', 1)->avg('total');
                 $run2avg     = $riderScores->where('run_number', 2)->avg('total');
                 $best        = max($run1avg ?? 0, $run2avg ?? 0);
-                $bonus       = ($stage === 'FINAL' && $riderId) ? $this->bestTrickBonus($division->event_id, $division->id, $riderId) : 0.0;
+                $held        = ($holdBestTrick && (int) $holdBestTrick['rider_id'] === (int) $riderId) ? (int) $holdBestTrick['run_number'] : null;
+                $bonus       = ($stage === 'FINAL' && $riderId) ? $this->bestTrickBonus($division->event_id, $division->id, $riderId, $held) : 0.0;
 
                 return [
                     'rider'            => $rider,

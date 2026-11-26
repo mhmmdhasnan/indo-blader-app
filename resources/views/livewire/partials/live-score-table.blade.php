@@ -46,11 +46,18 @@
                 // tetap ditampilkan. Slot run yang sedang berjalan (belum ada nilainya) diberi "...".
                 $curRun = $isOnCourse ? (int) ($event->live_run_number ?: 1) : 0;
             @endphp
-            <span class="at-r" @if($curRun === 1 && $row['run1'] === null) style="color:var(--red);" @endif>{{ $row['run1'] !== null ? number_format($row['run1'], 1) : ($curRun === 1 ? '...' : '—') }}</span>
+            @php
+                // Bonus Best Trick ditulis di kolom run terbaik: 16.7(+3.0). Bonus baru ada setelah Head Judge reveal
+                // (percobaan yang sedang berjalan ditahan di LiveScoreboardService), jadi tidak bocor sebelum waktunya.
+                $btBonus = (float) ($row['best_trick_bonus'] ?? 0);
+                $btOn    = $btBonus > 0
+                    ? (($row['run1'] !== null && $row['run1'] == $row['best']) ? 1 : (($row['run2'] !== null && $row['run2'] == $row['best']) ? 2 : 0))
+                    : 0;
+            @endphp
+            <span class="at-r" @if($curRun === 1 && $row['run1'] === null) style="color:var(--red);" @endif>{{ $row['run1'] !== null ? number_format($row['run1'], 1) : ($curRun === 1 ? '...' : '—') }}@if($btOn === 1)<small class="at-bt">(+{{ number_format($btBonus, 1) }})</small>@endif</span>
             @unless($oneRun)
-            <span class="at-r" @if($curRun === 2 && $row['run2'] === null) style="color:var(--red);" @endif>{{ $row['run2'] !== null ? number_format($row['run2'], 1) : ($curRun === 2 ? '...' : '—') }}</span>
+            <span class="at-r" @if($curRun === 2 && $row['run2'] === null) style="color:var(--red);" @endif>{{ $row['run2'] !== null ? number_format($row['run2'], 1) : ($curRun === 2 ? '...' : '—') }}@if($btOn === 2)<small class="at-bt">(+{{ number_format($btBonus, 1) }})</small>@endif</span>
             @endunless
-            {{-- Bonus Best Trick sengaja tidak ditampilkan ke publik — hanya total akhir. --}}
             <span class="at-b" style="color:{{ $rank === 1 ? 'var(--lime)' : 'var(--ink)' }};">{{ $rowTotal > 0 ? number_format($rowTotal, 1) : '—' }}</span>
         </div>
     @endforeach
