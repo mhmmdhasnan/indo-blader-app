@@ -1,5 +1,5 @@
 {{-- Input nilai: slider + isi manual (angka). Nama file lama "keypad" dipertahankan supaya semua pemanggil tetap jalan.
-     Expects $model (mis. 'criteriaScores.all', 'jamScores.12.all', 'bestTrickScore'), $value (float|null), $max (100, 10 atau 5), opsional $min (default 0),
+     Expects $model (mis. 'criteriaScores.all', 'jamScores.12.all', 'bestTrickScore'), $value (float|null), $max (100, 10 atau 25), opsional $min (default 0),
      opsional $label. Nilai langsung tersimpan ke properti Livewire $model (debounce); kosong = belum diisi. --}}
 @once
 <style>
