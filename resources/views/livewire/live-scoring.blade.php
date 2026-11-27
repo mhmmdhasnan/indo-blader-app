@@ -136,6 +136,7 @@
         .at.d-big   { --rh:148; --rk:104; --av:92; --nm:56; --ct:26; --rn:44; --bs:112; }
         .at.d-mid   { --rh:118; --rk:80;  --av:72; --nm:46; --ct:22; --rn:38; --bs:88; }
         .at.d-tight { --rh:84;  --rk:60;  --av:56; --nm:38; --ct:20; --rn:30; --bs:64; }
+        .at.d-mg    { --rh:66; --rk:48; --av:54; --nm:38; --ct:19; --rn:30; --bs:52; }
         .at.d-xs    { --rh:60;  --rk:42;  --av:42; --nm:28; --ct:16; --rn:22; --bs:42; }
         .at-row { display:grid; grid-template-columns:calc(150*var(--u)) 1fr calc(220*var(--u)) calc(220*var(--u)) calc(280*var(--u)); align-items:center; height:calc(var(--rh)*var(--u)); padding:0 calc(32*var(--u)); border-bottom:calc(2*var(--u)) solid var(--line); background:var(--panel); border-left:calc(8*var(--u)) solid transparent; }
         .at-row.h { height:calc(56*var(--u)); background:transparent; font-family:var(--font-mono); font-weight:700; font-size:calc(24*var(--u)); letter-spacing:.14em; color:var(--ink-dim); border-bottom:calc(2*var(--u)) solid var(--ink); }
@@ -534,7 +535,7 @@
                 @endif
 
                 @if($scoreSections->isNotEmpty() && ($heatView ?? 'grid') === 'gabung')
-                    {{-- Versi GABUNG: semua heat jadi satu peringkat, 10 rider per halaman (1–10, lalu 11–20, ...), bergantian tiap 8 dtk. --}}
+                    {{-- Merged version: all heats as one ranking, 10 riders per page (1–10, then 11–20, ...), rotating every 8 s. --}}
                     @php
                         $mgAll   = $scoreSections->flatMap(fn ($sec) => $sec['leaderboard'])->sortByDesc(fn ($r) => (float) ($r['total'] ?? $r['best'] ?? 0))->values();
                         $mgPages = $mgAll->chunk(10);
@@ -545,11 +546,11 @@
                                    destroy() { clearInterval(this.t); } }">
                         @foreach($mgPages as $pi => $pageRows)
                             <div wire:key="mg-{{ $pi }}" x-show="page === {{ $pi }}" @if($pi > 0) style="display:none;" @endif>
-                                @include('livewire.partials.live-score-table', ['rows' => $pageRows, 'allRows' => $mgAll, 'density' => 'd-xs'])
+                                @include('livewire.partials.live-score-table', ['rows' => $pageRows, 'allRows' => $mgAll, 'density' => 'd-mg'])
                             </div>
                         @endforeach
                         @if($mgCount > 10)
-                            <div class="aud-note" x-text="'RIDER ' + (page * per + 1) + '–' + Math.min((page + 1) * per, total) + ' DARI ' + total + ' · GANTI TIAP 8 DETIK'"></div>
+                            <div class="aud-note" x-text="'RIDERS ' + (page * per + 1) + '–' + Math.min((page + 1) * per, total) + ' OF ' + total + ' · ROTATES EVERY 8 SECONDS'"></div>
                         @endif
                     </div>
                 @elseif($scoreSections->isNotEmpty())
