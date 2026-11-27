@@ -55,7 +55,7 @@
     {{-- Tabs --}}
     <div style="border-bottom:2px solid var(--ink);background:var(--bg);">
         <div class="wrap flex" style="gap:0;overflow-x:auto;">
-            @foreach(['OVERVIEW','COMPETITOR','SCHEDULE','CATEGORIES','RULES','PRIZE','LOCATION'] as $t)
+            @foreach(['OVERVIEW','COMPETITOR','LEADERBOARD','SCHEDULE','CATEGORIES','RULES','PRIZE','LOCATION'] as $t)
                 <button wire:click="$set('tab','{{ $t }}')" class="label" style="
                     font-size:12px;padding:18px 20px;border-bottom:3px solid {{ $tab === $t ? 'var(--lime)' : 'transparent' }};
                     color:{{ $tab === $t ? 'var(--ink)' : 'var(--ink-dim)' }};white-space:nowrap;transition:color .15s;
@@ -171,6 +171,27 @@
                 <div class="panel center" style="padding:40px;color:var(--ink-dim);">Belum ada rider yang terdaftar.</div>
             @endforelse
             </div>
+        @endif
+
+        @if($tab === 'LEADERBOARD')
+            @if(count($lbDivisions) > 1)
+                <div class="flex gap-s" style="margin-bottom:16px;flex-wrap:wrap;">
+                    @foreach(['' => 'SEMUA'] + $lbDivisions as $id => $name)
+                        <button type="button" wire:click="$set('lbDivision','{{ $id }}')" class="btn btn-sm {{ (string) $id === $lbDivision ? 'btn-lime' : 'btn-ghost' }}" style="font-size:10px;">{{ strtoupper($name) }}</button>
+                    @endforeach
+                </div>
+            @endif
+            @forelse($leaderboards as $lb)
+                <div class="panel" style="margin-bottom:16px;overflow:hidden;">
+                    <div class="between" style="padding:12px 18px;background:var(--bg-2);border-bottom:2px solid var(--ink);gap:8px;flex-wrap:wrap;">
+                        <span class="mono" style="font-size:12px;letter-spacing:0.14em;color:var(--lime);">{{ strtoupper($lb['division']->name) }}</span>
+                        <span class="mono dim" style="font-size:10px;">{{ $lb['label'] }} · {{ $lb['rows']->count() }} rider</span>
+                    </div>
+                    @include('livewire.partials.score-table', ['rows' => $lb['rows'], 'single' => (bool) $lb['division']->is_jamming])
+                </div>
+            @empty
+                <div class="panel center" style="padding:40px;color:var(--ink-dim);">Belum ada leaderboard untuk event ini.</div>
+            @endforelse
         @endif
 
         @if($tab === 'CATEGORIES')

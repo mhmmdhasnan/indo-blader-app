@@ -6,6 +6,7 @@ use App\Models\Bracket;
 use App\Models\BracketMatch;
 use App\Models\Event;
 use App\Models\Rider;
+use App\Services\LiveScoreboardService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -15,6 +16,7 @@ class EventDetail extends Component
 {
     public Event $event;
     public string $tab = 'OVERVIEW';
+    public string $lbDivision = '';   // filter divisi tab LEADERBOARD ('' = semua)
 
     public string $title = '';
 
@@ -56,7 +58,27 @@ class EventDetail extends Component
                 ->sortKeys();
         }
 
-        return view('livewire.event-detail', compact('riders', 'schedule', 'rules', 'prizeSplit', 'divisionsByCategory', 'competitors'))
+        // Leaderboard yang sudah ada skornya, per divisi & babak (hanya dihitung saat tab aktif).
+        $leaderboards = [];
+        $lbDivisions = [];
+        if ($this->tab === 'LEADERBOARD') {
+            $svc = app(LiveScoreboardService::class);
+            $divisions = $this->event->divisions()->where('is_active', true)->orderBy('name')->get();
+            foreach ($divisions as $div) {
+                foreach (['FINAL' => 'FINAL', 'QUALIFICATION' => $div->is_jamming ? 'JAMMING' : 'QUALIFICATION'] as $stage => $label) {
+                    $rows = $svc->buildLeaderboard($div, $stage)->filter(fn ($r) => $r['total'] > 0)->values();
+                    if ($rows->isNotEmpty()) {
+                        $lbDivisions[$div->id] = $div->name;
+                        if ($this->lbDivision !== '' && (string) $div->id !== $this->lbDivision) {
+                            continue;
+                        }
+                        $leaderboards[] = ['division' => $div, 'label' => $label, 'rows' => $rows];
+                    }
+                }
+            }
+        }
+
+        return view('livewire.event-detail', compact('riders', 'schedule', 'rules', 'prizeSplit', 'divisionsByCategory', 'competitors', 'leaderboards', 'lbDivisions'))
             ->title($this->title);
     }
 
