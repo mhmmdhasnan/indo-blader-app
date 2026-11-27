@@ -133,6 +133,7 @@ class LiveScoring extends Component
         $showingQualRecap = false;
         $jamActive   = false;
         $jamRows     = collect();
+        $jamPhotos   = [];   // rider_id => url foto (preview heat)
         $jamDuration = $event?->live_duration ?? 180;
         $heatRail    = [];   // rel heat di phase banner: [['name','state' => done|current|upcoming], ...]
         $jamJudges   = [];   // progres juri saat TIME'S UP: [['n','done'], ...]
@@ -259,6 +260,14 @@ class LiveScoring extends Component
                     }
                 }
 
+                // Foto rider untuk kartu preview heat: foto registrasi event ini, fallback avatar profil.
+                foreach ($jamRows as $jr) {
+                    $r = $jr['rider'] ?? null;
+                    if (!$r || !isset($r->id)) continue;
+                    $jamPhotos[$r->id] = Registration::forLiveRider($event, $r)?->photo_url
+                        ?: ($r->avatar ? asset('storage/' . $r->avatar) : null);
+                }
+
                 $heatSize = $jamRows->count();
                 if ($heatSize > 0) {
                     $progress = JudgeScore::where('event_id', $event->id)
@@ -347,7 +356,7 @@ class LiveScoring extends Component
             'event', 'idleScreen', 'idlePlacements', 'nextupPlacements', 'leaderboardPlacements', 'divisions', 'division', 'stage', 'groups', 'selectedGroupId', 'scores', 'scoreSections', 'judgeScores',
             'liveRider', 'liveRiderPhoto', 'displayPhase', 'liveStartedAt', 'runDuration', 'revealScore', 'revealAccumulatedTotal',
             'liveRiderBestScore', 'liveDivisionLabel', 'isBestTrickPhase', 'showingQualRecap',
-            'qualificationAnnounced', 'finalAnnounced', 'finalistRegIds', 'finalistNames', 'podium', 'jamActive', 'jamDuration', 'jamRows', 'heatRail', 'jamJudges', 'nextHeat'
+            'qualificationAnnounced', 'finalAnnounced', 'finalistRegIds', 'finalistNames', 'podium', 'jamActive', 'jamDuration', 'jamRows', 'jamPhotos', 'heatRail', 'jamJudges', 'nextHeat'
         );
     }
 }

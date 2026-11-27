@@ -235,11 +235,11 @@ class Dashboard extends Component
         return $keys->isNotEmpty() && $keys->every(fn ($k) => is_numeric($scores[$k] ?? null) && $scores[$k] >= $min && $scores[$k] <= $max);
     }
 
-    /** Skala nilai per kriteria untuk Jamming Season (judge memberi 1–25). Standar tetap 0–100. */
-    public const JAM_MIN = 1;
-    public const JAM_MAX = 25;
+    /** Skala nilai per kriteria untuk Jamming Season (judge memberi 0–100). Standar tetap 0–100. */
+    public const JAM_MIN = 0;
+    public const JAM_MAX = 100;
 
-    /** @return array{0: float, 1: float} [min, max] nilai kriteria untuk skor ini (Jamming = 1–25, lainnya 0–100) */
+    /** @return array{0: float, 1: float} [min, max] nilai kriteria untuk skor ini (semua 0–100) */
     private function criteriaRangeFor(?JudgeScore $score): array
     {
         $isJam = $score?->division_id

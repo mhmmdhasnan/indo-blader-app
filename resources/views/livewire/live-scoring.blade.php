@@ -123,6 +123,8 @@
         .aud-gc { flex:1; min-height:0; display:grid; grid-template-columns:repeat(var(--c,2),1fr); grid-auto-rows:1fr; gap:calc(24*var(--u)); }
         .aud-gc > div { min-width:0; border:calc(4*var(--u)) solid var(--ink); background:var(--panel); display:flex; align-items:center; gap:calc(32*var(--u)); padding:0 calc(40*var(--u)); }
         .aud-gc i { flex:none; display:grid; place-items:center; width:calc(140*var(--u)); height:calc(140*var(--u)); border-radius:999px; border:calc(6*var(--u)) solid var(--line-strong); font-style:normal; font-family:'Bebas Neue','Arial Black',Impact,sans-serif; font-weight:900; font-size:calc(64*var(--u)); }
+        .aud-gc i { position:relative; overflow:hidden; }
+        .aud-gc i img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:top center; }
         .aud-gc b { display:block; font-family:'Bebas Neue','Arial Black',Impact,sans-serif; font-weight:900; font-size:calc(72*var(--u)); line-height:calc(68*var(--u)); letter-spacing:.02em; overflow-wrap:anywhere; }
         .aud-gc small { font-family:var(--font-mono); font-weight:700; font-size:calc(26*var(--u)); letter-spacing:.1em; color:var(--ink-dim); text-transform:uppercase; }
         .aud-gc.s i { width:calc(96*var(--u)); height:calc(96*var(--u)); font-size:calc(44*var(--u)); border-width:calc(5*var(--u)); }
@@ -437,7 +439,8 @@
                 <div class="aud-gc {{ $ngRows->count() > 6 ? 's' : '' }}" style="--c:{{ $ngCols }};">
                     @foreach($ngRows as $row)
                         <div wire:key="ng-{{ $row['rider']->id ?? $loop->index }}">
-                            <i>{{ $initialsOf($row['rider']->name) }}</i>
+                            @php $ngPhoto = $jamPhotos[$row['rider']->id ?? 0] ?? null; @endphp
+                            <i>{{ $initialsOf($row['rider']->name) }}@if($ngPhoto)<img src="{{ $ngPhoto }}" alt="" loading="lazy" onerror="this.style.display='none'">@endif</i>
                             <span style="min-width:0;"><b>{{ $row['rider']->name }}</b><small>{{ $row['rider']->city ?? '—' }}</small></span>
                         </div>
                     @endforeach

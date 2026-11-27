@@ -43,7 +43,7 @@
         <p>
             {{ $division->name }} · {{ $stage === 'FINAL' ? 'Final' : 'Kualifikasi' }}
             @if($isJam) · Jamming Season ({{ $division->jam_duration }} dtk per heat) @endif
-            @if($isJam && $criteria->isNotEmpty()) · Nilai juri 1–25 per kriteria @endif
+            @if($isJam && $criteria->isNotEmpty()) · Nilai juri 0–100 per kriteria @endif
         </p>
     </header>
 
