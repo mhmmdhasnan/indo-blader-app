@@ -11,7 +11,7 @@
         <div class="score-row" style="border-bottom:{{ !$loop->last ? '1px solid var(--line)' : 'none' }};">
             <span class="display tnum" style="font-size:26px;color:{{ $i === 0 ? 'var(--lime)' : ($i < 3 ? 'var(--ink)' : 'var(--ink-faint)') }};">{{ str_pad($i+1,2,'0',STR_PAD_LEFT) }}</span>
             <div class="flex" style="align-items:center;gap:12px;">
-                <x-avatar :initials="$row['rider']->initials" :size="36" :ring="$i === 0" />
+                <x-avatar :initials="$row['rider']->initials" :src="\App\Support\AvatarThumb::url(($row['registration'] ?? null)?->photo ?: ($row['rider']->avatar ?? null))" :size="36" :ring="$i === 0" />
                 <span class="label" style="font-size:14px;">{{ $row['rider']->name }}</span>
             </div>
             <span class="mono tnum score-hide" style="font-size:14px;text-align:right;color:var(--ink-dim);">{{ $row['run1'] !== null ? number_format($row['run1'], 1) : '—' }}</span>
