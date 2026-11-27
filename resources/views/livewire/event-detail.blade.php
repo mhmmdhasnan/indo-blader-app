@@ -182,12 +182,19 @@
                 </div>
             @endif
             @forelse($leaderboards as $lb)
-                <div class="panel" style="margin-bottom:16px;overflow:hidden;">
-                    <div class="between" style="padding:12px 18px;background:var(--bg-2);border-bottom:2px solid var(--ink);gap:8px;flex-wrap:wrap;">
-                        <span class="mono" style="font-size:12px;letter-spacing:0.14em;color:var(--lime);">{{ strtoupper($lb['division']->name) }}</span>
-                        <span class="mono dim" style="font-size:10px;">{{ $lb['label'] }} · {{ $lb['rows']->count() }} rider</span>
+                <div style="margin-bottom:28px;">
+                    <div class="mono" style="font-size:12px;letter-spacing:0.14em;color:var(--lime);margin-bottom:10px;">{{ strtoupper($lb['division']->name) }}</div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;align-items:start;">
+                        @foreach($lb['sections'] as $sec)
+                            <div class="panel" style="overflow:hidden;">
+                                <div class="between" style="padding:10px 16px;background:var(--bg-2);border-bottom:2px solid var(--ink);gap:8px;">
+                                    <span class="label" style="font-size:13px;">{{ strtoupper($sec['heat']) }}</span>
+                                    <span class="mono dim" style="font-size:10px;">{{ $sec['stage'] }} · {{ $sec['rows']->count() }} rider</span>
+                                </div>
+                                @include('livewire.partials.score-table', ['rows' => $sec['rows'], 'single' => (bool) $lb['division']->is_jamming])
+                            </div>
+                        @endforeach
                     </div>
-                    @include('livewire.partials.score-table', ['rows' => $lb['rows'], 'single' => (bool) $lb['division']->is_jamming])
                 </div>
             @empty
                 <div class="panel center" style="padding:40px;color:var(--ink-dim);">Belum ada leaderboard untuk event ini.</div>

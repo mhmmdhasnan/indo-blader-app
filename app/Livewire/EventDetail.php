@@ -58,22 +58,31 @@ class EventDetail extends Component
                 ->sortKeys();
         }
 
-        // Leaderboard yang sudah ada skornya, per divisi & babak (hanya dihitung saat tab aktif).
+        // Leaderboard per heat (group) tiap divisi — kualifikasi, dan heat final bila final dibagi heat.
         $leaderboards = [];
         $lbDivisions = [];
         if ($this->tab === 'LEADERBOARD') {
             $svc = app(LiveScoreboardService::class);
             $divisions = $this->event->divisions()->where('is_active', true)->orderBy('name')->get();
             foreach ($divisions as $div) {
-                foreach (['FINAL' => 'FINAL', 'QUALIFICATION' => $div->is_jamming ? 'JAMMING' : 'QUALIFICATION'] as $stage => $label) {
-                    $rows = $svc->buildLeaderboard($div, $stage)->filter(fn ($r) => $r['total'] > 0)->values();
-                    if ($rows->isNotEmpty()) {
-                        $lbDivisions[$div->id] = $div->name;
-                        if ($this->lbDivision !== '' && (string) $div->id !== $this->lbDivision) {
-                            continue;
-                        }
-                        $leaderboards[] = ['division' => $div, 'label' => $label, 'rows' => $rows];
-                    }
+                $lbDivisions[$div->id] = $div->name;
+                if ($this->lbDivision !== '' && (string) $div->id !== $this->lbDivision) {
+                    continue;
+                }
+                $sections = [];
+                foreach ($svc->buildQualificationSections($div) as $sec) {
+                    $sections[] = ['heat' => $sec['group']?->name ?? 'BELUM ADA HEAT', 'stage' => $div->is_jamming ? 'JAMMING' : 'QUALIFICATION', 'rows' => $sec['leaderboard']];
+                }
+                $finalGroups = $div->groups()->where('stage', 'FINAL')->orderBy('name')->get();
+                foreach ($finalGroups as $g) {
+                    $sections[] = ['heat' => $g->name, 'stage' => 'FINAL', 'rows' => $svc->buildLeaderboard($div, 'FINAL', $g->id)];
+                }
+                if ($finalGroups->isEmpty() && $div->finalists()->exists()) {
+                    $sections[] = ['heat' => 'FINAL', 'stage' => 'FINAL', 'rows' => $svc->buildLeaderboard($div, 'FINAL')];
+                }
+                $sections = array_values(array_filter($sections, fn ($sec) => $sec['rows']->isNotEmpty()));
+                if ($sections) {
+                    $leaderboards[] = ['division' => $div, 'sections' => $sections];
                 }
             }
         }
