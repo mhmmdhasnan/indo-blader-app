@@ -533,7 +533,26 @@
                 </div>
                 @endif
 
-                @if($scoreSections->isNotEmpty())
+                @if($scoreSections->isNotEmpty() && ($heatView ?? 'grid') === 'gabung')
+                    {{-- Versi GABUNG: semua heat jadi satu peringkat, 10 rider per halaman (1–10, lalu 11–20, ...), bergantian tiap 8 dtk. --}}
+                    @php
+                        $mgAll   = $scoreSections->flatMap(fn ($sec) => $sec['leaderboard'])->sortByDesc(fn ($r) => (float) ($r['total'] ?? $r['best'] ?? 0))->values();
+                        $mgPages = $mgAll->chunk(10);
+                        $mgCount = $mgAll->count();
+                    @endphp
+                    <div x-data="{ page: 0, n: {{ max(1, $mgPages->count()) }}, per: 10, total: {{ $mgCount }}, t: null,
+                                   init() { if (this.n > 1) this.t = setInterval(() => { this.page = (this.page + 1) % this.n }, 8000); },
+                                   destroy() { clearInterval(this.t); } }">
+                        @foreach($mgPages as $pi => $pageRows)
+                            <div wire:key="mg-{{ $pi }}" x-show="page === {{ $pi }}" @if($pi > 0) style="display:none;" @endif>
+                                @include('livewire.partials.live-score-table', ['rows' => $pageRows, 'allRows' => $mgAll, 'density' => 'd-xs'])
+                            </div>
+                        @endforeach
+                        @if($mgCount > 10)
+                            <div class="aud-note" x-text="'RIDER ' + (page * per + 1) + '–' + Math.min((page + 1) * per, total) + ' DARI ' + total + ' · GANTI TIAP 8 DETIK'"></div>
+                        @endif
+                    </div>
+                @elseif($scoreSections->isNotEmpty())
                     {{-- "Semua" group: 1 heat = 1 kotak, grid kolom sama lebar. Kolom/kepadatan menurut jumlah heat
                          (1-3 heat: 1 baris besar; 4: 2x2; 5-6: 3 kolom; 7+: 4 kolom) supaya muat tanpa diperkecil. --}}
                     @php

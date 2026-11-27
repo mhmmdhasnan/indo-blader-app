@@ -133,6 +133,7 @@ class LiveScoring extends Component
         $showingQualRecap = false;
         $jamActive   = false;
         $jamRows     = collect();
+        $heatView    = $event?->live_heat_view ?: 'grid';   // diatur Operator
         $jamPhotos   = [];   // rider_id => url foto (preview heat)
         $jamDuration = $event?->live_duration ?? 180;
         $heatRail    = [];   // rel heat di phase banner: [['name','state' => done|current|upcoming], ...]
@@ -356,7 +357,7 @@ class LiveScoring extends Component
             'event', 'idleScreen', 'idlePlacements', 'nextupPlacements', 'leaderboardPlacements', 'divisions', 'division', 'stage', 'groups', 'selectedGroupId', 'scores', 'scoreSections', 'judgeScores',
             'liveRider', 'liveRiderPhoto', 'displayPhase', 'liveStartedAt', 'runDuration', 'revealScore', 'revealAccumulatedTotal',
             'liveRiderBestScore', 'liveDivisionLabel', 'isBestTrickPhase', 'showingQualRecap',
-            'qualificationAnnounced', 'finalAnnounced', 'finalistRegIds', 'finalistNames', 'podium', 'jamActive', 'jamDuration', 'jamRows', 'jamPhotos', 'heatRail', 'jamJudges', 'nextHeat'
+            'qualificationAnnounced', 'finalAnnounced', 'finalistRegIds', 'finalistNames', 'podium', 'jamActive', 'jamDuration', 'jamRows', 'jamPhotos', 'heatView', 'heatRail', 'jamJudges', 'nextHeat'
         );
     }
 }

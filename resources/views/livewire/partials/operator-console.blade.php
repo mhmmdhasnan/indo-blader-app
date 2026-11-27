@@ -108,6 +108,19 @@
                 </div>
             @endif
 
+            {{-- Tampilan "Semua heat" di layar publik: kotak per heat / gabung satu peringkat (10 per halaman bergantian). --}}
+            @if($judgeDivisionId && !$ocBestTrick && !$judgeGroupId && $ocGroups->count() > 1)
+                @php $ocHeatView = $activeEvent?->live_heat_view ?: 'grid'; @endphp
+                <div class="col" style="gap:4px;">
+                    <span class="oc-lbl">Tampilan layar · Semua heat</span>
+                    <div style="display:flex;gap:8px;">
+                        <button type="button" wire:click="setHeatView('grid')" class="oc-row {{ $ocHeatView === 'grid' ? 'on' : '' }}" aria-pressed="{{ $ocHeatView === 'grid' ? 'true' : 'false' }}" style="flex:1;justify-content:center;"><b>PER HEAT</b></button>
+                        <button type="button" wire:click="setHeatView('gabung')" class="oc-row {{ $ocHeatView === 'gabung' ? 'on' : '' }}" aria-pressed="{{ $ocHeatView === 'gabung' ? 'true' : 'false' }}" style="flex:1;justify-content:center;"><b>GABUNG</b></button>
+                    </div>
+                    <small class="mono dim" style="font-size:11px;">Gabung: satu peringkat, rider 1–10 lalu 11–20 bergantian tiap 8 dtk.</small>
+                </div>
+            @endif
+
             @if($judgeDivisionId && !$ocBestTrick)
                 <a href="{{ route('print.heat', ['division' => $judgeDivisionId] + ($judgeGroupId ? ['group' => $judgeGroupId] : [])) }}" target="_blank" rel="noopener"
                     class="oc-ghost" style="display:flex;align-items:center;justify-content:center;text-decoration:none;min-height:44px;">🖨 PRINT HEAT{{ $judgeGroupId ? '' : ' (SEMUA)' }}</a>

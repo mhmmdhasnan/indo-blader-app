@@ -610,6 +610,13 @@ class Dashboard extends Component
         Event::find($this->judgeEventId)?->update(['active_group_id' => null, 'active_registration_id' => null]);
     }
 
+    /** Operator: tampilan "Semua heat" di layar publik — 'grid' (kotak per heat) atau 'gabung' (satu peringkat, 10 per halaman bergantian). */
+    public function setHeatView(string $view): void
+    {
+        if (!auth()->user()->isOperator() || !$this->judgeEventId || !in_array($view, ['grid', 'gabung'], true)) return;
+        Event::find($this->judgeEventId)?->update(['live_heat_view' => $view]);
+    }
+
     public function openPhaseModal(): void
     {
         if (!auth()->user()->isOperator()) return;
