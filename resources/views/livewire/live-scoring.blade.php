@@ -31,10 +31,8 @@
         <div style="position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);overflow:hidden;">
             {{-- Bumper logo loop — plays behind the sponsor banners while the
                  screen is idle (jeda antar sesi / sebelum event mulai). --}}
-            <video autoplay loop muted playsinline
+            <img src="{{ asset('motion/bumper-framebladescore.gif') }}" alt=""
                 style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
-                <source src="{{ asset('motion/bumper-logo.mp4') }}" type="video/mp4">
-            </video>
 
             {{-- Timer heat Jamming Season — hanya muncul saat heat jamming sedang berjalan. --}}
             <div x-data="jamClock()" x-init="boot()" x-show="jam && phase === 'RUNNING'" x-cloak
